@@ -91,18 +91,18 @@ My non-idiomatic Unity/C# code shows _especially_ true for the `partial struct` 
 
 #### Constraints
 * Unity's RPC framework requires that the three parts of state data be non-nullable objects that implement `INetworkSerializable`.  This means no `class`'s to represent this state.
-** This is probably net positive overall, because it'd be nice for the state objects to be immutable.
+  * This is probably net positive overall, because it'd be nice for the state objects to be immutable.
 * I don't want people who use this framework to have to manage the lifecycle of `NetworkStateManager` manually.
-** My understanding is that this constraint prohibits solutions that turn it into `NetworkStateManager<T> where T : INetworkSerializable, new()`.
-** I'm open to changing this if this sort of thing is more idiomatic to Unity than it looks.  As it stands, it seems the more "correct" thing to do is let it be part of a `GameObject` in a prefab, hence this constraint.
+  * My understanding is that this constraint prohibits solutions that turn it into `NetworkStateManager<T> where T : INetworkSerializable, new()`.
+  * I'm open to changing this if this sort of thing is more idiomatic to Unity than it looks.  As it stands, it seems the more "correct" thing to do is let it be part of a `GameObject` in a prefab, hence this constraint.
 * I don't want implementers of the lifecycle events to have to do runtime type checking and coercion on their inputs.
-** That is to say, a delegate of `void OnApplyGameState(object state)` would appear to make this framework trickier to use.
-** Similar to the above, if this is actually the more idiomatic way to do this in Unity/C#, then I'm open to making that change.
+  * That is to say, a delegate of `void OnApplyGameState(object state)` would appear to make this framework trickier to use.
+  * Similar to the above, if this is actually the more idiomatic way to do this in Unity/C#, then I'm open to making that change.
 
 #### What I've tried (and why they don't work)
 * Wouldn't it be nice if the events could be generic like `void OnApplyState<T>(T state) where T : INetworkStateManagerGameStateDTO, new()`?
-** Alas, while I can make the `delegate` into a generic, the `T` needs to be declared at the `class` level to make this work, which bumps into that second constraint, above.
+  * Alas, while I can make the `delegate` into a generic, the `T` needs to be declared at the `class` level to make this work, which bumps into that second constraint, above.
 * How about just creating `INetworkStateManagerGameStateDTO` and let everything take that as a param?
-** Nope - C# won't let you upcast `INetworkStateManagerGameStateDTO` to your implementing struct because its type system can't be sure that the one you're getting is the one you're trying to use it as.
+  * Nope - C# won't let you upcast `INetworkStateManagerGameStateDTO` to your implementing struct because its type system can't be sure that the one you're getting is the one you're trying to use it as.
 
 Any and all assistance - including just saying "turns out that's actually the best way to do what you want" - would be greatly appreciated.
