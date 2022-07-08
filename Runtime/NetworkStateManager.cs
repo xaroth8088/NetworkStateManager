@@ -25,10 +25,8 @@ namespace NSM
 
         public bool verboseLogging = false;
 
-        [ReadOnly]
         public int gameTick = 0;
 
-        [ReadOnly]
         public int lastAuthoritativeTick = 0;
 
         // Multiply these number by Time.fixedDeltaTime (20ms/frame) to know how much
@@ -39,17 +37,14 @@ namespace NSM
 
         public StateBuffer stateBuffer;
 
-        [ReadOnly]
         [SerializeField]
         private bool isRunning = false;
 
-        [ReadOnly]
         [SerializeField]
         private byte networkIdCounter = 0;
 
         private readonly Dictionary<byte, GameObject> networkIdGameObjectCache = new();
 
-        [ReadOnly]
         [SerializeField]
         private int replayFromTick = -1;    // anything negative is a flag value, meaning "don't replay anything"...TODO: make this an explicit bool instead of the flag value
 

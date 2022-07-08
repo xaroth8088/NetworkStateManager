@@ -6,7 +6,7 @@ Leveraging Unity's [Netcode for GameObjects](https://github.com/Unity-Technologi
 
 ## How do I use this?
 ### NetworkStateManager
-Include this package.  Add a new GameObject to your scene and attach the NetworkStateManager script to it.
+Import `NetworkStateManager.unitypackage` to your project.  Add a new GameObject to your scene and attach the NetworkStateManager script to it.
 
 ### NetworkId's
 To synchronize a GameObject that contains a RigidBody, you must add a new NetworkId component to it.  This will be in addition to Unity for Netcode's NetworkObject script.
