@@ -1,16 +1,17 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Netcode;
-using UnityEngine;
 
 namespace NSM
 {
     public struct StateFrameDTO : INetworkSerializable
     {
         public int gameTick;
-        public GameStateDTO state;
+        public IGameState gameState;
         private PhysicsStateDTO _physicsState;
-        private Dictionary<byte, PlayerInputDTO> _playerInputs;
-        private List<GameEventDTO> _events;
+        private Dictionary<byte, IPlayerInput> _playerInputs;
+        private List<IGameEvent> _events;
 
         public PhysicsStateDTO PhysicsState
         {
@@ -18,28 +19,31 @@ namespace NSM
             set => _physicsState = value;
         }
 
-        public Dictionary<byte, PlayerInputDTO> PlayerInputs
+        public Dictionary<byte, IPlayerInput> PlayerInputs
         {
-            get => _playerInputs ?? new Dictionary<byte, PlayerInputDTO>();
+            get => _playerInputs ?? new Dictionary<byte, IPlayerInput>();
             set => _playerInputs = value;
         }
 
-        public List<GameEventDTO> Events
+        public List<IGameEvent> Events
         {
-            get => _events ?? new List<GameEventDTO>();
+            get => _events ?? new List<IGameEvent>();
             set => _events = value;
         }
 
         void INetworkSerializable.NetworkSerialize<T>(BufferSerializer<T> serializer)
         {
+            // We might not have some of these fields either because this frame simply doesn't have a part of it,
+            // or because the serializer is reading in data and there's no default created yet.
+            // Either way, create default versions of the objects for use in the serialization process.
             if (_playerInputs == null)
             {
-                _playerInputs = new Dictionary<byte, PlayerInputDTO>();
+                _playerInputs = new Dictionary<byte, IPlayerInput>();
             }
 
             if (_events == null)
             {
-                _events = new List<GameEventDTO>();
+                _events = new List<IGameEvent>();
             }
 
             if (_physicsState == null)
@@ -47,11 +51,92 @@ namespace NSM
                 _physicsState = new();
             }
 
+            if (gameState == null)
+            {
+                Type gameStateType = TypeStore.Instance.GameStateType;
+                gameState = (IGameState)Activator.CreateInstance(gameStateType);
+            }
+
             serializer.SerializeValue(ref gameTick);
             serializer.SerializeValue(ref _physicsState);
-            serializer.SerializeValue(ref state);
-            NetcodeUtils.SerializeList(ref _events, serializer);
-            NetcodeUtils.SerializeDictionary(ref _playerInputs, serializer);
+            gameState.NetworkSerialize(serializer);
+            SerializeGameEvents<T>(ref _events, serializer);
+            SerializePlayerInputs<T>(ref _playerInputs, serializer);
+        }
+
+        private void SerializeGameEvents<T>(ref List<IGameEvent> gameEvents, BufferSerializer<T> serializer)
+            where T : IReaderWriter
+        {
+            if (serializer.IsReader)
+            {
+                // Read the length of the list
+                byte length = 0;
+                serializer.SerializeValue(ref length);
+
+                // Set up our interim storage for the data
+                IGameEvent[] values = new IGameEvent[length];
+
+                // Fill the values array with concrete instances, so we can tell them to serialize later
+                Type gameEventType = TypeStore.Instance.GameEventType;
+                IGameEvent defaultGameEvent = (IGameEvent)Activator.CreateInstance(gameEventType);
+                Array.Fill(values, defaultGameEvent);
+            }
+            else if (serializer.IsWriter)
+            {
+                // Write the length of the list
+                byte length = (byte)gameEvents.Count;
+                serializer.SerializeValue(ref length);
+
+                // Write the data
+                foreach (IGameEvent gameEvent in gameEvents)
+                {
+                    gameEvent.NetworkSerialize(serializer);
+                }
+            }
+        }
+
+        private void SerializePlayerInputs<T>(ref Dictionary<byte, IPlayerInput> playerInputs, BufferSerializer<T> serializer)
+            where T : IReaderWriter
+        {
+            if (serializer.IsReader)
+            {
+                // Read the length of the dictionary
+                byte length = 0;
+                serializer.SerializeValue(ref length);
+
+                // Set up our interim storage for the data
+                byte[] keys = new byte[length];
+                IPlayerInput[] values = new IPlayerInput[length];
+
+                // Fill the values array with concrete instances, so we can tell them to serialize later
+                Type playerInputType = TypeStore.Instance.PlayerInputType;
+                IPlayerInput defaultPlayerInput = (IPlayerInput)Activator.CreateInstance(playerInputType);
+                Array.Fill(values, defaultPlayerInput);
+
+                // Read the data
+                for (byte i = 0; i < length; i++)
+                {
+                    serializer.SerializeValue(ref keys[i]);
+                    values[i].NetworkSerialize(serializer);
+                }
+
+                // Construct the output dictionary and set it
+                playerInputs = Enumerable.Range(0, keys.Length).ToDictionary(i => keys[i], i => values[i]);
+            }
+            else if (serializer.IsWriter)
+            {
+                // Write the length of the dictionary
+                byte length = (byte)playerInputs.Count;
+                serializer.SerializeValue(ref length);
+
+                // Write the data
+                foreach (KeyValuePair<byte, IPlayerInput> item in playerInputs)
+                {
+                    byte key = item.Key;
+                    serializer.SerializeValue(ref key);
+                    item.Value.NetworkSerialize(serializer);
+                }
+            }
         }
 
         public StateFrameDTO GenerateDelta(StateFrameDTO newerState)
@@ -62,9 +147,12 @@ namespace NSM
             deltaState.PhysicsState = deltaState.PhysicsState.GenerateDelta(newerState.PhysicsState);
 
             deltaState._playerInputs = new();
-            foreach (KeyValuePair<byte, PlayerInputDTO> entry in newerState.PlayerInputs)
+            foreach (KeyValuePair<byte, IPlayerInput> entry in newerState.PlayerInputs)
             {
-                if (_playerInputs != null && _playerInputs.GetValueOrDefault(entry.Key, new PlayerInputDTO()).Equals(entry.Value))
+                Type playerInputType = TypeStore.Instance.PlayerInputType;
+                IPlayerInput defaultInput = (IPlayerInput)Activator.CreateInstance(playerInputType);
+
+                if (_playerInputs != null && _playerInputs.GetValueOrDefault(entry.Key, defaultInput).Equals(entry.Value))
                 {
                     continue;
                 }
@@ -80,11 +168,11 @@ namespace NSM
         public void ApplyDelta(StateFrameDTO deltaState)
         {
             gameTick = deltaState.gameTick;
-            state = deltaState.state;
+            gameState = deltaState.gameState;
 
             PhysicsState.ApplyDelta(deltaState.PhysicsState);
 
-            foreach (KeyValuePair<byte, PlayerInputDTO> entry in deltaState.PlayerInputs)
+            foreach (KeyValuePair<byte, IPlayerInput> entry in deltaState.PlayerInputs)
             {
                 _playerInputs[entry.Key] = entry.Value;
             }
@@ -99,10 +187,10 @@ namespace NSM
             StateFrameDTO newFrame = new();
 
             newFrame.gameTick = gameTick;
-            newFrame.state = state;
+            newFrame.gameState = gameState;
             newFrame.PhysicsState = PhysicsState;
-            newFrame.PlayerInputs = new Dictionary<byte, PlayerInputDTO>(PlayerInputs);
-            newFrame.Events = new List<GameEventDTO>(Events);
+            newFrame.PlayerInputs = new Dictionary<byte, IPlayerInput>(PlayerInputs);
+            newFrame.Events = new List<IGameEvent>(Events);
 
             return newFrame;
         }
