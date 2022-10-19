@@ -1,0 +1,18 @@
+{
+  "name": "xaroth8088.networkstatemanager",
+  "version": "0.0.2",
+  "description": "A lightweight framework to add server-authoritative, client-predictive physics to Unity",
+  "displayName": "NetworkStateManager",
+  "unity": "2021.3",
+  "author": {
+    "name": "Geoffrey Benson",
+    "url": "https://github.com/xaroth8088/NetworkStateManager"
+  },
+  "changelogUrl": "https://github.com/xaroth8088/NetworkStateManager/blob/main/CHANGELOG.md",
+  "dependencies": {
+    "com.unity.netcode.gameobjects": "1.0.2"
+  },
+  "documentationUrl": "https://github.com/xaroth8088/NetworkStateManager",
+  "keywords": ["physics", "networking", "client-side prediction"],
+  "license": "MIT"
+}

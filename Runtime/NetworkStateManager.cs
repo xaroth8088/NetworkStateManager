@@ -55,38 +55,38 @@ namespace NSM
         /// See also: <br/>
         /// <seealso cref="OnApplyEvents"/>
         /// </summary>
-        /// <param name="state">A GameStateObject containing all the information required to apply the events this frame to your game</param>
-        public delegate void ApplyEventsDelegateHandler(List<GameEventDTO> events);
+        /// <param name="state">An object containing all the information required to apply the events this frame to your game.  This must be the same type as what you started NetworkStateManager with.</param>
+        public delegate void ApplyEventsDelegateHandler(List<IGameEvent> events);
 
         /// <summary>
         /// Delegate declaration for the OnApplyInputs event.<br/>
         /// See also: <br/>
         /// <seealso cref="OnApplyInputs"/>
         /// </summary>
-        /// <param name="state">A GameStateObject containing all the information required to apply the player inputs in your game</param>
-        public delegate void ApplyInputsDelegateHandler(Dictionary<byte, PlayerInputDTO> playerInputs);
+        /// <param name="state">An object containing all the information required to apply the player inputs in your game.  This must be the same type as what you started NetworkStateManager with.</param>
+        public delegate void ApplyInputsDelegateHandler(Dictionary<byte, IPlayerInput> playerInputs);
 
         /// <summary>
         /// Delegate declaration for the OnApplyState event.<br/>
         /// See also: <br/>
         /// <seealso cref="OnApplyState"/>
         /// </summary>
-        /// <param name="state">A GameStateObject containing all the information required to apply the state to your game</param>
-        public delegate void ApplyStateDelegateHandler(GameStateDTO state);
+        /// <param name="state">An object containing all the information required to apply the state to your game.  This must be the same type as what you started NetworkStateManager with.</param>
+        public delegate void ApplyStateDelegateHandler(IGameState state);
 
         /// <summary>
         /// Delegate declaration for the OnGetInputs event.<br/>
         /// See also: <br/>
         /// <seealso cref="OnGetInputs"/>
         /// </summary>
-        public delegate void OnGetInputsDelegateHandler(ref Dictionary<byte, PlayerInputDTO> playerInputs);
+        public delegate void OnGetInputsDelegateHandler(ref Dictionary<byte, IPlayerInput> playerInputs);
 
         /// <summary>
         /// Delegate declaration for the OnGetGameState event.<br/>
         /// See also: <br/>
         /// <seealso cref="OnGetGameState"/>
         /// </summary>
-        public delegate void OnGetGameStateDelegateHandler(ref GameStateDTO state);
+        public delegate void OnGetGameStateDelegateHandler(ref IGameState state);
 
         /// <summary>
         /// Delegate declaration for the OnPostPhysicsFrameUpdateDelegateHandler event.<br/>
@@ -147,7 +147,7 @@ namespace NSM
 
         /// <summary>
         /// This event fires at the start of each frame in FixedUpdate, and is required to
-        /// return a dictionary that's populated with { playerId, PlayerInputDTO } for
+        /// return a dictionary that's populated with { playerId, IPlayerInput } for
         /// all inputs that this instance is responsible for.
         ///
         /// IMPORTANT: Input should be gathered by your game during Update, and coalesced
@@ -230,15 +230,15 @@ namespace NSM
             return networkIdCounter;
         }
 
-        public void ScheduleGameEvent(GameEventDTO gameEventDTO, int tick = -1)
+        public void ScheduleGameEvent(IGameEvent gameEvent, int tick = -1)
         {
             if (tick == -1)
             {
                 tick = gameTick;
             }
 
-            stateBuffer[tick].Events.Append(gameEventDTO);
-            SendGameEventToClientsClientRpc(tick, gameEventDTO);
+            stateBuffer[tick].Events.Append(gameEvent);
+            SendGameEventToClientsClientRpc(tick, gameEvent);
         }
 
         public void ScheduleStateReplay(int tick)
@@ -280,7 +280,7 @@ namespace NSM
             }
 
             // Set the input in our buffer
-            SetPlayerInputAtTickAndPredictForward(playerId, value, clientTimeTick);
+            SetPlayerInputAtTickAndPredictForward(playerId, value.input, clientTimeTick);
 
             // Schedule a replay from this point
             if (verboseLogging)
@@ -293,14 +293,18 @@ namespace NSM
             ForwardPlayerInputClientRpc(playerId, value, clientTimeTick);
         }
 
-        public void StartNetworkStateManager()
+        public void StartNetworkStateManager(Type gameStateType, Type playerInputType, Type gameEventType)
         {
+            TypeStore.Instance.GameStateType = gameStateType;
+            TypeStore.Instance.PlayerInputType = playerInputType;
+            TypeStore.Instance.GameEventType = gameEventType;
+
             SetupInitialNetworkIds();
             isRunning = true;
             stateBuffer = new StateBuffer();
         }
 
-        private StateFrameDTO RunSingleGameFrame(int tick, Dictionary<byte, PlayerInputDTO> playerInputs, List<GameEventDTO> events)
+        private StateFrameDTO RunSingleGameFrame(int tick, Dictionary<byte, IPlayerInput> playerInputs, List<IGameEvent> events)
         {
             StateFrameDTO newFrame = new();
             newFrame.PlayerInputs = playerInputs;
@@ -315,7 +319,7 @@ namespace NSM
 
             // Capture the state from the scene/game
             newFrame.gameTick = tick;
-            OnGetGameState?.Invoke(ref newFrame.state);
+            OnGetGameState?.Invoke(ref newFrame.gameState);
             newFrame.PhysicsState = new PhysicsStateDTO();
             newFrame.PhysicsState.TakeSnapshot(rigidbodies);
 
@@ -371,11 +375,11 @@ namespace NSM
 
             gameTick++;
 
-            Dictionary<byte, PlayerInputDTO> playerInputs = PredictInputs(stateBuffer[gameTick - 1].PlayerInputs);
+            Dictionary<byte, IPlayerInput> playerInputs = PredictInputs(stateBuffer[gameTick - 1].PlayerInputs);
             // Gather the local inputs separately, since we'll need to forward these to the server via RPC
-            Dictionary<byte, PlayerInputDTO> localInputs = new();
+            Dictionary<byte, IPlayerInput> localInputs = new();
             OnGetInputs?.Invoke(ref localInputs);
-            foreach (KeyValuePair<byte, PlayerInputDTO> entry in localInputs)
+            foreach (KeyValuePair<byte, IPlayerInput> entry in localInputs)
             {
                 playerInputs[entry.Key] = entry.Value;
             }
@@ -389,9 +393,12 @@ namespace NSM
 
             // Send our inputs to the server, if needed
             // TODO: consolidate these into a single RPC call, instead of sending one per player
-            foreach (KeyValuePair<byte, PlayerInputDTO> entry in localInputs)
+            foreach (KeyValuePair<byte, IPlayerInput> entry in localInputs)
             {
-                PlayerInputDTO predictedInput = PredictInput(stateBuffer[gameTick - 1].PlayerInputs.GetValueOrDefault(entry.Key, new PlayerInputDTO()));
+                Type playerInputType = TypeStore.Instance.PlayerInputType;
+                IPlayerInput defaultInput = (IPlayerInput)Activator.CreateInstance(playerInputType);
+
+                IPlayerInput predictedInput = PredictInput(stateBuffer[gameTick - 1].PlayerInputs.GetValueOrDefault(entry.Key, defaultInput));
 
                 // If it's the same as the predicted tick, then don't bother sending
                 if (predictedInput.Equals(entry.Value))
@@ -399,7 +406,10 @@ namespace NSM
                     continue;
                 }
 
-                SetInputServerRpc(entry.Key, entry.Value, gameTick);
+                PlayerInputDTO playerInputDTO = new();
+                playerInputDTO.input = entry.Value;
+
+                SetInputServerRpc(entry.Key, playerInputDTO, gameTick);
             }
         }
 
@@ -446,7 +456,7 @@ namespace NSM
             }
 
             // Set the input in our buffer
-            SetPlayerInputAtTickAndPredictForward(playerId, value, clientTimeTick);
+            SetPlayerInputAtTickAndPredictForward(playerId, value.input, clientTimeTick);
 
             // Schedule a replay from this point
             if (verboseLogging)
@@ -456,11 +466,11 @@ namespace NSM
             ScheduleStateReplay(clientTimeTick);
         }
 
-        private Dictionary<byte, PlayerInputDTO> PredictInputs(Dictionary<byte, PlayerInputDTO> lastKnownPlayerInputs)
+        private Dictionary<byte, IPlayerInput> PredictInputs(Dictionary<byte, IPlayerInput> lastKnownPlayerInputs)
         {
-            Dictionary<byte, PlayerInputDTO> newInputs = new();
+            Dictionary<byte, IPlayerInput> newInputs = new();
 
-            foreach (KeyValuePair<byte, PlayerInputDTO> entry in lastKnownPlayerInputs)
+            foreach (KeyValuePair<byte, IPlayerInput> entry in lastKnownPlayerInputs)
             {
                 newInputs[entry.Key] = PredictInput(entry.Value);
             }
@@ -468,7 +478,7 @@ namespace NSM
             return newInputs;
         }
 
-        private PlayerInputDTO PredictInput(PlayerInputDTO lastKnownPlayerInput)
+        private IPlayerInput PredictInput(IPlayerInput lastKnownPlayerInput)
         {
             // For now, do a simple "the next frame will always be the same as the previous frame".
             // TODO: an event callback to predict the next input
@@ -526,7 +536,7 @@ namespace NSM
             StateFrameDTO gameStateObject = stateBuffer[frameToActuallyReplayFrom];
 
             ApplyPhysicsState(gameStateObject.PhysicsState);
-            OnApplyState?.Invoke(gameStateObject.state);
+            OnApplyState?.Invoke(gameStateObject.gameState);
             OnApplyInputs?.Invoke(gameStateObject.PlayerInputs);
             OnApplyEvents?.Invoke(gameStateObject.Events);
 
@@ -538,9 +548,9 @@ namespace NSM
         }
 
         [ClientRpc]
-        private void SendGameEventToClientsClientRpc(int serverTimeTick, GameEventDTO gameEventDTO)
+        private void SendGameEventToClientsClientRpc(int serverTimeTick, IGameEvent gameEvent)
         {
-            stateBuffer[serverTimeTick].Events.Append(gameEventDTO);
+            stateBuffer[serverTimeTick].Events.Append(gameEvent);
             ScheduleStateReplay(serverTimeTick);
         }
 
@@ -559,19 +569,24 @@ namespace NSM
             // Since it's impossible for us to have the inputs for other clients at this point,
             // we'll need to start by predicting them forward and then overwrite with
             // any that are server-authoritative (i.e. that come from a Host)
-            Dictionary<byte, PlayerInputDTO> playerInputs = PredictInputs(stateBuffer[gameTick - 1].PlayerInputs);
-            Dictionary<byte, PlayerInputDTO> localInputs = new();
+            Dictionary<byte, IPlayerInput> playerInputs = PredictInputs(stateBuffer[gameTick - 1].PlayerInputs);
+            Dictionary<byte, IPlayerInput> localInputs = new();
             OnGetInputs?.Invoke(ref localInputs);
-            foreach (KeyValuePair<byte, PlayerInputDTO> entry in localInputs)
+            foreach (KeyValuePair<byte, IPlayerInput> entry in localInputs)
             {
                 playerInputs[entry.Key] = entry.Value;
 
+                Type playerInputType = TypeStore.Instance.PlayerInputType;
+                IPlayerInput defaultInput = (IPlayerInput)Activator.CreateInstance(playerInputType);
+
                 // Send to clients, if they wouldn't have predicted this value
-                PlayerInputDTO predictedInput = PredictInput(stateBuffer[gameTick - 1].PlayerInputs.GetValueOrDefault(entry.Key, new PlayerInputDTO()));
+                IPlayerInput predictedInput = PredictInput(stateBuffer[gameTick - 1].PlayerInputs.GetValueOrDefault(entry.Key, defaultInput));
 
                 if (!predictedInput.Equals(entry.Value))
                 {
-                    ForwardPlayerInputClientRpc(entry.Key, entry.Value, gameTick);
+                    PlayerInputDTO playerInputDTO = new();
+                    playerInputDTO.input = entry.Value;
+                    ForwardPlayerInputClientRpc(entry.Key, playerInputDTO, gameTick);
                 }
             }
 
@@ -593,7 +608,7 @@ namespace NSM
             }
         }
 
-        private void SetPlayerInputAtTickAndPredictForward(byte playerId, PlayerInputDTO value, int tick)
+        private void SetPlayerInputAtTickAndPredictForward(byte playerId, IPlayerInput value, int tick)
         {
             // Set at tick
             stateBuffer[tick].PlayerInputs[playerId] = value;
@@ -655,7 +670,7 @@ namespace NSM
 
             // Apply the new "now" server state
             ApplyPhysicsState(serverGameState.PhysicsState);
-            OnApplyState?.Invoke(serverGameState.state);
+            OnApplyState?.Invoke(serverGameState.gameState);
             OnApplyInputs?.Invoke(serverGameState.PlayerInputs);
             OnApplyEvents?.Invoke(serverGameState.Events);
 
@@ -748,7 +763,7 @@ namespace NSM
             }
 
             // TODO: probably we want a way to only predict forwards for players that are _not_ local to this client
-            foreach (KeyValuePair<byte, PlayerInputDTO> item in stateBuffer[serverGameState.gameTick - 1].PlayerInputs)
+            foreach (KeyValuePair<byte, IPlayerInput> item in stateBuffer[serverGameState.gameTick - 1].PlayerInputs)
             {
                 serverGameState.PlayerInputs[item.Key] = PredictInput(item.Value);
             }
