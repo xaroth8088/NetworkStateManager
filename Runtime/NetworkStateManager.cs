@@ -238,7 +238,10 @@ namespace NSM
             }
 
             stateBuffer[tick].Events.Append(gameEvent);
-            SendGameEventToClientsClientRpc(tick, gameEvent);
+            GameEventDTO gameEventDTO = new GameEventDTO();
+            gameEventDTO.gameEvent = gameEvent;
+
+            SendGameEventToClientsClientRpc(tick, gameEventDTO);
         }
 
         public void ScheduleStateReplay(int tick)
@@ -548,9 +551,9 @@ namespace NSM
         }
 
         [ClientRpc]
-        private void SendGameEventToClientsClientRpc(int serverTimeTick, IGameEvent gameEvent)
+        private void SendGameEventToClientsClientRpc(int serverTimeTick, GameEventDTO gameEventDTO)
         {
-            stateBuffer[serverTimeTick].Events.Append(gameEvent);
+            stateBuffer[serverTimeTick].Events.Append(gameEventDTO.gameEvent);
             ScheduleStateReplay(serverTimeTick);
         }
 
