@@ -80,6 +80,14 @@ namespace NSM
                 Type gameEventType = TypeStore.Instance.GameEventType;
                 IGameEvent defaultGameEvent = (IGameEvent)Activator.CreateInstance(gameEventType);
                 Array.Fill(values, defaultGameEvent);
+
+                // Read in the values
+                for (byte i = 0; i < length; i++)
+                {
+                    values[i].NetworkSerialize(serializer);
+                }
+
+                _events = values.ToList();
             }
             else if (serializer.IsWriter)
             {

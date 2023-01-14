@@ -237,10 +237,14 @@ namespace NSM
                 tick = gameTick;
             }
 
-            stateBuffer[tick].Events.Append(gameEvent);
+            if (tick < gameTick)
+            {
+                Debug.LogWarning("Game event scheduled for the past - will not be replayed on clients");
+            }
+
+            // Let everyone know that an event is happening
             GameEventDTO gameEventDTO = new GameEventDTO();
             gameEventDTO.gameEvent = gameEvent;
-
             SendGameEventToClientsClientRpc(tick, gameEventDTO);
         }
 
@@ -553,7 +557,12 @@ namespace NSM
         [ClientRpc]
         private void SendGameEventToClientsClientRpc(int serverTimeTick, GameEventDTO gameEventDTO)
         {
-            stateBuffer[serverTimeTick].Events.Append(gameEventDTO.gameEvent);
+            // NOTE: don't try to code golf this one - assigning to stateBuffer[serverTimeTick].Events will throw a compiler warning,
+            // but trying to .Add() to the Events array directly somehow won't.
+            StateFrameDTO stateFrame = stateBuffer[serverTimeTick];
+            stateFrame.Events = stateFrame.Events.Append(gameEventDTO.gameEvent).ToList();
+            stateBuffer[serverTimeTick] = stateFrame;
+
             ScheduleStateReplay(serverTimeTick);
         }
 
