@@ -230,14 +230,19 @@ namespace NSM
             return networkIdCounter;
         }
 
+        /// <summary>
+        /// Schedules a game event for some time in the future.
+        /// </summary>
+        /// <param name="gameEvent">The event you'd like clients to act on.</param>
+        /// <param name="tick">The game tick when the event should fire.  Leave empty to fire on the next game tick.</param>
         public void ScheduleGameEvent(IGameEvent gameEvent, int tick = -1)
         {
             if (tick == -1)
             {
-                tick = gameTick;
+                tick = gameTick + 1;
             }
 
-            if (tick < gameTick)
+            if (tick <= gameTick)
             {
                 Debug.LogWarning("Game event scheduled for the past - will not be replayed on clients");
             }
