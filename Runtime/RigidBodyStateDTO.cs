@@ -58,10 +58,13 @@ namespace NSM
             try
             {
                 rigidbody.position = position;
-                rigidbody.velocity = velocity;
-
                 rigidbody.rotation = rotation;
-                rigidbody.angularVelocity = angularVelocity;
+
+                if (rigidbody.isKinematic == false)
+                {
+                    rigidbody.velocity = velocity;
+                    rigidbody.angularVelocity = angularVelocity;
+                }
             }
             catch
             {

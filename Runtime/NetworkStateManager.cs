@@ -29,6 +29,8 @@ namespace NSM
 
         public int lastAuthoritativeTick = 0;
 
+        public bool isReplaying = false;
+
         // Multiply these number by Time.fixedDeltaTime (20ms/frame) to know how much
         // lag we'll permit beyond what Unity's networking system thinks the lag is.
         public int maxPastTolerance = 5;
@@ -47,7 +49,6 @@ namespace NSM
 
         [SerializeField]
         private int replayFromTick = -1;    // anything negative is a flag value, meaning "don't replay anything"...TODO: make this an explicit bool instead of the flag value
-
         private readonly List<Rigidbody> rigidbodies = new();
 
         /// <summary>
@@ -368,7 +369,7 @@ namespace NSM
 
         private void Awake()
         {
-            Physics.autoSimulation = false;
+            Physics.simulationMode = SimulationMode.Script;
         }
 
         private void ClientFixedUpdate()
@@ -545,6 +546,8 @@ namespace NSM
             {
                 Debug.Log("Beginning scheduled replay.  Applying state from frame:" + frameToActuallyReplayFrom);
             }
+
+            isReplaying = true;
             StateFrameDTO gameStateObject = stateBuffer[frameToActuallyReplayFrom];
 
             ApplyPhysicsState(gameStateObject.PhysicsState);
@@ -557,6 +560,7 @@ namespace NSM
 
             // Reset to "nothing scheduled"
             replayFromTick = -1;
+            isReplaying = false;
         }
 
         [ClientRpc]
