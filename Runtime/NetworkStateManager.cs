@@ -229,12 +229,18 @@ namespace NSM
         #region Public Interface
 
         /// <summary>
-        /// Schedules a game event for some time in the future.
+        /// Schedules a game event for some time in the future.  Note that events scheduled by a client will be silently ignored because
+        /// the server is the source of truth for which game events can happen and when.
         /// </summary>
         /// <param name="gameEvent">The event you'd like clients to act on.</param>
         /// <param name="tick">The game tick when the event should fire.  Leave empty to fire on the next game tick.</param>
         public void ScheduleGameEvent(IGameEvent gameEvent, int tick = -1)
         {
+            if (!NetworkManager.Singleton.IsHost)
+            {
+                return;
+            }
+
             if (tick == -1)
             {
                 tick = gameTick + 1;
@@ -248,8 +254,10 @@ namespace NSM
             VerboseLog("Game event scheduled for tick " + tick);
 
             // Let everyone know that an event is happening
-            GameEventDTO gameEventDTO = new GameEventDTO();
-            gameEventDTO.gameEvent = gameEvent;
+            GameEventDTO gameEventDTO = new()
+            {
+                gameEvent = gameEvent
+            };
             SendGameEventToClientsClientRpc(tick, gameEventDTO);
         }
 
@@ -257,11 +265,20 @@ namespace NSM
 
         #region Network ID management
 
-        public void DeregisterRigidbody(GameObject gameObject)
+        public void DeregisterNetworkedGameObject(GameObject gameObject)
         {
-            VerboseLog("deregistering " + gameObject.name);
+            VerboseLog("Deregistering networked game object " + gameObject.name);
 
-            rigidbodies.Remove(gameObject.GetComponent<Rigidbody>());
+            if(!gameObject.TryGetComponent<NetworkId>(out var networkIdComponent))
+            {
+                throw new Exception("Asked to deregister a game object that doesn't have a network id!");
+            }
+
+            bool wasFound = networkIdGameObjectCache.Remove(networkIdComponent.networkId);
+            if( !wasFound )
+            {
+                throw new Exception("Asked to remove a game object that wasn't registered!");
+            }
         }
 
         public Dictionary<byte, GameObject>.ValueCollection GetAllNetworkIdGameObjects()
@@ -274,15 +291,32 @@ namespace NSM
             return networkIdGameObjectCache[networkId];
         }
 
-        public void RegisterNewRigidbody(GameObject gameObject)
+        public void RegisterNetworkedGameObject(GameObject gameObject)
         {
-            VerboseLog("Register rigidbody for " + gameObject.name);
+            byte networkId;
 
-            Rigidbody rigidbody = gameObject.GetComponent<Rigidbody>();
-            if (rigidbody)
+            if (!gameObject.TryGetComponent<NetworkId>(out var networkIdComponent))
             {
-                rigidbodies.Add(rigidbody);
+                VerboseLog("Asked to register " + gameObject.name + " as a networked game object, but it doesn't have a NetworkID component so adding one.");
+                networkIdComponent = gameObject.AddComponent<NetworkId>();
             }
+
+            networkId = networkIdComponent.networkId;
+
+            if (networkId == 0)
+            {
+                RequestAndApplyNetworkId(gameObject);   // NOTE: this also adds the object to the cache and logs verbosely, so no need to do that here
+                return;
+            }
+
+            if (networkIdGameObjectCache.ContainsKey(networkId))
+            {
+                throw new Exception("Asked to register " + gameObject.name + " as a networked game object, but we already have a game object with network id " + networkId + "!");
+            }
+
+            VerboseLog("Registering new networked game object " + gameObject.name + " with network id " + networkId);
+
+            networkIdGameObjectCache[networkId] = gameObject;
         }
 
         public void ReplaceObjectWithNetworkId(byte networkId, GameObject gameObject)
@@ -292,10 +326,9 @@ namespace NSM
             networkIdGameObjectCache[networkId] = gameObject;
         }
 
-        public byte RequestAndApplyNetworkId(GameObject gameObject)
+        private byte RequestAndApplyNetworkId(GameObject gameObject)
         {
-            NetworkId networkId = gameObject.GetComponent<NetworkId>();
-            if (networkId == null)
+            if (!gameObject.TryGetComponent(out NetworkId networkId))
             {
                 throw new Exception("Game object passed to request a network id doesn't have that component on it.");
             }
@@ -309,15 +342,29 @@ namespace NSM
 
             VerboseLog("Assigning network id " + networkIdCounter + " to " + gameObject.name);
 
-            networkIdGameObjectCache[networkIdCounter] = gameObject;
             networkId.networkId = networkIdCounter;
+            networkIdGameObjectCache[networkIdCounter] = gameObject;
 
             return networkIdCounter;
         }
 
-        private readonly Dictionary<byte, GameObject> networkIdGameObjectCache = new();
+        private List<Rigidbody> GetNetworkedRigidbodies()
+        {
+            List<Rigidbody> rigidbodies = new();
+            foreach(GameObject gameObject in networkIdGameObjectCache.Values)
+            {
+                if (!gameObject.TryGetComponent(out Rigidbody rigidbody))
+                {
+                    continue;
+                }
 
-        private readonly List<Rigidbody> rigidbodies = new();
+                rigidbodies.Add(rigidbody);
+            }
+
+            return rigidbodies;
+        }
+
+        private readonly Dictionary<byte, GameObject> networkIdGameObjectCache = new();
 
         // TODO: network id management seems separable from this primary object
         [SerializeField]
@@ -342,11 +389,13 @@ namespace NSM
             stateBuffer = new StateBuffer();
 
             // Capture the initial game state
-            StateFrameDTO newFrame = new();
-            newFrame.gameTick = 0;
+            StateFrameDTO newFrame = new()
+            {
+                gameTick = 0
+            };
             GetGameState(ref newFrame.gameState);
             newFrame.PhysicsState = new PhysicsStateDTO();
-            newFrame.PhysicsState.TakeSnapshot(rigidbodies);
+            newFrame.PhysicsState.TakeSnapshot(GetNetworkedRigidbodies());
 
             stateBuffer[0] = newFrame;
         }
@@ -373,9 +422,9 @@ namespace NSM
             networkIdCounter = 0;
             List<GameObject> gameObjects = gameObject.scene.GetRootGameObjects().ToList();
             gameObjects.Sort((a, b) => a.transform.GetSiblingIndex() - b.transform.GetSiblingIndex());
-            foreach (GameObject go in gameObjects)
+            foreach (GameObject gameObject in gameObjects)
             {
-                SetupNetworkIdsForChildren(go.transform);
+                SetupNetworkIdsForChildren(gameObject.transform);
             }
         }
 
@@ -384,13 +433,9 @@ namespace NSM
             for (int i = 0; i < node.childCount; i++)
             {
                 Transform child = node.GetChild(i);
-                NetworkId networkId = child.gameObject.GetComponent<NetworkId>();
-                if (networkId != null)
+                if (child.gameObject.TryGetComponent(out NetworkId _))
                 {
-                    networkIdCounter += 1;
-                    networkId.networkId = networkIdCounter;
-
-                    VerboseLog("Network ID " + networkIdCounter + " is assigned to " + child.gameObject.name);
+                    RequestAndApplyNetworkId(child.gameObject);
                 }
 
                 if (child.childCount > 0)
@@ -431,8 +476,10 @@ namespace NSM
 
                 if (!predictedInput.Equals(entry.Value))
                 {
-                    PlayerInputDTO playerInputDTO = new();
-                    playerInputDTO.input = entry.Value;
+                    PlayerInputDTO playerInputDTO = new()
+                    {
+                        input = entry.Value
+                    };
                     ForwardPlayerInputClientRpc(entry.Key, playerInputDTO, gameTick);
                 }
             }
@@ -539,8 +586,10 @@ namespace NSM
                     continue;
                 }
 
-                PlayerInputDTO playerInputDTO = new();
-                playerInputDTO.input = entry.Value;
+                PlayerInputDTO playerInputDTO = new()
+                {
+                    input = entry.Value
+                };
 
                 SetInputServerRpc(entry.Key, playerInputDTO, gameTick);
             }
@@ -826,9 +875,13 @@ namespace NSM
         {
             VerboseLog("Running single frame for tick " + tick);
 
-            StateFrameDTO newFrame = new();
-            newFrame.PlayerInputs = playerInputs;
-            newFrame.Events = events;
+            StateFrameDTO newFrame = new()
+            {
+                PlayerInputs = playerInputs,
+                Events = events,
+                gameTick = tick,
+                PhysicsState = new PhysicsStateDTO()
+            };
 
             // Simulate the frame
             ApplyInputs(playerInputs);
@@ -838,10 +891,8 @@ namespace NSM
             PostPhysicsFrameUpdate();
 
             // Capture the state from the scene/game
-            newFrame.gameTick = tick;
             GetGameState(ref newFrame.gameState);
-            newFrame.PhysicsState = new PhysicsStateDTO();
-            newFrame.PhysicsState.TakeSnapshot(rigidbodies);
+            newFrame.PhysicsState.TakeSnapshot(GetNetworkedRigidbodies());
 
             return newFrame;
         }
@@ -851,7 +902,7 @@ namespace NSM
             // Don't worry about replaying something from the future
             if (tick >= gameTick)
             {
-                VerboseLog("Ignoring replay requested for future tick " + tick);
+                VerboseLog("Ignoring replay requested for future or present tick " + tick);
                 return;
             }
 
