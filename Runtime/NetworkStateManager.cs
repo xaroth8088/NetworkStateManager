@@ -315,6 +315,15 @@ namespace NSM
             SetupInitialNetworkIds();
             isRunning = true;
             stateBuffer = new StateBuffer();
+
+            // Capture the initial game state
+            StateFrameDTO newFrame = new();
+            newFrame.gameTick = 0;
+            OnGetGameState?.Invoke(ref newFrame.gameState);
+            newFrame.PhysicsState = new PhysicsStateDTO();
+            newFrame.PhysicsState.TakeSnapshot(rigidbodies);
+
+            stateBuffer[0] = newFrame;
         }
 
         private StateFrameDTO RunSingleGameFrame(int tick, Dictionary<byte, IPlayerInput> playerInputs, List<IGameEvent> events)

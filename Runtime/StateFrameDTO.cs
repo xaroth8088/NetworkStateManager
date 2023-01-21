@@ -170,6 +170,9 @@ namespace NSM
 
             deltaState.Events = Events;
 
+            // TODO: reduce the size of this state object by asking it to generate a delta or something else clever with the serialized form
+            deltaState.gameState = gameState;
+
             return deltaState;
         }
 
