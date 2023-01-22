@@ -694,62 +694,35 @@ namespace NSM
 
             VerboseLog("Server state received.  Server time:" + serverGameStateDelta.gameTick);
 
+            // Did the state arrive out of order?  If so, panic.
+            if ( serverGameStateDelta.gameTick != lastAuthoritativeTick + sendStateEveryNFrames)
+            {
+                // TODO: decide what to do about this case, since we need that prior frame in order to properly apply the delta
+                // Probably, make an RPC to request a full state sync instead of the delta
+                throw new Exception("Server snapshot arrived out of order!  Game state will be indeterminate from here on out.");
+            }
+
+            // Is the server too far in the future or past?  If so, log a message.
+            if (Math.Abs(gameTick - serverGameStateDelta.gameTick) > (sendStateEveryNFrames * 2))
+            {
+                // TODO: decide to handle this, esp. in light of a hacker that sends forged server state from out-of-tolerance timestamps.
+                Debug.Log("Received server state is greatly out of tolerance.  Client may experience slowdown or jumping.");
+            }
+
+            // Reconstitute the state from our delta
             StateFrameDTO serverGameState = stateBuffer[serverGameStateDelta.gameTick - sendStateEveryNFrames].Duplicate();
             serverGameState.ApplyDelta(serverGameStateDelta);
 
-            // If the state arrives out of order, we can safely ignore older states
-            if (serverGameState.gameTick < lastAuthoritativeTick)
-            {
-                Debug.Log("Server sent state arrived out-of-order, so dropping");
-                return;
-            }
-
+            // Apply the delta to our history at the server's timestamp
             lastAuthoritativeTick = serverGameState.gameTick;
-
-            // According to Unity networking, we're this far ahead of when the server sent this data
-            int framesOfLag = NetworkManager.LocalTime.Tick - NetworkManager.ServerTime.Tick;
-            if (framesOfLag > 0)
-            {
-                framesOfLag += maxPastTolerance;
-            }
-
-            // ...so, if the timestamp for the server is more than that behind "now" (with a little
-            // wiggle room), then we should reset to that time instead of trying to weave it into
-            // our client-side prediction.  (The game state will "jump" to this newly received state)
-            if (serverGameState.gameTick < gameTick - framesOfLag)
-            {
-                VerboseLog("Server gave state for tick " +
-                        serverGameState.gameTick +
-                        " but it's outside of our acceptable lag range; resetting time so we can get back in sync." +
-                        " Acceptable range starts at:" + (gameTick - framesOfLag)
-                    );
-
-                ResetNowToServerState(serverGameState);
-                return;
-            }
-
-            // TODO: the tricky part about checking if the packet is too far in the future is figuring out if
-            //          a) we're legit that far behind the server (in which case we can just skip ahead)
-            //          b) it's a forged packet from a cheater (in which case we want to just drop it since
-            //             it'll cause all sorts of other headaches to be desync'd from the server like this)
-            //       So, for now, just assume it's always legit.
-            if (serverGameState.gameTick > gameTick)
-            {
-                // Server sent state from the future, so move to then and get caught up
-                VerboseLog("The server sent a state from the near future, so fast forward to: " + serverGameState.gameTick);
-
-                ResetNowToServerState(serverGameState);
-                return;
-            }
-
-            // TODO: probably we want a way to only predict forwards for players that are _not_ local to this client
-            foreach (KeyValuePair<byte, IPlayerInput> item in stateBuffer[serverGameState.gameTick - 1].PlayerInputs)
-            {
-                serverGameState.PlayerInputs[item.Key] = PredictInput(item.Value);
-            }
-
-            ScheduleStateReplay(serverGameState.gameTick);
             stateBuffer[serverGameState.gameTick] = serverGameState;
+
+            // Set our 'now' to (server tick + estimated lag)
+            int framesOfLag = NetworkManager.LocalTime.Tick - NetworkManager.ServerTime.Tick;
+            gameTick = serverGameState.gameTick + framesOfLag;
+
+            // Schedule a replay for (server tick)
+            ScheduleStateReplay(serverGameState.gameTick);
         }
 
         #endregion Client-side only code
@@ -809,11 +782,13 @@ namespace NSM
 
         private void ReplayHistoryFromTick(int tickToReplayFrom)
         {
-            VerboseLog("Replaying history from " + tickToReplayFrom);
+            // TODO: when we rewind time, we need to "un-play" all events in reverse order back to the point that we're starting from
 
             // For each tick from then to now... (Skipping the oldest frame since we're not altering that frame of history)
             // Go through the rest of the frames, advancing physics and updating the buffer to match the revised history
             int tick = tickToReplayFrom + 1;
+            VerboseLog("Replaying history from " + tick);
+
             while (tick <= gameTick)
             {
                 VerboseLog("Replaying for tick " + tick);
