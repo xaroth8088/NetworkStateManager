@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Netcode;
@@ -57,8 +58,16 @@ namespace NSM
         /// See also: <br/>
         /// <seealso cref="OnApplyEvents"/>
         /// </summary>
-        /// <param name="state">An object containing all the information required to apply the events this frame to your game.  This must be the same type as what you started NetworkStateManager with.</param>
+        /// <param name="events">A list of game events to apply in the current frame.  Remember to cast back to the event type you started NetworkStateManager with!</param>
         public delegate void ApplyEventsDelegateHandler(List<IGameEvent> events);
+
+        /// <summary>
+        /// Delegate declaration for the OnRollbackEvents event.<br/>
+        /// See also: <br/>
+        /// <seealso cref="OnRollbackEvents"/>
+        /// </summary>
+        /// <param name="events">A list of game events to roll back.  Remember to cast back to the event type you started NetworkStateManager with!</param>
+        public delegate void RollbackEventsDelegateHandler(List<IGameEvent> events);
 
         /// <summary>
         /// Delegate declaration for the OnApplyInputs event.<br/>
@@ -114,6 +123,19 @@ namespace NSM
         /// <seealso cref="StateFrameDTO"/>
         /// </summary>
         public event ApplyEventsDelegateHandler OnApplyEvents;
+
+        /// <summary>
+        /// This event fires when a given set of events need to be rolled back in your game.
+        /// When the server attempts to rollback game state in order to apply new state,
+        /// any events that've had side-effects on the world (e.g. starting an animation,
+        /// spawning new game objects, etc.) will need to be reversed in order to ensure
+        /// a consistent state once everything's said and done.
+        /// <br/>
+        /// See also: <br/>
+        /// <seealso cref="RollbackEventsDelegateHandler"/> and
+        /// <seealso cref="StateFrameDTO"/>
+        /// </summary>
+        public event RollbackEventsDelegateHandler OnRollbackEvents;
 
         /// <summary>
         /// This event fires when a given input needs to be applied to your game.
@@ -184,13 +206,43 @@ namespace NSM
 
         private void ApplyEvents(List<IGameEvent> events)
         {
-            VerboseLog("Applying " + events.Count + " events");
+            int count = events.Count;
+            
+            if(count == 0)
+            {
+                return;
+            }
+
+            VerboseLog("Applying " + count + " events");
+
+            OnApplyEvents?.Invoke(events);
+        }
+
+        private void RollbackEvents(List<IGameEvent> events)
+        {
+            // TODO: actually do this
+            int count = events.Count;
+
+            if (count == 0)
+            {
+                return;
+            }
+
+            VerboseLog("Rolling back " + events.Count + " events");
             OnApplyEvents?.Invoke(events);
         }
 
         private void ApplyInputs(Dictionary<byte, IPlayerInput> playerInputs)
         {
-            VerboseLog("Applying " + playerInputs.Count + " player inputs");
+            int count = playerInputs.Count;
+
+            if (count == 0)
+            {
+                return;
+            }
+
+            VerboseLog("Applying " + count + " player inputs");
+
             OnApplyInputs?.Invoke(playerInputs);
         }
 
@@ -321,9 +373,36 @@ namespace NSM
 
         public void ReplaceObjectWithNetworkId(byte networkId, GameObject gameObject)
         {
-            VerboseLog("Replacing " + networkIdGameObjectCache[networkId].name + " at network id " + networkId + " with " + gameObject.name);
+            GameObject existingObject;
+            if (networkIdGameObjectCache.TryGetValue(networkId, out existingObject))
+            {
+                VerboseLog("Replacing " + existingObject.name + " at network id " + networkId + " with " + gameObject.name);
+            }
+            else
+            {
+                VerboseLog("Directly setting networkId " + networkId + " to now be " + gameObject.name);
+            }
 
+            if (!gameObject.TryGetComponent(out NetworkId networkIdComponent))
+            {
+                throw new Exception("Game object passed to request a network id doesn't have that component on it.");
+            }
+
+            networkIdComponent.networkId = networkId;
             networkIdGameObjectCache[networkId] = gameObject;
+        }
+
+        public byte RequestNetworkId()
+        {
+            if (networkIdCounter == 255)
+            {
+                throw new Exception("Out of network ids!");
+            }
+
+            // Yes, this means that 0 can't be used, but that's ok - we need it as a flag to mean "hasn't been assigned one yet"
+            networkIdCounter++;
+
+            return networkIdCounter;
         }
 
         private byte RequestAndApplyNetworkId(GameObject gameObject)
@@ -333,19 +412,14 @@ namespace NSM
                 throw new Exception("Game object passed to request a network id doesn't have that component on it.");
             }
 
-            if (networkIdCounter == 255)
-            {
-                throw new Exception("Out of network ids!");
-            }
+            byte newNetworkId = RequestNetworkId();
 
-            networkIdCounter++; // Yes, this means that 0 can't be used, but that's ok - we need it as a flag to mean "hasn't been assigned one yet"
+            VerboseLog("Assigning network id " + newNetworkId + " to " + gameObject.name);
 
-            VerboseLog("Assigning network id " + networkIdCounter + " to " + gameObject.name);
-
-            networkId.networkId = networkIdCounter;
+            networkId.networkId = newNetworkId;
             networkIdGameObjectCache[networkIdCounter] = gameObject;
 
-            return networkIdCounter;
+            return newNetworkId;
         }
 
         private List<Rigidbody> GetNetworkedRigidbodies()
