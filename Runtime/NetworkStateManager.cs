@@ -394,15 +394,16 @@ namespace NSM
 
         public byte RequestNetworkId()
         {
-            if (networkIdCounter == 255)
+            // Yes, this means that 0 can't be used, but that's ok - we need it as a flag to mean "hasn't been assigned one yet"
+            for( byte i = 1; i < 255; i++)
             {
-                throw new Exception("Out of network ids!");
+                if(!networkIdGameObjectCache.ContainsKey(i))
+                {
+                    return i;
+                }
             }
 
-            // Yes, this means that 0 can't be used, but that's ok - we need it as a flag to mean "hasn't been assigned one yet"
-            networkIdCounter++;
-
-            return networkIdCounter;
+            throw new Exception("Out of network ids!");
         }
 
         private byte RequestAndApplyNetworkId(GameObject gameObject)
@@ -417,7 +418,7 @@ namespace NSM
             VerboseLog("Assigning network id " + newNetworkId + " to " + gameObject.name);
 
             networkId.networkId = newNetworkId;
-            networkIdGameObjectCache[networkIdCounter] = gameObject;
+            networkIdGameObjectCache[newNetworkId] = gameObject;
 
             return newNetworkId;
         }
@@ -438,11 +439,15 @@ namespace NSM
             return rigidbodies;
         }
 
+        public void RollbackNetworkId(byte networkId)
+        {
+            Destroy(networkIdGameObjectCache[networkId]);
+            networkIdGameObjectCache.Remove(networkId);
+        }
+
         private readonly Dictionary<byte, GameObject> networkIdGameObjectCache = new();
 
         // TODO: network id management seems separable from this primary object
-        [SerializeField]
-        private byte networkIdCounter = 0;
 
         #endregion Network ID management
 
@@ -493,7 +498,7 @@ namespace NSM
             // In theory, the client and server should agree on the objects in the hierarchy at this point in time, so it should
             // be ok to use as a deterministic ordering mechanism.
 
-            networkIdCounter = 0;
+            networkIdGameObjectCache.Clear();
             List<GameObject> gameObjects = gameObject.scene.GetRootGameObjects().ToList();
             gameObjects.Sort((a, b) => a.transform.GetSiblingIndex() - b.transform.GetSiblingIndex());
             foreach (GameObject gameObject in gameObjects)
@@ -904,6 +909,13 @@ namespace NSM
             // Rewind time to that point in the buffer
             VerboseLog("Beginning scheduled replay.  Applying state from frame " + frameToActuallyReplayFrom);
 
+            VerboseLog("Rewinding events");
+            for(int tick = gameTick; tick >= frameToActuallyReplayFrom; tick--)
+            {
+                RollbackEvents(stateBuffer[tick].Events);
+            }
+
+            VerboseLog("Setting world to previous state");
             isReplaying = true;
             StateFrameDTO gameStateObject = stateBuffer[frameToActuallyReplayFrom];
 
@@ -1006,12 +1018,14 @@ namespace NSM
 
         private void VerboseLog(string message)
         {
+#if UNITY_EDITOR
             if (!verboseLogging)
             {
                 return;
             }
 
             Debug.Log(gameTick + ": " + message);
+#endif
         }
     }
 }
