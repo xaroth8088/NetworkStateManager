@@ -220,7 +220,6 @@ namespace NSM
 
         private void RollbackEvents(List<IGameEvent> events)
         {
-            // TODO: actually do this
             int count = events.Count;
 
             if (count == 0)
@@ -229,7 +228,7 @@ namespace NSM
             }
 
             VerboseLog("Rolling back " + events.Count + " events");
-            OnApplyEvents?.Invoke(events);
+            OnRollbackEvents?.Invoke(events);
         }
 
         private void ApplyInputs(Dictionary<byte, IPlayerInput> playerInputs)
@@ -373,15 +372,9 @@ namespace NSM
 
         public void ReplaceObjectWithNetworkId(byte networkId, GameObject gameObject)
         {
-            GameObject existingObject;
-            if (networkIdGameObjectCache.TryGetValue(networkId, out existingObject))
-            {
-                VerboseLog("Replacing " + existingObject.name + " at network id " + networkId + " with " + gameObject.name);
-            }
-            else
-            {
-                VerboseLog("Directly setting networkId " + networkId + " to now be " + gameObject.name);
-            }
+            VerboseLog("Replacing game object with networkId " + networkId + " to now be " + gameObject.name);
+
+            RollbackNetworkId(networkId);
 
             if (!gameObject.TryGetComponent(out NetworkId networkIdComponent))
             {
@@ -441,6 +434,12 @@ namespace NSM
 
         public void RollbackNetworkId(byte networkId)
         {
+            if( networkIdGameObjectCache.ContainsKey(networkId) == false)
+            {
+                return;
+            }
+            VerboseLog("Rolling back and destroying game object with network id " + networkId);
+
             Destroy(networkIdGameObjectCache[networkId]);
             networkIdGameObjectCache.Remove(networkId);
         }
