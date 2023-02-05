@@ -33,6 +33,10 @@ namespace NSM
         public int sendStateEveryNFrames = 10;
         public bool verboseLogging = false;
 
+        [Header("Debug - Rollback")]
+        public int debugRollbackEveryNFrames = 4;
+        public int debugNumFramesToRollback = 8;
+
         #endregion NetworkStateManager configuration
 
         #region Runtime state
@@ -529,6 +533,12 @@ namespace NSM
 
         private void HostFixedUpdate()
         {
+            if (gameTick % debugRollbackEveryNFrames == 0 && gameTick > debugNumFramesToRollback)
+            {
+                VerboseLog("DEBUG: rolling back " + debugNumFramesToRollback + " frames");
+                ScheduleStateReplay(gameTick - debugNumFramesToRollback);
+            }
+
             RunScheduledStateReplay();
 
             // Start a new frame
