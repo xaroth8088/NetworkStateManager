@@ -42,16 +42,16 @@ namespace NSM
 
         public void ApplyState(GameObject gameObject)
         {
-            Rigidbody rigidbody = gameObject.GetComponentInChildren<Rigidbody>();
-
             // Find the associated rigidbody (if any)
-            if (gameObject.activeInHierarchy == false)
+            if (gameObject == null || gameObject.activeInHierarchy == false)
             {
                 // This object no longer exists in the scene
-                Debug.Log("Attempted to restore state to a GameObject that no longer exists");
+                Debug.LogError("Attempted to restore state to a GameObject that no longer exists");
                 // TODO: this seems like it'll lead to some bugs later with objects that disappeared recently
                 return;
             }
+
+            Rigidbody rigidbody = gameObject.GetComponentInChildren<Rigidbody>();
 
             // Apply the state
             gameObject.transform.SetPositionAndRotation(position, rotation);

@@ -34,13 +34,14 @@ namespace NSM
         public bool verboseLogging = false;
 
         [Header("Debug - Rollback")]
-        public int debugRollbackEveryNFrames = 4;
-        public int debugNumFramesToRollback = 8;
+        public bool debugRollback = false;
+        public uint debugRollbackEveryNFrames = 4;
+        public uint debugNumFramesToRollback = 8;
 
         #endregion NetworkStateManager configuration
 
         #region Runtime state
-
+        [Header("Runtime state")]
         public int gameTick = 0;
 
         public bool isReplaying = false;
@@ -296,6 +297,11 @@ namespace NSM
                 return;
             }
 
+            if (isReplaying)
+            {
+                return;
+            }
+
             if (tick == -1)
             {
                 tick = gameTick + 1;
@@ -343,7 +349,9 @@ namespace NSM
 
         public GameObject GetGameObjectByNetworkId(byte networkId)
         {
-            return networkIdGameObjectCache[networkId];
+            networkIdGameObjectCache.TryGetValue(networkId, out GameObject gameObject);
+
+            return gameObject;
         }
 
         public void RegisterNetworkedGameObject(GameObject gameObject)
@@ -533,15 +541,19 @@ namespace NSM
 
         private void HostFixedUpdate()
         {
-            if (gameTick % debugRollbackEveryNFrames == 0 && gameTick > debugNumFramesToRollback)
+            VerboseLog("Pre-processing for tick " + (gameTick + 1));
+
+            if (debugRollback == true && gameTick % debugRollbackEveryNFrames == 0 && gameTick > debugNumFramesToRollback)
             {
                 VerboseLog("DEBUG: rolling back " + debugNumFramesToRollback + " frames");
-                ScheduleStateReplay(gameTick - debugNumFramesToRollback);
+                ScheduleStateReplay((int)((gameTick - debugNumFramesToRollback) + 1));
             }
 
             RunScheduledStateReplay();
 
             // Start a new frame
+            // NOTE: this comes _after_ the scheduled replay so that we're always ready to just
+            //       play the "next" frame once we get here.
             gameTick++;
 
             VerboseLog("Normal frame run");
@@ -870,11 +882,15 @@ namespace NSM
 
         private void ReplayHistoryFromTick(int tickToReplayFrom)
         {
-            // TODO: when we rewind time, we need to "un-play" all events in reverse order back to the point that we're starting from
-
-            // For each tick from then to now... (Skipping the oldest frame since we're not altering that frame of history)
+            // For each tick from then to now...
             // Go through the rest of the frames, advancing physics and updating the buffer to match the revised history
-            int tick = tickToReplayFrom + 1;
+            int tick = tickToReplayFrom;
+
+            if (tick > gameTick)
+            {
+                return;
+            }
+
             VerboseLog("Replaying history from " + tick);
 
             while (tick <= gameTick)
@@ -891,6 +907,9 @@ namespace NSM
 
         private void RunScheduledStateReplay()
         {
+            // TODO: it seems like when we roll things back (esp. on the server), any events that were scheduled
+            //       during a replayed frame should _also_ be rolled back.  But then, how to sync those with clients
+            //       again?  What if the events scheduled during the replay don't change?
             if (replayFromTick < 0)
             {
                 return;
@@ -916,17 +935,21 @@ namespace NSM
             }
 
             // Rewind time to that point in the buffer
-            VerboseLog("Beginning scheduled replay.  Applying state from frame " + frameToActuallyReplayFrom);
+            VerboseLog("######################### REPLAY #########################");
+            VerboseLog("Beginning scheduled replay from frame " + frameToActuallyReplayFrom);
 
             VerboseLog("Rewinding events");
-            for(int tick = gameTick; tick >= frameToActuallyReplayFrom; tick--)
+            for(int tick = gameTick; tick >= (frameToActuallyReplayFrom - 1); tick--)
             {
+                VerboseLog("Calling RollbackEvents on events in tick " + tick);
                 RollbackEvents(stateBuffer[tick].Events);
             }
 
-            VerboseLog("Setting world to previous state");
+            // NOTE: Because game state is collected at the very end of each frame, we actually need our "initial"
+            //       state to come from the _previous_ frame's game state object.
+            VerboseLog("Setting world to previous frame's state (tick " + (frameToActuallyReplayFrom - 1) + ")");
             isReplaying = true;
-            StateFrameDTO gameStateObject = stateBuffer[frameToActuallyReplayFrom];
+            StateFrameDTO gameStateObject = stateBuffer[frameToActuallyReplayFrom - 1];
 
             ApplyPhysicsState(gameStateObject.PhysicsState);
             ApplyState(gameStateObject.gameState);
@@ -939,6 +962,8 @@ namespace NSM
             // Reset to "nothing scheduled"
             replayFromTick = -1;
             isReplaying = false;
+
+            VerboseLog("######################### END REPLAY #########################");
         }
 
         private StateFrameDTO RunSingleGameFrame(int tick, Dictionary<byte, IPlayerInput> playerInputs, List<IGameEvent> events)
@@ -970,13 +995,13 @@ namespace NSM
         private void ScheduleStateReplay(int tick)
         {
             // Don't worry about replaying something from the future
-            if (tick >= gameTick)
+            if (tick > gameTick)
             {
                 VerboseLog("Ignoring replay requested for future or present tick " + tick);
                 return;
             }
 
-            VerboseLog("Replay requested for " + tick);
+            VerboseLog("Replay requested for tick " + tick);
 
             // we want to replay from the earliest time requested
             // (with a negative value of replayFromTick meaning "nothing's requested for this frame yet")
@@ -1033,7 +1058,14 @@ namespace NSM
                 return;
             }
 
-            Debug.Log(gameTick + ": " + message);
+            string log = gameTick + ": ";
+            if (isReplaying)
+            {
+                log += "**REPLAY** ";
+            }
+            log += message;
+
+            Debug.Log(log);
 #endif
         }
     }
