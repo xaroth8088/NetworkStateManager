@@ -11,14 +11,16 @@ namespace NSM
         public Vector3 velocity;
         public Vector3 angularVelocity;
         public byte networkId;
+        public bool isSleeping;
 
-        // TODO: we probably need to track the body's active/inactive state
+        // TODO: we probably need to track the body's active/inactive state (beyond just sleeping)
         public RigidBodyStateDTO(Rigidbody _rigidbody)
         {
             position = _rigidbody.position;
             rotation = _rigidbody.rotation;
             velocity = _rigidbody.velocity;
             angularVelocity = _rigidbody.angularVelocity;
+            isSleeping = _rigidbody.IsSleeping();
 
             try
             {
@@ -33,11 +35,13 @@ namespace NSM
 
         void INetworkSerializable.NetworkSerialize<T>(BufferSerializer<T> serializer)
         {
+            // TODO: if the rigidbody is asleep, maybe we don't need to send any data at all about it beyond that?
             serializer.SerializeValue(ref position);
             serializer.SerializeValue(ref rotation);
             serializer.SerializeValue(ref velocity);
             serializer.SerializeValue(ref angularVelocity);
             serializer.SerializeValue(ref networkId);
+            serializer.SerializeValue(ref isSleeping);
         }
 
         public void ApplyState(GameObject gameObject)
@@ -59,11 +63,19 @@ namespace NSM
             {
                 rigidbody.position = position;
                 rigidbody.rotation = rotation;
-
+                
                 if (rigidbody.isKinematic == false)
                 {
                     rigidbody.velocity = velocity;
                     rigidbody.angularVelocity = angularVelocity;
+                }
+
+                if (isSleeping)
+                {
+                    rigidbody.Sleep();
+                } else
+                {
+                    rigidbody.WakeUp();
                 }
             }
             catch
@@ -80,7 +92,8 @@ namespace NSM
                 position.Equals(other.position) &&
                 rotation.Equals(other.rotation) &&
                 velocity.Equals(other.velocity) &&
-                angularVelocity.Equals(other.angularVelocity)
+                angularVelocity.Equals(other.angularVelocity) &&
+                isSleeping.Equals(other.isSleeping)
             );
         }
     }

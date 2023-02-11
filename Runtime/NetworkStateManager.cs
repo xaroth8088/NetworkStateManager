@@ -541,20 +541,13 @@ namespace NSM
 
         private void HostFixedUpdate()
         {
-            VerboseLog("Pre-processing for tick " + (gameTick + 1));
-
-            if (debugRollback == true && gameTick % debugRollbackEveryNFrames == 0 && gameTick > debugNumFramesToRollback)
+            if (debugRollback == true && gameTick % debugRollbackEveryNFrames == 0 && gameTick >= debugNumFramesToRollback)
             {
                 VerboseLog("DEBUG: rolling back " + debugNumFramesToRollback + " frames");
-                ScheduleStateReplay((int)((gameTick - debugNumFramesToRollback) + 1));
+                ScheduleStateReplay((int)(gameTick - debugNumFramesToRollback));
             }
 
             RunScheduledStateReplay();
-
-            // Start a new frame
-            // NOTE: this comes _after_ the scheduled replay so that we're always ready to just
-            //       play the "next" frame once we get here.
-            gameTick++;
 
             VerboseLog("Normal frame run");
 
@@ -650,8 +643,6 @@ namespace NSM
                 VerboseLog("Client is too far ahead of the last server frame, so pause until we get caught up.");
                 return;
             }
-
-            gameTick++;
 
             // Make a guess about what all players' inputs will be for the next frame
             Dictionary<byte, IPlayerInput> playerInputs = PredictInputs(stateBuffer[gameTick - 1].PlayerInputs);
@@ -843,11 +834,8 @@ namespace NSM
             foreach (KeyValuePair<byte, RigidBodyStateDTO> item in physicsState.RigidBodyStates)
             {
                 GameObject gameObject;
-                try
-                {
-                    gameObject = GetGameObjectByNetworkId(item.Value.networkId);
-                }
-                catch (KeyNotFoundException)
+                gameObject = GetGameObjectByNetworkId(item.Value.networkId);
+                if (gameObject == null)
                 {
                     Debug.Log("Skipping network object id: " + item.Value.networkId);
 
@@ -893,9 +881,24 @@ namespace NSM
 
             VerboseLog("Replaying history from " + tick);
 
-            while (tick <= gameTick)
+            while (tick < gameTick)
             {
                 VerboseLog("Replaying for tick " + tick);
+
+                if (tick <= 0)
+                {
+                    VerboseLog("Replaying tick " + tick + ", which just means 'reset to frame 0'");
+                    // To "replay" frame 0 means to just reset the world to that state.  There's no actual simulation in frame 0.
+                    StateFrameDTO frameZero = stateBuffer[0];
+
+                    ApplyInputs(frameZero.PlayerInputs);
+                    ApplyPhysicsState(frameZero.PhysicsState);
+                    ApplyState(frameZero.gameState);
+                    ApplyEvents(frameZero.Events);
+
+                    tick++;
+                    continue;
+                }
 
                 // Get the new frame and put it in place
                 StateFrameDTO stateFrame = RunSingleGameFrame(tick, stateBuffer[tick].PlayerInputs, stateBuffer[tick].Events);
@@ -907,6 +910,7 @@ namespace NSM
 
         private void RunScheduledStateReplay()
         {
+            VerboseLog("Checking scheduled state replay.  Currently " + replayFromTick);
             // TODO: it seems like when we roll things back (esp. on the server), any events that were scheduled
             //       during a replayed frame should _also_ be rolled back.  But then, how to sync those with clients
             //       again?  What if the events scheduled during the replay don't change?
@@ -924,13 +928,10 @@ namespace NSM
             // Replay from either the requested frame OR the last server-authoritative state, whichever's more recent
             int frameToActuallyReplayFrom = Math.Max(0, Math.Max(replayFromTick, lastAuthoritativeTick));
 
-            if (frameToActuallyReplayFrom > gameTick)
+            // Don't replay from the future
+            if (frameToActuallyReplayFrom >= gameTick)
             {
-                // Guard against underflow
                 VerboseLog("Was scheduled to replay at " + replayFromTick + ", but this is in the future so skipping replay");
-
-                // NOTE: this isn't >= gameTick because sometimes the server's authoritative state can arrive for the
-                //       frame that the client just happens to be on, and we'll need to set the state accordingly
                 return;
             }
 
@@ -938,8 +939,15 @@ namespace NSM
             VerboseLog("######################### REPLAY #########################");
             VerboseLog("Beginning scheduled replay from frame " + frameToActuallyReplayFrom);
 
-            VerboseLog("Rewinding events");
-            for(int tick = gameTick; tick >= (frameToActuallyReplayFrom - 1); tick--)
+            VerboseLog("Rewinding frames");
+            for (int tick = gameTick - 1; tick > 0 && tick >= frameToActuallyReplayFrom; tick--)
+            {
+                // TODO: there's an optimization to be had here once we're sure this flow works correctly
+                //       since it's probably wasteful to repeatedly apply the inputs and state, though we
+                //       do care about events getting rewound appropriately
+                UndoFrame(tick);
+            }
+/*            for(int tick = gameTick; tick >= frameToActuallyReplayFrom; tick--)
             {
                 VerboseLog("Calling RollbackEvents on events in tick " + tick);
                 RollbackEvents(stateBuffer[tick].Events);
@@ -955,8 +963,9 @@ namespace NSM
             ApplyState(gameStateObject.gameState);
             ApplyInputs(gameStateObject.PlayerInputs);
             ApplyEvents(gameStateObject.Events);
-
+*/
             // Replay history until we're back to 'now'
+            isReplaying = true;
             ReplayHistoryFromTick(frameToActuallyReplayFrom);
 
             // Reset to "nothing scheduled"
@@ -964,6 +973,26 @@ namespace NSM
             isReplaying = false;
 
             VerboseLog("######################### END REPLAY #########################");
+        }
+
+        private void UndoFrame(int tick)
+        {
+            VerboseLog("Undoing frame at tick " + tick);
+
+            int previousTick = tick - 1;
+            if (previousTick < 0)
+            {
+                // Guard against underflow by assuming that all frames before frame 1 are the same as frame 0
+                previousTick = 0;
+            }
+
+            StateFrameDTO frameToUndo = stateBuffer[tick];
+            StateFrameDTO previousFrame = stateBuffer[previousTick];
+
+            RollbackEvents(frameToUndo.Events);
+            ApplyInputs(previousFrame.PlayerInputs);
+            ApplyPhysicsState(previousFrame.PhysicsState);
+            ApplyState(previousFrame.gameState);
         }
 
         private StateFrameDTO RunSingleGameFrame(int tick, Dictionary<byte, IPlayerInput> playerInputs, List<IGameEvent> events)
@@ -1039,6 +1068,10 @@ namespace NSM
             {
                 return;
             }
+
+            // Start a new frame
+            gameTick++;
+            VerboseLog("---- NEW FRAME ----");
 
             if (IsHost)
             {
