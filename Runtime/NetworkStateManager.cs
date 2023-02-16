@@ -942,31 +942,29 @@ namespace NSM
             VerboseLog("######################### REPLAY #########################");
             VerboseLog("Beginning scheduled replay from frame " + frameToActuallyReplayFrom);
 
-            VerboseLog("Rewinding frames");
-            for (int tick = gameTick - 1; tick > 0 && tick >= frameToActuallyReplayFrom; tick--)
+            VerboseLog("Rewinding events");
+            for (int tick = gameTick - 1; tick >= 0 && tick >= frameToActuallyReplayFrom; tick--)
             {
-                // TODO: there's an optimization to be had here once we're sure this flow works correctly
-                //       since it's probably wasteful to repeatedly apply the inputs and state, though we
-                //       do care about events getting rewound appropriately
-                UndoFrame(tick);
-            }
-/*            for(int tick = gameTick; tick >= frameToActuallyReplayFrom; tick--)
-            {
-                VerboseLog("Calling RollbackEvents on events in tick " + tick);
+                VerboseLog("Undoing events at tick " + tick);
+
                 RollbackEvents(stateBuffer[tick].Events);
             }
 
-            // NOTE: Because game state is collected at the very end of each frame, we actually need our "initial"
-            //       state to come from the _previous_ frame's game state object.
-            VerboseLog("Setting world to previous frame's state (tick " + (frameToActuallyReplayFrom - 1) + ")");
-            isReplaying = true;
-            StateFrameDTO gameStateObject = stateBuffer[frameToActuallyReplayFrom - 1];
+            // Set the state to what it was at the end of the frame just before the one we want to replay from
+            int previousTick = frameToActuallyReplayFrom - 1;
+            if (previousTick < 0)
+            {
+                // Guard against underflow by assuming that all frames before frame 1 are the same as frame 0
+                previousTick = 0;
+            }
 
-            ApplyPhysicsState(gameStateObject.PhysicsState);
-            ApplyState(gameStateObject.gameState);
-            ApplyInputs(gameStateObject.PlayerInputs);
-            ApplyEvents(gameStateObject.Events);
-*/
+            VerboseLog("Resetting state to end of tick " + previousTick);
+            StateFrameDTO previousFrame = stateBuffer[previousTick];
+
+            ApplyInputs(previousFrame.PlayerInputs);
+            ApplyPhysicsState(previousFrame.PhysicsState);
+            ApplyState(previousFrame.gameState);
+
             // Replay history until we're back to 'now'
             isReplaying = true;
             ReplayHistoryFromTick(frameToActuallyReplayFrom);
@@ -976,26 +974,6 @@ namespace NSM
             isReplaying = false;
 
             VerboseLog("######################### END REPLAY #########################");
-        }
-
-        private void UndoFrame(int tick)
-        {
-            VerboseLog("Undoing frame at tick " + tick);
-
-            int previousTick = tick - 1;
-            if (previousTick < 0)
-            {
-                // Guard against underflow by assuming that all frames before frame 1 are the same as frame 0
-                previousTick = 0;
-            }
-
-            StateFrameDTO frameToUndo = stateBuffer[tick];
-            StateFrameDTO previousFrame = stateBuffer[previousTick];
-
-            RollbackEvents(frameToUndo.Events);
-            ApplyInputs(previousFrame.PlayerInputs);
-            ApplyPhysicsState(previousFrame.PhysicsState);
-            ApplyState(previousFrame.gameState);
         }
 
         private StateFrameDTO RunSingleGameFrame(int tick, Dictionary<byte, IPlayerInput> playerInputs, List<IGameEvent> events)
