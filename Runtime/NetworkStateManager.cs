@@ -193,7 +193,8 @@ namespace NSM
 
         /// <summary>
         /// This event fires each frame, after the physics engine is run for this
-        /// frame.
+        /// frame.  This has no direct analog to a Unity lifecycle event, though
+        /// the closest would be Update()
         /// <br/>
         /// See also: <br/>
         /// <seealso cref="OnPostPhysicsFrameUpdateDelegateHandler"/>
@@ -202,7 +203,7 @@ namespace NSM
 
         /// <summary>
         /// This event fires each frame, before the physics engine is run for this
-        /// frame.
+        /// frame.  This is the equivalent of FixedUpdate().
         /// <br/>
         /// See also: <br/>
         /// <seealso cref="OnPrePhysicsFrameUpdateDelegateHandler"/>
@@ -508,6 +509,8 @@ namespace NSM
             //  * regenerate the network ids
             // In theory, the client and server should agree on the objects in the hierarchy at this point in time, so it should
             // be ok to use as a deterministic ordering mechanism.
+
+            // TODO: [bug] if a game object is at the root level, it won't be found by this and won't get a network id
 
             networkIdGameObjectCache.Clear();
             List<GameObject> gameObjects = gameObject.scene.GetRootGameObjects().ToList();
@@ -891,9 +894,9 @@ namespace NSM
                     // To "replay" frame 0 means to just reset the world to that state.  There's no actual simulation in frame 0.
                     StateFrameDTO frameZero = stateBuffer[0];
 
-                    ApplyInputs(frameZero.PlayerInputs);
                     ApplyPhysicsState(frameZero.PhysicsState);
                     ApplyState(frameZero.gameState);
+                    ApplyInputs(frameZero.PlayerInputs);
                     ApplyEvents(frameZero.Events);
 
                     tick++;

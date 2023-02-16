@@ -16,8 +16,8 @@ namespace NSM
         // TODO: we probably need to track the body's active/inactive state (beyond just sleeping)
         public RigidBodyStateDTO(Rigidbody _rigidbody)
         {
-            position = _rigidbody.position;
-            rotation = _rigidbody.rotation;
+            position = _rigidbody.transform.position;
+            rotation = _rigidbody.transform.rotation;
             velocity = _rigidbody.velocity;
             angularVelocity = _rigidbody.angularVelocity;
             isSleeping = _rigidbody.IsSleeping();
@@ -61,8 +61,8 @@ namespace NSM
             gameObject.transform.SetPositionAndRotation(position, rotation);
             try
             {
-                rigidbody.position = position;
-                rigidbody.rotation = rotation;
+                rigidbody.transform.position = position;
+                rigidbody.transform.rotation = rotation;
                 
                 if (rigidbody.isKinematic == false)
                 {
