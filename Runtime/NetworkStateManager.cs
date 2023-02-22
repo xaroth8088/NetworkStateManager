@@ -994,6 +994,8 @@ namespace NSM
             // Simulate the frame
             ApplyInputs(playerInputs);
             ApplyEvents(events);
+
+            Physics.SyncTransforms();
             PrePhysicsFrameUpdate();
             SimulatePhysics();
             PostPhysicsFrameUpdate();
