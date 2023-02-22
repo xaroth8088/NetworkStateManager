@@ -33,21 +33,10 @@ namespace NSM
             }
         }
 
-        public void ApplyState(GameObject gameObject)
+        public void ApplyState(Rigidbody rigidbody)
         {
-            // Find the associated rigidbody (if any)
-            if (gameObject == null || gameObject.activeInHierarchy == false)
-            {
-                // This object no longer exists in the scene
-                Debug.LogError("Attempted to restore state to a GameObject that no longer exists");
-                // TODO: this seems like it'll lead to some bugs later with objects that disappeared recently
-                return;
-            }
+            rigidbody.transform.SetPositionAndRotation(position, rotation);
 
-            Rigidbody rigidbody = gameObject.GetComponentInChildren<Rigidbody>();
-
-            // Apply the state
-            gameObject.transform.SetPositionAndRotation(position, rotation);
             if (rigidbody.isKinematic == false)
             {
                 rigidbody.velocity = velocity;
