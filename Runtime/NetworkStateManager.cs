@@ -949,6 +949,7 @@ namespace NSM
             {
                 VerboseLog("Undoing events at tick " + tick);
 
+                gameTick = tick;
                 RollbackEvents(stateBuffer[tick].Events);
             }
 
@@ -974,6 +975,7 @@ namespace NSM
             // Reset to "nothing scheduled"
             replayFromTick = -1;
             isReplaying = false;
+            gameTick = realGameTick;
 
             VerboseLog("######################### END REPLAY #########################");
         }
