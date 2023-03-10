@@ -5,13 +5,25 @@ using Unity.Netcode;
 
 namespace NSM
 {
+    public struct SerializableRandomState : INetworkSerializeByMemcpy
+    {
+        public UnityEngine.Random.State State;
+    }
+
     public struct StateFrameDTO : INetworkSerializable
     {
-        public int gameTick;
         public IGameState gameState;
+        public int gameTick;
+        public SerializableRandomState randomState;
+        private List<IGameEvent> _events;
         private PhysicsStateDTO _physicsState;
         private Dictionary<byte, IPlayerInput> _playerInputs;
-        private List<IGameEvent> _events;
+
+        public List<IGameEvent> Events
+        {
+            get => _events ?? new List<IGameEvent>();
+            set => _events = value;
+        }
 
         public PhysicsStateDTO PhysicsState
         {
@@ -25,10 +37,63 @@ namespace NSM
             set => _playerInputs = value;
         }
 
-        public List<IGameEvent> Events
+        public void ApplyDelta(StateFrameDTO deltaState)
         {
-            get => _events ?? new List<IGameEvent>();
-            set => _events = value;
+            gameTick = deltaState.gameTick;
+            gameState = deltaState.gameState;
+
+            PhysicsState.ApplyDelta(deltaState.PhysicsState);
+
+            foreach (KeyValuePair<byte, IPlayerInput> entry in deltaState.PlayerInputs)
+            {
+                _playerInputs[entry.Key] = entry.Value;
+            }
+
+            _events = deltaState.Events;
+        }
+
+        public StateFrameDTO Duplicate()
+        {
+            // TODO: change all mutable collections inside this struct (and its children) to instead use immutable versions,
+            //       so that we don't need to do this (and can avoid other sneaky bugs down the line)
+            StateFrameDTO newFrame = new();
+
+            newFrame.gameTick = gameTick;
+            newFrame.gameState = gameState;
+            newFrame.PhysicsState = PhysicsState;
+            newFrame.PlayerInputs = new Dictionary<byte, IPlayerInput>(PlayerInputs);
+            newFrame.Events = new List<IGameEvent>(Events);
+
+            return newFrame;
+        }
+
+        public StateFrameDTO GenerateDelta(StateFrameDTO newerState)
+        {
+            StateFrameDTO deltaState = new();
+
+            deltaState.gameTick = newerState.gameTick;
+            deltaState.PhysicsState = deltaState.PhysicsState.GenerateDelta(newerState.PhysicsState);
+
+            deltaState._playerInputs = new();
+            foreach (KeyValuePair<byte, IPlayerInput> entry in newerState.PlayerInputs)
+            {
+                Type playerInputType = TypeStore.Instance.PlayerInputType;
+                IPlayerInput defaultInput = (IPlayerInput)Activator.CreateInstance(playerInputType);
+
+                if (_playerInputs != null && _playerInputs.GetValueOrDefault(entry.Key, defaultInput).Equals(entry.Value))
+                {
+                    continue;
+                }
+
+                deltaState._playerInputs[entry.Key] = entry.Value;
+            }
+
+            deltaState.Events = Events;
+
+            // TODO: reduce the size of this state object by asking it to generate a delta or something else clever with the serialized form
+            deltaState.gameState = gameState;
+
+            return deltaState;
         }
 
         void INetworkSerializable.NetworkSerialize<T>(BufferSerializer<T> serializer)
@@ -36,20 +101,11 @@ namespace NSM
             // We might not have some of these fields either because this frame simply doesn't have a part of it,
             // or because the serializer is reading in data and there's no default created yet.
             // Either way, create default versions of the objects for use in the serialization process.
-            if (_playerInputs == null)
-            {
-                _playerInputs = new Dictionary<byte, IPlayerInput>();
-            }
+            _playerInputs ??= new Dictionary<byte, IPlayerInput>();
 
-            if (_events == null)
-            {
-                _events = new List<IGameEvent>();
-            }
+            _events ??= new List<IGameEvent>();
 
-            if (_physicsState == null)
-            {
-                _physicsState = new();
-            }
+            _physicsState ??= new PhysicsStateDTO();
 
             if (gameState == null)
             {
@@ -57,6 +113,7 @@ namespace NSM
                 gameState = (IGameState)Activator.CreateInstance(gameStateType);
             }
 
+            serializer.SerializeValue(ref randomState);
             serializer.SerializeValue(ref gameTick);
             serializer.SerializeValue(ref _physicsState);
             gameState.NetworkSerialize(serializer);
@@ -145,65 +202,6 @@ namespace NSM
                     item.Value.NetworkSerialize(serializer);
                 }
             }
-        }
-
-        public StateFrameDTO GenerateDelta(StateFrameDTO newerState)
-        {
-            StateFrameDTO deltaState = new();
-
-            deltaState.gameTick = newerState.gameTick;
-            deltaState.PhysicsState = deltaState.PhysicsState.GenerateDelta(newerState.PhysicsState);
-
-            deltaState._playerInputs = new();
-            foreach (KeyValuePair<byte, IPlayerInput> entry in newerState.PlayerInputs)
-            {
-                Type playerInputType = TypeStore.Instance.PlayerInputType;
-                IPlayerInput defaultInput = (IPlayerInput)Activator.CreateInstance(playerInputType);
-
-                if (_playerInputs != null && _playerInputs.GetValueOrDefault(entry.Key, defaultInput).Equals(entry.Value))
-                {
-                    continue;
-                }
-
-                deltaState._playerInputs[entry.Key] = entry.Value;
-            }
-
-            deltaState.Events = Events;
-
-            // TODO: reduce the size of this state object by asking it to generate a delta or something else clever with the serialized form
-            deltaState.gameState = gameState;
-
-            return deltaState;
-        }
-
-        public void ApplyDelta(StateFrameDTO deltaState)
-        {
-            gameTick = deltaState.gameTick;
-            gameState = deltaState.gameState;
-
-            PhysicsState.ApplyDelta(deltaState.PhysicsState);
-
-            foreach (KeyValuePair<byte, IPlayerInput> entry in deltaState.PlayerInputs)
-            {
-                _playerInputs[entry.Key] = entry.Value;
-            }
-
-            _events = deltaState.Events;
-        }
-
-        public StateFrameDTO Duplicate()
-        {
-            // TODO: change all mutable collections inside this struct (and its children) to instead use immutable versions,
-            //       so that we don't need to do this (and can avoid other sneaky bugs down the line)
-            StateFrameDTO newFrame = new();
-
-            newFrame.gameTick = gameTick;
-            newFrame.gameState = gameState;
-            newFrame.PhysicsState = PhysicsState;
-            newFrame.PlayerInputs = new Dictionary<byte, IPlayerInput>(PlayerInputs);
-            newFrame.Events = new List<IGameEvent>(Events);
-
-            return newFrame;
         }
     }
 }

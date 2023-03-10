@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace NSM
 {
@@ -55,6 +56,8 @@ namespace NSM
 
         [SerializeField]
         private int replayFromTick = -1;    // anything negative is a flag value, meaning "don't replay anything"...TODO: make this an explicit bool instead of the flag value
+
+        public NetworkIdManager networkIdManager = new();
 
         #endregion Runtime state
 
@@ -255,6 +258,11 @@ namespace NSM
 
         private void ApplyState(IGameState gameState)
         {
+            if (gameState == null)
+            {
+                return;
+            }
+
             VerboseLog("Applying game state");
             OnApplyState?.Invoke(gameState);
         }
@@ -327,144 +335,6 @@ namespace NSM
 
         #endregion Public Interface
 
-        #region Network ID management
-
-        public void DeregisterNetworkedGameObject(GameObject gameObject)
-        {
-            VerboseLog("Deregistering networked game object " + gameObject.name);
-
-            if(!gameObject.TryGetComponent<NetworkId>(out var networkIdComponent))
-            {
-                throw new Exception("Asked to deregister a game object that doesn't have a network id!");
-            }
-
-            bool wasFound = networkIdGameObjectCache.Remove(networkIdComponent.networkId);
-            if( !wasFound )
-            {
-                throw new Exception("Asked to remove a game object that wasn't registered!");
-            }
-        }
-
-        public Dictionary<byte, GameObject>.ValueCollection GetAllNetworkIdGameObjects()
-        {
-            return networkIdGameObjectCache.Values;
-        }
-
-        public GameObject GetGameObjectByNetworkId(byte networkId)
-        {
-            networkIdGameObjectCache.TryGetValue(networkId, out GameObject gameObject);
-
-            return gameObject;
-        }
-
-        public void RegisterNetworkedGameObject(GameObject gameObject)
-        {
-            byte networkId;
-
-            if (!gameObject.TryGetComponent<NetworkId>(out var networkIdComponent))
-            {
-                VerboseLog("Asked to register " + gameObject.name + " as a networked game object, but it doesn't have a NetworkID component so adding one.");
-                networkIdComponent = gameObject.AddComponent<NetworkId>();
-            }
-
-            networkId = networkIdComponent.networkId;
-
-            if (networkId == 0)
-            {
-                RequestAndApplyNetworkId(gameObject);   // NOTE: this also adds the object to the cache and logs verbosely, so no need to do that here
-                return;
-            }
-
-            if (networkIdGameObjectCache.ContainsKey(networkId))
-            {
-                throw new Exception("Asked to register " + gameObject.name + " as a networked game object, but we already have a game object with network id " + networkId + "!");
-            }
-
-            VerboseLog("Registering new networked game object " + gameObject.name + " with network id " + networkId);
-
-            networkIdGameObjectCache[networkId] = gameObject;
-        }
-
-        public void ReplaceObjectWithNetworkId(byte networkId, GameObject gameObject)
-        {
-            VerboseLog("Replacing game object with networkId " + networkId + " to now be " + gameObject.name);
-
-            RollbackNetworkId(networkId);
-
-            if (!gameObject.TryGetComponent(out NetworkId networkIdComponent))
-            {
-                throw new Exception("Game object passed to request a network id doesn't have that component on it.");
-            }
-
-            networkIdComponent.networkId = networkId;
-            networkIdGameObjectCache[networkId] = gameObject;
-        }
-
-        public byte RequestNetworkId()
-        {
-            // Yes, this means that 0 can't be used, but that's ok - we need it as a flag to mean "hasn't been assigned one yet"
-            for( byte i = 1; i < 255; i++)
-            {
-                if(!networkIdGameObjectCache.ContainsKey(i))
-                {
-                    return i;
-                }
-            }
-
-            throw new Exception("Out of network ids!");
-        }
-
-        private byte RequestAndApplyNetworkId(GameObject gameObject)
-        {
-            if (!gameObject.TryGetComponent(out NetworkId networkId))
-            {
-                throw new Exception("Game object passed to request a network id doesn't have that component on it.");
-            }
-
-            byte newNetworkId = RequestNetworkId();
-
-            VerboseLog("Assigning network id " + newNetworkId + " to " + gameObject.name);
-
-            networkId.networkId = newNetworkId;
-            networkIdGameObjectCache[newNetworkId] = gameObject;
-
-            return newNetworkId;
-        }
-
-        private List<Rigidbody> GetNetworkedRigidbodies()
-        {
-            List<Rigidbody> rigidbodies = new();
-            foreach(GameObject gameObject in networkIdGameObjectCache.Values)
-            {
-                if (!gameObject.TryGetComponent(out Rigidbody rigidbody))
-                {
-                    continue;
-                }
-
-                rigidbodies.Add(rigidbody);
-            }
-
-            return rigidbodies;
-        }
-
-        public void RollbackNetworkId(byte networkId)
-        {
-            if( networkIdGameObjectCache.ContainsKey(networkId) == false)
-            {
-                return;
-            }
-            VerboseLog("Rolling back and destroying game object with network id " + networkId);
-
-            Destroy(networkIdGameObjectCache[networkId]);
-            networkIdGameObjectCache.Remove(networkId);
-        }
-
-        private readonly Dictionary<byte, GameObject> networkIdGameObjectCache = new();
-
-        // TODO: network id management seems separable from this primary object
-
-        #endregion Network ID management
-
         #region Initialization code
 
         public void StartNetworkStateManager(Type gameStateType, Type playerInputType, Type gameEventType)
@@ -478,23 +348,46 @@ namespace NSM
             TypeStore.Instance.GameEventType = gameEventType;
 
             SetupInitialNetworkIds();
-            isRunning = true;
             stateBuffer = new StateBuffer();
+
+            isRunning = false;
+            isReplaying = false;
+            lastAuthoritativeTick = 0;
+            gameTick = 0;
+            realGameTick = 0;
+
+            if (!NetworkManager.IsHost)
+            {
+                return;
+            }
+
+            // Server-only from here down
+            isRunning = true;
+
+            // If we don't explicitly seed UnityEngine.Random, then it won't have a reproducible state until after
+            // the first random number is requested of it.
+            UnityEngine.Random.InitState(new System.Random().Next(int.MinValue, int.MaxValue));
 
             // Capture the initial game state
             StateFrameDTO newFrame = new()
             {
-                gameTick = 0
+                gameTick = 0,
             };
+            newFrame.randomState.State = UnityEngine.Random.state;
             GetGameState(ref newFrame.gameState);
             newFrame.PhysicsState = new PhysicsStateDTO();
             newFrame.PhysicsState.TakeSnapshot(GetNetworkedRigidbodies());
 
             stateBuffer[0] = newFrame;
+
+            // Ensure clients are starting from the same view of the world
+            StartGameClientRpc(stateBuffer[0]);
         }
 
         private void Awake()
         {
+            isRunning = false;
+
             // In order for NSM to work, we'll need to fully control physics (Muahahaha)
             Physics.simulationMode = SimulationMode.Script;
         }
@@ -514,7 +407,7 @@ namespace NSM
 
             // TODO: [bug] if a game object is at the root level, it won't be found by this and won't get a network id
 
-            networkIdGameObjectCache.Clear();
+            networkIdManager.Reset();
             List<GameObject> gameObjects = gameObject.scene.GetRootGameObjects().ToList();
             gameObjects.Sort((a, b) => a.transform.GetSiblingIndex() - b.transform.GetSiblingIndex());
             foreach (GameObject gameObject in gameObjects)
@@ -525,12 +418,13 @@ namespace NSM
 
         private void SetupNetworkIdsForChildren(Transform node)
         {
+            
             for (int i = 0; i < node.childCount; i++)
             {
                 Transform child = node.GetChild(i);
                 if (child.gameObject.TryGetComponent(out NetworkId _))
                 {
-                    RequestAndApplyNetworkId(child.gameObject);
+                    networkIdManager.RegisterGameObject(child.gameObject);
                 }
 
                 if (child.childCount > 0)
@@ -748,6 +642,7 @@ namespace NSM
 
             // Apply the new "now" server state
             ApplyPhysicsState(serverGameState.PhysicsState);
+            UnityEngine.Random.state = serverGameState.randomState.State;
             ApplyState(serverGameState.gameState);
             ApplyInputs(serverGameState.PlayerInputs);
             ApplyEvents(serverGameState.Events);
@@ -770,6 +665,27 @@ namespace NSM
             stateBuffer[serverTimeTick] = stateFrame;
 
             ScheduleStateReplay(serverTimeTick);
+        }
+
+        [ClientRpc]
+        private void StartGameClientRpc(StateFrameDTO serverGameState)
+        {
+            if (NetworkManager.IsHost)
+            {
+                return;
+            }
+
+            VerboseLog("Initial game state received from server");
+
+            // Store the state
+            stateBuffer[0] = serverGameState;
+
+            // Set our 'now' to (server tick + estimated lag)
+            lastAuthoritativeTick = 0;
+
+            // Start things off!
+            isRunning = true;
+            ScheduleStateReplay(0);
         }
 
         [ClientRpc]
@@ -813,6 +729,8 @@ namespace NSM
             lastAuthoritativeTick = serverGameState.gameTick;
             stateBuffer[serverGameState.gameTick] = serverGameState;
 
+            // TODO: if we're fast-forwarding here, do we need to run any scheduled events that we know about between then and now?
+
             // Set our 'now' to (server tick + estimated lag)
             int framesOfLag = NetworkManager.LocalTime.Tick - NetworkManager.ServerTime.Tick;
             realGameTick = serverGameState.gameTick + framesOfLag;
@@ -839,7 +757,7 @@ namespace NSM
             foreach (KeyValuePair<byte, RigidBodyStateDTO> item in physicsState.RigidBodyStates)
             {
                 GameObject gameObject;
-                gameObject = GetGameObjectByNetworkId(item.Value.networkId);
+                gameObject = networkIdManager.GetGameObjectByNetworkId(item.Value.networkId);
                 if (gameObject == null || gameObject.activeInHierarchy == false)
                 {
                     // This object no longer exists in the scene
@@ -897,10 +815,10 @@ namespace NSM
                     StateFrameDTO frameZero = stateBuffer[0];
 
                     ApplyPhysicsState(frameZero.PhysicsState);
+                    UnityEngine.Random.state = frameZero.randomState.State;
                     ApplyState(frameZero.gameState);
                     ApplyInputs(frameZero.PlayerInputs);
                     ApplyEvents(frameZero.Events);
-
                     tick++;
                     continue;
                 }
@@ -966,6 +884,7 @@ namespace NSM
 
             ApplyInputs(previousFrame.PlayerInputs);
             ApplyPhysicsState(previousFrame.PhysicsState);
+            UnityEngine.Random.state = previousFrame.randomState.State;
             ApplyState(previousFrame.gameState);
 
             // Replay history until we're back to 'now'
@@ -1048,6 +967,22 @@ namespace NSM
             Physics.Simulate(Time.fixedDeltaTime);
         }
 
+        private List<Rigidbody> GetNetworkedRigidbodies()
+        {
+            List<Rigidbody> rigidbodies = new();
+            foreach (GameObject gameObject in networkIdManager.GetAllNetworkIdGameObjects())
+            {
+                if (!gameObject.TryGetComponent(out Rigidbody rigidbody))
+                {
+                    continue;
+                }
+
+                rigidbodies.Add(rigidbody);
+            }
+
+            return rigidbodies;
+        }
+
         #endregion Core simulation functionality
 
         private void FixedUpdate()
@@ -1075,6 +1010,7 @@ namespace NSM
         private void VerboseLog(string message)
         {
 #if UNITY_EDITOR
+            // TODO: abstract this into its own thing, use everywhere
             if (!verboseLogging)
             {
                 return;
