@@ -21,19 +21,19 @@ namespace NSM
 
         public List<IGameEvent> Events
         {
-            get => _events ?? new List<IGameEvent>();
+            get => _events ??= new List<IGameEvent>();
             set => _events = value;
         }
 
         public PhysicsStateDTO PhysicsState
         {
-            get => _physicsState ?? new PhysicsStateDTO();
+            get => _physicsState ??= new PhysicsStateDTO();
             set => _physicsState = value;
         }
 
         public Dictionary<byte, IPlayerInput> PlayerInputs
         {
-            get => _playerInputs ?? new Dictionary<byte, IPlayerInput>();
+            get => _playerInputs ??= new Dictionary<byte, IPlayerInput>();
             set => _playerInputs = value;
         }
 

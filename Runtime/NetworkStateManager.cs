@@ -366,14 +366,14 @@ namespace NSM
 
             // If we don't explicitly seed UnityEngine.Random, then it won't have a reproducible state until after
             // the first random number is requested of it.
-            UnityEngine.Random.InitState(new System.Random().Next(int.MinValue, int.MaxValue));
+            Random.InitState(new System.Random().Next(int.MinValue, int.MaxValue));
 
             // Capture the initial game state
             StateFrameDTO newFrame = new()
             {
                 gameTick = 0,
             };
-            newFrame.randomState.State = UnityEngine.Random.state;
+            newFrame.randomState.State = Random.state;
             GetGameState(ref newFrame.gameState);
             newFrame.PhysicsState = new PhysicsStateDTO();
             newFrame.PhysicsState.TakeSnapshot(GetNetworkedRigidbodies());
@@ -621,38 +621,6 @@ namespace NSM
             ScheduleStateReplay(clientTimeTick);
         }
 
-        private void ResetNowToServerState(StateFrameDTO serverGameState)
-        {
-            // Advance a number of frames equal to the estimated lag from the server,
-            // to get us approximately back in sync
-            int framesOfLag = NetworkManager.LocalTime.Tick - NetworkManager.ServerTime.Tick;
-            if (framesOfLag < 0)
-            {
-                throw new Exception("We are somehow ahead of the server, but this should never ever be the case.");
-            }
-
-            VerboseLog("Resetting 'now' to match server state.  Server says it's currently " + serverGameState.gameTick + ", but we'll account for " + framesOfLag + " frames of lag when replaying");
-
-            // The server's timestamp may be in the future, in which case we'll want to
-            // play any events we're aware of from then 'til now
-            for (int i = realGameTick + 1; i <= serverGameState.gameTick; i++)
-            {
-                ApplyEvents(stateBuffer[i].Events);
-            }
-
-            // Apply the new "now" server state
-            ApplyPhysicsState(serverGameState.PhysicsState);
-            UnityEngine.Random.state = serverGameState.randomState.State;
-            ApplyState(serverGameState.gameState);
-            ApplyInputs(serverGameState.PlayerInputs);
-            ApplyEvents(serverGameState.Events);
-
-            stateBuffer[serverGameState.gameTick] = serverGameState;
-
-            realGameTick = serverGameState.gameTick + framesOfLag;
-            ScheduleStateReplay(serverGameState.gameTick);
-        }
-
         [ClientRpc]
         private void SendGameEventToClientsClientRpc(int serverTimeTick, GameEventDTO gameEventDTO)
         {
@@ -815,7 +783,7 @@ namespace NSM
                     StateFrameDTO frameZero = stateBuffer[0];
 
                     ApplyPhysicsState(frameZero.PhysicsState);
-                    UnityEngine.Random.state = frameZero.randomState.State;
+                    Random.state = frameZero.randomState.State;
                     ApplyState(frameZero.gameState);
                     ApplyInputs(frameZero.PlayerInputs);
                     ApplyEvents(frameZero.Events);
@@ -884,7 +852,7 @@ namespace NSM
 
             ApplyInputs(previousFrame.PlayerInputs);
             ApplyPhysicsState(previousFrame.PhysicsState);
-            UnityEngine.Random.state = previousFrame.randomState.State;
+            Random.state = previousFrame.randomState.State;
             ApplyState(previousFrame.gameState);
 
             // Replay history until we're back to 'now'
@@ -922,6 +890,7 @@ namespace NSM
             PostPhysicsFrameUpdate();
 
             // Capture the state from the scene/game
+            newFrame.randomState.State = Random.state;
             GetGameState(ref newFrame.gameState);
             newFrame.PhysicsState.TakeSnapshot(GetNetworkedRigidbodies());
 
