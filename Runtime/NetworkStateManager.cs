@@ -204,7 +204,7 @@ namespace NSM
         /// See also: <br/>
         /// <seealso cref="OnPostPhysicsFrameUpdateDelegateHandler"/>
         /// </summary>
-        public event OnPrePhysicsFrameUpdateDelegateHandler OnPostPhysicsFrameUpdate;
+        public event OnPostPhysicsFrameUpdateDelegateHandler OnPostPhysicsFrameUpdate;
 
         /// <summary>
         /// This event fires each frame, before the physics engine is run for this
