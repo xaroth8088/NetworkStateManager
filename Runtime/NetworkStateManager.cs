@@ -870,8 +870,6 @@ namespace NSM
 
             // Simulate the frame
             ApplyInputs(playerInputs);
-            ApplyEvents(events);
-
             Physics.SyncTransforms();
             PrePhysicsFrameUpdate();
             SimulatePhysics();
@@ -881,6 +879,9 @@ namespace NSM
             newFrame.randomState.State = Random.state;
             GetGameState(ref newFrame.gameState);
             newFrame.PhysicsState.TakeSnapshot(GetNetworkedRigidbodies());
+
+            // Events come last
+            ApplyEvents(events);
 
             return newFrame;
         }
