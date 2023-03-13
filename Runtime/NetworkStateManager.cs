@@ -287,8 +287,6 @@ namespace NSM
 
         private void PrePhysicsFrameUpdate()
         {
-            VerboseLog("Random test: " + Random.Range(1, 100));
-
             VerboseLog("Running pre-physics frame update");
             OnPrePhysicsFrameUpdate?.Invoke();
         }

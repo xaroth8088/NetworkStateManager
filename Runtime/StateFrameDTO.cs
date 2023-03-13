@@ -2,12 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Netcode;
+using Random = UnityEngine.Random;
 
 namespace NSM
 {
     public struct SerializableRandomState : INetworkSerializeByMemcpy
     {
-        public UnityEngine.Random.State State;
+        public Random.State State;
     }
 
     public struct StateFrameDTO : INetworkSerializable
@@ -40,6 +41,7 @@ namespace NSM
         public void ApplyDelta(StateFrameDTO deltaState)
         {
             gameTick = deltaState.gameTick;
+            randomState = deltaState.randomState;
             gameState = (IGameState)deltaState.gameState.Clone();
 
             PhysicsState.ApplyDelta(deltaState.PhysicsState);
@@ -91,6 +93,7 @@ namespace NSM
             }
 
             deltaState.Events = newerState.Events;
+            deltaState.randomState = newerState.randomState;
 
             // TODO: reduce the size of this state object by asking it to generate a delta or something else clever with the serialized form
             deltaState.gameState = (IGameState)newerState.gameState.Clone();
