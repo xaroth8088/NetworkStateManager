@@ -14,35 +14,27 @@ namespace NSM
         public Vector3 velocity;
 
         // TODO: we probably need to track the body's active/inactive state (beyond just sleeping)
-        public RigidBodyStateDTO(Rigidbody _rigidbody)
+        public RigidBodyStateDTO(Rigidbody rigidbody)
         {
-            position = _rigidbody.transform.position;
-            rotation = _rigidbody.transform.rotation;
-            velocity = _rigidbody.velocity;
-            angularVelocity = _rigidbody.angularVelocity;
-            isSleeping = _rigidbody.IsSleeping();
+            position = rigidbody.gameObject.transform.position;
+            rotation = rigidbody.gameObject.transform.rotation;
+            velocity = rigidbody.velocity;
+            angularVelocity = rigidbody.angularVelocity;
+            isSleeping = rigidbody.IsSleeping();
 
             try
             {
-                networkId = _rigidbody.gameObject.GetComponent<NetworkId>().networkId;
+                networkId = rigidbody.gameObject.GetComponent<NetworkId>().networkId;
             }
             catch
             {
-                Debug.LogError("Found a rigidbody that doesn't have a NetworkId: " + _rigidbody.gameObject);
+                Debug.LogError("Found a rigidbody that doesn't have a NetworkId: " + rigidbody.gameObject);
                 networkId = 0;
             }
         }
 
         public void ApplyState(Rigidbody rigidbody)
         {
-            rigidbody.transform.SetPositionAndRotation(position, rotation);
-
-            if (rigidbody.isKinematic == false)
-            {
-                rigidbody.velocity = velocity;
-                rigidbody.angularVelocity = angularVelocity;
-            }
-
             if (isSleeping)
             {
                 rigidbody.Sleep();
@@ -50,6 +42,14 @@ namespace NSM
             else
             {
                 rigidbody.WakeUp();
+            }
+
+            rigidbody.gameObject.transform.SetPositionAndRotation(position, rotation);
+
+            if (rigidbody.isKinematic == false)
+            {
+                rigidbody.velocity = velocity;
+                rigidbody.angularVelocity = angularVelocity;
             }
         }
 

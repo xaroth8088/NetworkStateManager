@@ -40,7 +40,7 @@ namespace NSM
         public void ApplyDelta(StateFrameDTO deltaState)
         {
             gameTick = deltaState.gameTick;
-            gameState = deltaState.gameState;
+            gameState = (IGameState)deltaState.gameState.Clone();
 
             PhysicsState.ApplyDelta(deltaState.PhysicsState);
 
@@ -54,15 +54,17 @@ namespace NSM
 
         public StateFrameDTO Duplicate()
         {
+            // TODO: use ICloneable or a copy constructor instead, maybe?
             // TODO: change all mutable collections inside this struct (and its children) to instead use immutable versions,
             //       so that we don't need to do this (and can avoid other sneaky bugs down the line)
-            StateFrameDTO newFrame = new();
-
-            newFrame.gameTick = gameTick;
-            newFrame.gameState = gameState;
-            newFrame.PhysicsState = PhysicsState;
-            newFrame.PlayerInputs = new Dictionary<byte, IPlayerInput>(PlayerInputs);
-            newFrame.Events = new List<IGameEvent>(Events);
+            StateFrameDTO newFrame = new()
+            {
+                gameTick = gameTick,
+                gameState = (IGameState)gameState.Clone(),
+                PhysicsState = PhysicsState,
+                PlayerInputs = new Dictionary<byte, IPlayerInput>(PlayerInputs),
+                Events = new List<IGameEvent>(Events)
+            };
 
             return newFrame;
         }
@@ -88,10 +90,10 @@ namespace NSM
                 deltaState._playerInputs[entry.Key] = entry.Value;
             }
 
-            deltaState.Events = Events;
+            deltaState.Events = newerState.Events;
 
             // TODO: reduce the size of this state object by asking it to generate a delta or something else clever with the serialized form
-            deltaState.gameState = gameState;
+            deltaState.gameState = (IGameState)newerState.gameState.Clone();
 
             return deltaState;
         }

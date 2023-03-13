@@ -287,6 +287,8 @@ namespace NSM
 
         private void PrePhysicsFrameUpdate()
         {
+            VerboseLog("Random test: " + Random.Range(1, 100));
+
             VerboseLog("Running pre-physics frame update");
             OnPrePhysicsFrameUpdate?.Invoke();
         }
@@ -326,11 +328,10 @@ namespace NSM
             VerboseLog("Game event scheduled for tick " + tick);
 
             // Let everyone know that an event is happening
-            GameEventDTO gameEventDTO = new()
+            SendGameEventToClientsClientRpc(tick, new GameEventDTO
             {
                 gameEvent = gameEvent
-            };
-            SendGameEventToClientsClientRpc(tick, gameEventDTO);
+            });
         }
 
         #endregion Public Interface
@@ -480,7 +481,7 @@ namespace NSM
             stateBuffer[realGameTick] = RunSingleGameFrame(realGameTick, playerInputs, stateBuffer[realGameTick].Events);
 
             // (Maybe) send the new state to the clients for reconciliation
-            if ((int)realGameTick % sendStateEveryNFrames == 0)
+            if (realGameTick % sendStateEveryNFrames == 0)
             {
                 VerboseLog("Sending delta - base frame comes from tick " + (realGameTick - sendStateEveryNFrames));
 
@@ -626,11 +627,7 @@ namespace NSM
         {
             VerboseLog("Received and scheduling game event for tick " + serverTimeTick);
 
-            // NOTE: don't try to code golf this one - assigning to stateBuffer[serverTimeTick].Events will throw a compiler warning,
-            // but trying to .Add() to the Events array directly somehow won't.
-            StateFrameDTO stateFrame = stateBuffer[serverTimeTick];
-            stateFrame.Events = stateFrame.Events.Append(gameEventDTO.gameEvent).ToList();
-            stateBuffer[serverTimeTick] = stateFrame;
+            stateBuffer[serverTimeTick].Events.Add(gameEventDTO.gameEvent);
 
             ScheduleStateReplay(serverTimeTick);
         }
@@ -722,11 +719,10 @@ namespace NSM
             }
 
             // Set each object into the world
-            foreach (KeyValuePair<byte, RigidBodyStateDTO> item in physicsState.RigidBodyStates)
+            foreach ((byte networkId, RigidBodyStateDTO rigidBodyState) in physicsState.RigidBodyStates)
             {
-                GameObject gameObject;
-                gameObject = networkIdManager.GetGameObjectByNetworkId(item.Value.networkId);
-                if (gameObject == null || gameObject.activeInHierarchy == false)
+                GameObject networkedGameObject = networkIdManager.GetGameObjectByNetworkId(networkId);
+                if (networkedGameObject == null || networkedGameObject.activeInHierarchy == false)
                 {
                     // This object no longer exists in the scene
                     Debug.LogError("Attempted to restore state to a GameObject that no longer exists");
@@ -734,7 +730,7 @@ namespace NSM
                     continue;
                 }
 
-                item.Value.ApplyState(gameObject.GetComponentInChildren<Rigidbody>());
+                rigidBodyState.ApplyState(networkedGameObject.GetComponentInChildren<Rigidbody>());
             }
         }
 
@@ -839,25 +835,19 @@ namespace NSM
                 RollbackEvents(stateBuffer[tick].Events);
             }
 
-            // Set the state to what it was at the end of the frame just before the one we want to replay from
-            int previousTick = frameToActuallyReplayFrom - 1;
-            if (previousTick < 0)
-            {
-                // Guard against underflow by assuming that all frames before frame 1 are the same as frame 0
-                previousTick = 0;
-            }
+            // Set the state to the requested frame
+            VerboseLog("Resetting state to start of tick " + frameToActuallyReplayFrom);
+            StateFrameDTO frameToReplayFrom = stateBuffer[frameToActuallyReplayFrom];
 
-            VerboseLog("Resetting state to end of tick " + previousTick);
-            StateFrameDTO previousFrame = stateBuffer[previousTick];
-
-            ApplyInputs(previousFrame.PlayerInputs);
-            ApplyPhysicsState(previousFrame.PhysicsState);
-            Random.state = previousFrame.randomState.State;
-            ApplyState(previousFrame.gameState);
+            ApplyInputs(frameToReplayFrom.PlayerInputs);
+            ApplyPhysicsState(frameToReplayFrom.PhysicsState);
+            Random.state = frameToReplayFrom.randomState.State;
+            ApplyState(frameToReplayFrom.gameState);
+            ApplyEvents(frameToReplayFrom.Events);
 
             // Replay history until we're back to 'now'
             isReplaying = true;
-            ReplayHistoryFromTick(frameToActuallyReplayFrom);
+            ReplayHistoryFromTick(frameToActuallyReplayFrom + 1);
 
             // Reset to "nothing scheduled"
             replayFromTick = -1;
