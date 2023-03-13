@@ -389,6 +389,7 @@ namespace NSM
 
             // In order for NSM to work, we'll need to fully control physics (Muahahaha)
             Physics.simulationMode = SimulationMode.Script;
+            Physics.autoSyncTransforms = false;
         }
 
         private void SetupInitialNetworkIds()

@@ -37,8 +37,6 @@ namespace NSM
                         }
                     }
 
-                    Debug.Log("Found previous frame to copy at " + prevIndex + ", copying into frame " + i);
-
                     stateBuffer[i] = stateBuffer[prevIndex].Duplicate();
                     stateBuffer[i].Events.Clear();
                 }
