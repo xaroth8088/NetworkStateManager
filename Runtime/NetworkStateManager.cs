@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Netcode;
@@ -36,12 +35,15 @@ namespace NSM
 
         [Header("Debug - Rollback")]
         public bool debugRollback = false;
+
         public uint debugRollbackEveryNFrames = 4;
         public uint debugNumFramesToRollback = 8;
+        public bool debugRandomizeNumFramesToRollback = false;
 
         #endregion NetworkStateManager configuration
 
         #region Runtime state
+
         [Header("Runtime state")]
         private int realGameTick = 0;   // This is the internal game tick, which keeps track of "now"
 
@@ -218,8 +220,8 @@ namespace NSM
         private void ApplyEvents(List<IGameEvent> events)
         {
             int count = events.Count;
-            
-            if(count == 0)
+
+            if (count == 0)
             {
                 return;
             }
@@ -418,7 +420,6 @@ namespace NSM
 
         private void SetupNetworkIdsForChildren(Transform node)
         {
-            
             for (int i = 0; i < node.childCount; i++)
             {
                 Transform child = node.GetChild(i);
@@ -442,8 +443,15 @@ namespace NSM
         {
             if (debugRollback == true && realGameTick % debugRollbackEveryNFrames == 0 && realGameTick >= debugNumFramesToRollback)
             {
-                VerboseLog("DEBUG: rolling back " + debugNumFramesToRollback + " frames");
-                ScheduleStateReplay((int)(realGameTick - debugNumFramesToRollback));
+                uint framesToRollback = debugNumFramesToRollback;
+                if (debugRandomizeNumFramesToRollback)
+                {
+                    // Use System.Random so that we don't interfere with Unity's Random and the playback we do there
+                    System.Random rand = new();
+                    framesToRollback = (uint)rand.Next((int)debugNumFramesToRollback);
+                }
+                VerboseLog("DEBUG: rolling back " + framesToRollback + " frames");
+                ScheduleStateReplay((int)(realGameTick - framesToRollback));
             }
 
             RunScheduledStateReplay();
@@ -671,7 +679,7 @@ namespace NSM
             VerboseLog("Server state received.  Server time:" + serverGameStateDelta.gameTick);
 
             // Did the state arrive out of order?  If so, panic.
-            if ( serverGameStateDelta.gameTick != lastAuthoritativeTick + sendStateEveryNFrames)
+            if (serverGameStateDelta.gameTick != lastAuthoritativeTick + sendStateEveryNFrames)
             {
                 // TODO: decide what to do about this case, since we need that prior frame in order to properly apply the delta
                 // Probably, make an RPC to request a full state sync instead of the delta
