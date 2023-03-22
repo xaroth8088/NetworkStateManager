@@ -38,7 +38,6 @@ namespace NSM
                     }
 
                     stateBuffer[i] = stateBuffer[prevIndex].Duplicate();
-                    stateBuffer[i].Events.Clear();
                 }
 
                 return stateBuffer[i];

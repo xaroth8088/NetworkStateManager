@@ -16,15 +16,8 @@ namespace NSM
         public IGameState gameState;
         public int gameTick;
         public SerializableRandomState randomState;
-        private List<IGameEvent> _events;
         private PhysicsStateDTO _physicsState;
         private Dictionary<byte, IPlayerInput> _playerInputs;
-
-        public List<IGameEvent> Events
-        {
-            get => _events ??= new List<IGameEvent>();
-            set => _events = value;
-        }
 
         public PhysicsStateDTO PhysicsState
         {
@@ -50,8 +43,6 @@ namespace NSM
             {
                 _playerInputs[entry.Key] = entry.Value;
             }
-
-            _events = deltaState.Events;
         }
 
         public StateFrameDTO Duplicate()
@@ -64,8 +55,7 @@ namespace NSM
                 gameTick = gameTick,
                 gameState = (IGameState)gameState.Clone(),
                 PhysicsState = PhysicsState,
-                PlayerInputs = new Dictionary<byte, IPlayerInput>(PlayerInputs),
-                Events = new List<IGameEvent>(Events)
+                PlayerInputs = new Dictionary<byte, IPlayerInput>(PlayerInputs)
             };
 
             return newFrame;
@@ -92,7 +82,6 @@ namespace NSM
                 deltaState._playerInputs[entry.Key] = entry.Value;
             }
 
-            deltaState.Events = newerState.Events;
             deltaState.randomState = newerState.randomState;
 
             // TODO: reduce the size of this state object by asking it to generate a delta or something else clever with the serialized form
@@ -108,8 +97,6 @@ namespace NSM
             // Either way, create default versions of the objects for use in the serialization process.
             _playerInputs ??= new Dictionary<byte, IPlayerInput>();
 
-            _events ??= new List<IGameEvent>();
-
             _physicsState ??= new PhysicsStateDTO();
 
             if (gameState == null)
@@ -122,47 +109,7 @@ namespace NSM
             serializer.SerializeValue(ref gameTick);
             serializer.SerializeValue(ref _physicsState);
             gameState.NetworkSerialize(serializer);
-            SerializeGameEvents<T>(ref _events, serializer);
             SerializePlayerInputs<T>(ref _playerInputs, serializer);
-        }
-
-        private void SerializeGameEvents<T>(ref List<IGameEvent> gameEvents, BufferSerializer<T> serializer)
-            where T : IReaderWriter
-        {
-            if (serializer.IsReader)
-            {
-                // Read the length of the list
-                byte length = 0;
-                serializer.SerializeValue(ref length);
-
-                // Set up our interim storage for the data
-                IGameEvent[] values = new IGameEvent[length];
-
-                // Fill the values array with concrete instances, so we can tell them to serialize later
-                Type gameEventType = TypeStore.Instance.GameEventType;
-                IGameEvent defaultGameEvent = (IGameEvent)Activator.CreateInstance(gameEventType);
-                Array.Fill(values, defaultGameEvent);
-
-                // Read in the values
-                for (byte i = 0; i < length; i++)
-                {
-                    values[i].NetworkSerialize(serializer);
-                }
-
-                _events = values.ToList();
-            }
-            else if (serializer.IsWriter)
-            {
-                // Write the length of the list
-                byte length = (byte)gameEvents.Count;
-                serializer.SerializeValue(ref length);
-
-                // Write the data
-                foreach (IGameEvent gameEvent in gameEvents)
-                {
-                    gameEvent.NetworkSerialize(serializer);
-                }
-            }
         }
 
         private void SerializePlayerInputs<T>(ref Dictionary<byte, IPlayerInput> playerInputs, BufferSerializer<T> serializer)

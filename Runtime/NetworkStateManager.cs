@@ -52,6 +52,9 @@ namespace NSM
         public bool isReplaying = false;
         public int lastAuthoritativeTick = 0;
         public StateBuffer stateBuffer;
+        public GameEventsBuffer gameEventsBuffer; // TODO: some sort of configurable amount of events into the past that we'll hang onto (for clients to be able to undo during replay) so that we're not trying to sync the entire history of all events each time
+        private GameEventsBuffer _pendingGameEventsBuffer;
+        private bool _hasPendingGameEventsBuffer = false;
 
         [SerializeField]
         private bool isRunning = false;
@@ -71,7 +74,7 @@ namespace NSM
         /// <seealso cref="OnApplyEvents"/>
         /// </summary>
         /// <param name="events">A list of game events to apply in the current frame.  Remember to cast back to the event type you started NetworkStateManager with!</param>
-        public delegate void ApplyEventsDelegateHandler(List<IGameEvent> events);
+        public delegate void ApplyEventsDelegateHandler(HashSet<IGameEvent> events);
 
         /// <summary>
         /// Delegate declaration for the OnRollbackEvents event.<br/>
@@ -79,7 +82,7 @@ namespace NSM
         /// <seealso cref="OnRollbackEvents"/>
         /// </summary>
         /// <param name="events">A list of game events to roll back.  Remember to cast back to the event type you started NetworkStateManager with!</param>
-        public delegate void RollbackEventsDelegateHandler(List<IGameEvent> events);
+        public delegate void RollbackEventsDelegateHandler(HashSet<IGameEvent> events);
 
         /// <summary>
         /// Delegate declaration for the OnApplyInputs event.<br/>
@@ -217,7 +220,7 @@ namespace NSM
         /// </summary>
         public event OnPrePhysicsFrameUpdateDelegateHandler OnPrePhysicsFrameUpdate;
 
-        private void ApplyEvents(List<IGameEvent> events)
+        private void ApplyEvents(HashSet<IGameEvent> events)
         {
             int count = events.Count;
 
@@ -231,7 +234,7 @@ namespace NSM
             OnApplyEvents?.Invoke(events);
         }
 
-        private void RollbackEvents(List<IGameEvent> events)
+        private void RollbackEvents(HashSet<IGameEvent> events)
         {
             int count = events.Count;
 
@@ -305,33 +308,27 @@ namespace NSM
         /// <param name="tick">The game tick when the event should fire.  Leave empty to fire on the next game tick.</param>
         public void ScheduleGameEvent(IGameEvent gameEvent, int tick = -1)
         {
-            if (!NetworkManager.Singleton.IsHost)
-            {
-                return;
-            }
-
-            if (isReplaying)
-            {
-                return;
-            }
-
             if (tick == -1)
             {
-                tick = realGameTick + 1;
+                tick = gameTick + 1;
             }
 
-            if (tick <= realGameTick)
+            if (tick <= gameTick)
             {
                 Debug.LogWarning("Game event scheduled for the past - will not be replayed on clients");
             }
 
             VerboseLog("Game event scheduled for tick " + tick);
+            gameEventsBuffer[tick].Add(gameEvent);
+
+            if(!IsHost)
+            {
+                return;
+            }
 
             // Let everyone know that an event is happening
-            SendGameEventToClientsClientRpc(tick, new GameEventDTO
-            {
-                gameEvent = gameEvent
-            });
+            // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
+            SyncGameEventsToClientsClientRpc(tick, gameEventsBuffer);
         }
 
         #endregion Public Interface
@@ -349,7 +346,8 @@ namespace NSM
             TypeStore.Instance.GameEventType = gameEventType;
 
             SetupInitialNetworkIds();
-            stateBuffer = new StateBuffer();
+            stateBuffer = new();
+            gameEventsBuffer = new();
 
             isRunning = false;
             isReplaying = false;
@@ -382,6 +380,7 @@ namespace NSM
             stateBuffer[0] = newFrame;
 
             // Ensure clients are starting from the same view of the world
+            // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
             StartGameClientRpc(stateBuffer[0]);
         }
 
@@ -480,12 +479,13 @@ namespace NSM
                     {
                         input = entry.Value
                     };
+                    // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
                     ForwardPlayerInputClientRpc(entry.Key, playerInputDTO, realGameTick);
                 }
             }
 
             // Actually simulate the frame
-            stateBuffer[realGameTick] = RunSingleGameFrame(realGameTick, playerInputs, stateBuffer[realGameTick].Events);
+            stateBuffer[realGameTick] = RunSingleGameFrame(realGameTick, playerInputs, gameEventsBuffer[realGameTick]);
 
             // (Maybe) send the new state to the clients for reconciliation
             if (realGameTick % sendStateEveryNFrames == 0)
@@ -496,7 +496,8 @@ namespace NSM
                 //       state frame is exactly the same (except for the realGameTick, of course).
                 StateFrameDTO delta = stateBuffer[realGameTick - sendStateEveryNFrames].GenerateDelta(stateBuffer[realGameTick]);
 
-                UpdateGameStateClientRpc(delta);
+                // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
+                UpdateGameStateClientRpc(delta, gameEventsBuffer);
             }
         }
 
@@ -533,6 +534,7 @@ namespace NSM
             ScheduleStateReplay(clientTimeTick);
 
             // Forward the input to all clients so they can do the same
+            // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
             ForwardPlayerInputClientRpc(playerId, value, clientTimeTick);
         }
 
@@ -566,7 +568,7 @@ namespace NSM
             // Actually simulate the frame (this is the client-side "prediction" of what'll happen)
             VerboseLog("Normal frame prediction");
 
-            stateBuffer[realGameTick] = RunSingleGameFrame(realGameTick, playerInputs, stateBuffer[realGameTick].Events);
+            stateBuffer[realGameTick] = RunSingleGameFrame(realGameTick, playerInputs, gameEventsBuffer[realGameTick]);
 
             // Send our local inputs to the server, if needed
             // TODO: consolidate these into a single RPC call, instead of sending one per player
@@ -630,19 +632,29 @@ namespace NSM
         }
 
         [ClientRpc]
-        private void SendGameEventToClientsClientRpc(int serverTimeTick, GameEventDTO gameEventDTO)
+        private void SyncGameEventsToClientsClientRpc(int serverTimeTick, GameEventsBuffer newGameEventsBuffer)
         {
-            VerboseLog("Received and scheduling game event for tick " + serverTimeTick);
+            if(IsHost)
+            {
+                return;
+            }
 
-            stateBuffer[serverTimeTick].Events.Add(gameEventDTO.gameEvent);
+            VerboseLog("Updating upcoming game events");
+            ScheduleGameEventsSwap(newGameEventsBuffer);
 
             ScheduleStateReplay(serverTimeTick);
+        }
+
+        private void ScheduleGameEventsSwap(GameEventsBuffer newGameEventsBuffer)
+        {
+            _pendingGameEventsBuffer = newGameEventsBuffer; // TODO: do we need to make a copy of this?  Is there an immutable version we can use instead?
+            _hasPendingGameEventsBuffer = true;
         }
 
         [ClientRpc]
         private void StartGameClientRpc(StateFrameDTO serverGameState)
         {
-            if (NetworkManager.IsHost)
+            if (IsHost)
             {
                 return;
             }
@@ -661,7 +673,7 @@ namespace NSM
         }
 
         [ClientRpc]
-        private void UpdateGameStateClientRpc(StateFrameDTO serverGameStateDelta)
+        private void UpdateGameStateClientRpc(StateFrameDTO serverGameStateDelta, GameEventsBuffer newGameEventsBuffer)
         {
             if (!isRunning)
             {
@@ -693,6 +705,9 @@ namespace NSM
                 Debug.Log("Received server state is greatly out of tolerance.  Client may experience slowdown or jumping.");
             }
 
+            // Schedule the scheduled events swap
+            ScheduleGameEventsSwap(newGameEventsBuffer);
+
             // Reconstitute the state from our delta
             StateFrameDTO serverGameState = stateBuffer[serverGameStateDelta.gameTick - sendStateEveryNFrames].Duplicate();
             serverGameState.ApplyDelta(serverGameStateDelta);
@@ -701,11 +716,26 @@ namespace NSM
             lastAuthoritativeTick = serverGameState.gameTick;
             stateBuffer[serverGameState.gameTick] = serverGameState;
 
-            // TODO: if we're fast-forwarding here, do we need to run any scheduled events that we know about between then and now?
-
             // Set our 'now' to (server tick + estimated lag)
+            // If we're fast-forwarding here, we need to run any scheduled events that we know about between then and now
             int framesOfLag = NetworkManager.LocalTime.Tick - NetworkManager.ServerTime.Tick;
-            realGameTick = serverGameState.gameTick + framesOfLag;
+            int targetTick = serverGameState.gameTick + framesOfLag;
+            if (targetTick > realGameTick)
+            {
+                VerboseLog("We have to fast-forward, so we're running through any missed event triggers");
+
+                // Use the server's accounting of events
+                gameEventsBuffer = _pendingGameEventsBuffer;
+                _hasPendingGameEventsBuffer = false;
+
+                // Play missed events
+                // TODO: because we're not doing a full simulation to get caught up, we may create a problem here
+                for(gameTick = realGameTick; gameTick < targetTick; gameTick++)
+                {
+                    ApplyEvents(gameEventsBuffer[gameTick]);
+                }
+            }
+            realGameTick = targetTick;
 
             // Schedule a replay for (server tick)
             ScheduleStateReplay(serverGameState.gameTick);
@@ -789,13 +819,13 @@ namespace NSM
                     Random.state = frameZero.randomState.State;
                     ApplyState(frameZero.gameState);
                     ApplyInputs(frameZero.PlayerInputs);
-                    ApplyEvents(frameZero.Events);
+                    ApplyEvents(gameEventsBuffer[0]);
                     tick++;
                     continue;
                 }
 
                 // Get the new frame and put it in place
-                StateFrameDTO stateFrame = RunSingleGameFrame(tick, stateBuffer[tick].PlayerInputs, stateBuffer[tick].Events);
+                StateFrameDTO stateFrame = RunSingleGameFrame(tick, stateBuffer[tick].PlayerInputs, gameEventsBuffer[tick]);
                 stateBuffer[tick] = stateFrame;
 
                 tick++;
@@ -805,9 +835,6 @@ namespace NSM
         private void RunScheduledStateReplay()
         {
             VerboseLog("Checking scheduled state replay.  Currently " + replayFromTick);
-            // TODO: it seems like when we roll things back (esp. on the server), any events that were scheduled
-            //       during a replayed frame should _also_ be rolled back.  But then, how to sync those with clients
-            //       again?  What if the events scheduled during the replay don't change?
             if (replayFromTick < 0)
             {
                 return;
@@ -839,7 +866,15 @@ namespace NSM
                 VerboseLog("Undoing events at tick " + tick);
 
                 gameTick = tick;
-                RollbackEvents(stateBuffer[tick].Events);
+                RollbackEvents(gameEventsBuffer[tick]);
+                ApplyState(stateBuffer[gameTick].gameState);
+            }
+
+            // Swap in the new events buffer (if any)
+            if ( _hasPendingGameEventsBuffer)
+            {
+                gameEventsBuffer = _pendingGameEventsBuffer;
+                _hasPendingGameEventsBuffer = false;
             }
 
             // Set the state to the requested frame
@@ -850,7 +885,7 @@ namespace NSM
             ApplyPhysicsState(frameToReplayFrom.PhysicsState);
             Random.state = frameToReplayFrom.randomState.State;
             ApplyState(frameToReplayFrom.gameState);
-            ApplyEvents(frameToReplayFrom.Events);
+            ApplyEvents(gameEventsBuffer[frameToActuallyReplayFrom]);
 
             // Replay history until we're back to 'now'
             isReplaying = true;
@@ -864,7 +899,7 @@ namespace NSM
             VerboseLog("######################### END REPLAY #########################");
         }
 
-        private StateFrameDTO RunSingleGameFrame(int tick, Dictionary<byte, IPlayerInput> playerInputs, List<IGameEvent> events)
+        private StateFrameDTO RunSingleGameFrame(int tick, Dictionary<byte, IPlayerInput> playerInputs, HashSet<IGameEvent> events)
         {
             VerboseLog("Running single frame for tick " + tick);
             gameTick = tick;
@@ -872,7 +907,6 @@ namespace NSM
             StateFrameDTO newFrame = new()
             {
                 PlayerInputs = playerInputs,
-                Events = events,
                 gameTick = tick,
                 PhysicsState = new PhysicsStateDTO()
             };
