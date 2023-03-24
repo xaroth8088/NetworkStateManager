@@ -85,7 +85,7 @@ namespace NSM
             deltaState.randomState = newerState.randomState;
 
             // TODO: reduce the size of this state object by asking it to generate a delta or something else clever with the serialized form
-            deltaState.gameState = (IGameState)newerState.gameState.Clone();
+            deltaState.gameState = (IGameState)newerState.gameState?.Clone();
 
             return deltaState;
         }

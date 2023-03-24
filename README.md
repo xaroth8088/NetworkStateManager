@@ -1,6 +1,6 @@
 # NetworkStateManager
 
-A lightweight framework to add server-authoritative, client-predictive physics to Unity
+A framework to add server-authoritative, client-predictive physics to Unity
 
 ## What does it do?
 
@@ -18,12 +18,14 @@ Leveraging Unity's [Netcode for GameObjects](https://github.com/Unity-Technologi
 // Grab the NetworkStateManager instance
 NetworkStateManager networkStateManager = FindObjectOfType<NetworkStateManager>();
 
-// Attach event handlers for lifecycle events
+// Attach event handlers for lifecycle events (all are technically optional)
 networkStateManager.OnGetGameState += NetworkStateManager_OnGetGameState;
+networkStateManager.OnGetInputs += NetworkStateManager_OnGetInputs;
 networkStateManager.OnPostPhysicsFrameUpdate += NetworkStateManager_OnPostPhysicsFrameUpdate;
 networkStateManager.OnApplyState += NetworkStateManager_OnApplyState;
 networkStateManager.OnApplyInputs += NetworkStateManager_OnApplyInputs;
 networkStateManager.OnApplyEvents += NetworkStateManager_OnApplyEvents;
+networkStateManager.OnRollbackEvents += NetworkStateManager_OnRollbackEvents;
 
 // Tell NetworkStateManager that it's good to start
 networkStateManager.StartNetworkStateManager(typeof(MyGameStateObject), typeof(MyPlayerInputObject), typeof(MyGameEventObject));
@@ -31,11 +33,11 @@ networkStateManager.StartNetworkStateManager(typeof(MyGameStateObject), typeof(M
 
 ### NetworkId
 
-To synchronize a `GameObject` that contains a `RigidBody`, you must add a `NetworkId` component to it.  This will be in addition to Unity for Netcode's `NetworkObject` script.
+To synchronize a `GameObject` that contains a `RigidBody`, you must add a `NetworkId` component to it.  If you're _only_ doing rigidbody synchronization and are using Unity for Netcode's synchronization for other state, this is in addition to that library's `NetworkObject` script.  That said, this configuration is unsupported.  It is strongly recommended that you move all game state into your `IGameState` object, so that NSM can properly manage rollback/replay/prediction/etc.
 
-If you're adding `RigidBody`s at runtime, you'll need to register them with `NetworkStateManager` via the `RegisterNewGameObject()` function in order for the state to be synchronized.
+If you're adding `RigidBody`s at runtime, you'll need to register them with `NetworkStateManager.networkIdManager` via the `RegisterGameObject()` function in order for the state to be synchronized.
 
-Note that there's a fixed pool of 255 network ids available, so trying to synchronize more than 255 physics-based game objects is unsupported.  (And I guarantee your players won't have the network bandwidth required to support that many objects anyway!)
+Note that there's a fixed pool of 255 network ids available, so trying to synchronize more than 255 physics-based game objects is unsupported.
 
 ### State management
 
@@ -82,16 +84,16 @@ Because the `playerId` is set by you, you can even have several players hosted b
 `void OnApplyInputs(Dictionary<byte, IPlayerInput> playerInputs)`
 The keys are the `playerId`s you set during `OnGetInputs`, above.  Take whatever input is present, and apply it to your game state / `GameObject`s as needed.
 
-You'll probably want to cast `playerInputs` back to your own game state object's type before using it.
+You'll want to cast the values back to your own game state object's type before using them.
 
-`void OnApplyEvents(List<IGameEvent> events)`
-Run through the `List` and apply the effects of each event.  Similar to player input, above, you'll probably want to cast the objects inside of `events` appropriately.
+`void OnApplyEvents(HashSet<IGameEvent> events)`
+Run through the collection and apply the effects of each event.  Similar to player input, above, you'll want to cast the objects inside of `events` appropriately.
 
 `void OnPrePhysicsFrameUpdate()`
 Do whatever you'd normally do with your game before the physics engine runs for the frame.
 
 `void OnPostPhysicsFrameUpdate()`
-Do whatever you'd normally do with your game after the physics engine runs for the frame.
+Do whatever you want with your game after the physics engine runs for the frame.  Note that there's no strict equivalent to this in Unity's normal lifecycle, because normally the physics update is the last thing to happen during the frame.
 
 `void OnGetGameState(ref IGameState state)`
 Populate the `state` variable with your game's current state.  The framework will take care of synchronizing `RigidBody` states, but any other game state that exists in your `GameObject`s or other game logic should be captured in this state.
@@ -102,7 +104,10 @@ In order to do client-side prediction, we have to modify history and run simulat
 
 First, the game state is rewound by calling these events:
 `void OnApplyState(IGameState state)`
-Read from the `state` object (after casting to your custom game state object type) and set your game's state accordingly, including anything on `GameObject`s that require it.  This is the only event not described above.
+Read from the `state` object (after casting to your custom game state object type) and set your game's state accordingly, including anything on `GameObject`s that require it.
+
+`void OnRollbackEvents(HashSet<IGameEvent> events)`
+Undo any event handling from a previously fired event.  NOTE: the game state will be set to what it was when the event originally fired, NOT the state immediately after the event originally fired (as might be expected for a strict rewinding of time).  This is specifically done so that you know what data was used to originally trigger the event, which can be helpful for figuring out how to undo any side-effects your event had.
 
 `OnApplyInputs`
 `OnApplyEvents`
@@ -120,7 +125,7 @@ It's probably obvious from looking at this code, but I'm not a Unity or C# devel
 
 Beyond that, there are a TON of `TODO`'s scattered throughout the code.  PR's to remove those alongside new issue filings would be helpful, even if you're not going to implement the functionality yourself.
 
-Also, a simple reference project or three that demonstrate proper usage of this library would be awesome to put into `Samples/`.  While I _am_ using this framework in a private project of my own, having someone else create this demo serves another important purpose: it'll help ferret out issues in the code and documentation that I, as the creator of the framework, simply wouldn't encounter.
+The demo project contained within `Demo Projects~\Hello, NetworkStateManager` could also be made substantially more interesting and educational.
 
 ### `typeof(<your game state object here>)` weirdness when starting up `NetworkStateManager`
 

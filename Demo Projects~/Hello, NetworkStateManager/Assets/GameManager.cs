@@ -1,11 +1,21 @@
 using NSM;
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
+public struct GameEventDTO : IGameEvent
+{
+    public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+    {
+    }
+}
+
 public struct GameStateDTO : IGameState
 {
+    public object Clone()
+    {
+        return new GameStateDTO();
+    }
+
     public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
     {
     }
@@ -23,18 +33,11 @@ public struct PlayerInputDTO : IPlayerInput
     }
 }
 
-public struct GameEventDTO : IGameEvent
-{
-    public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
-    {
-    }
-}
-
 public class GameManager : MonoBehaviour
 {
-    NetworkStateManager networkStateManager;
+    private NetworkStateManager networkStateManager;
 
-    void Start()
+    private void Start()
     {
         NetworkManager.Singleton.StartHost();
 
@@ -45,11 +48,5 @@ public class GameManager : MonoBehaviour
 
         // Start up the game engine
         networkStateManager.StartNetworkStateManager(typeof(GameStateDTO), typeof(PlayerInputDTO), typeof(GameEventDTO));
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
     }
 }

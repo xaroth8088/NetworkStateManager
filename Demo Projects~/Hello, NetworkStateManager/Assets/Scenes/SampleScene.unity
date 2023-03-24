@@ -2072,9 +2072,10 @@ MonoBehaviour:
   maxPastTolerance: 5
   sendStateEveryNFrames: 10
   verboseLogging: 1
-  debugRollback: 0
+  debugRollback: 1
   debugRollbackEveryNFrames: 4
   debugNumFramesToRollback: 10
+  debugRandomizeNumFramesToRollback: 1
   gameTick: 0
   isReplaying: 0
   lastAuthoritativeTick: 0

@@ -146,6 +146,10 @@ namespace NSM
         /// spawning new game objects, etc.) will need to be reversed in order to ensure
         /// a consistent state once everything's said and done.
         /// <br/>
+        /// NOTE: The game state will be restored to the state just before the event originally
+        /// fired, NOT the game state immediately after the event fired (as would be the case
+        /// for a strict rewinding of time).  This way, your rollback handler has access to the
+        /// state that originally triggered the event.
         /// See also: <br/>
         /// <seealso cref="RollbackEventsDelegateHandler"/> and
         /// <seealso cref="StateFrameDTO"/>
