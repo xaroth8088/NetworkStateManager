@@ -90,10 +90,10 @@ You'll want to cast the values back to your own game state object's type before 
 Run through the collection and apply the effects of each event.  Similar to player input, above, you'll want to cast the objects inside of `events` appropriately.
 
 `void OnPrePhysicsFrameUpdate()`
-Do whatever you'd normally do with your game before the physics engine runs for the frame.
+Do whatever you'd normally do with your game before the physics engine runs for the frame.  This is the equivalent of `FixedUpdate()`.
 
 `void OnPostPhysicsFrameUpdate()`
-Do whatever you want with your game after the physics engine runs for the frame.  Note that there's no strict equivalent to this in Unity's normal lifecycle, because normally the physics update is the last thing to happen during the frame.
+Do whatever you want with your game after the physics engine runs for the frame.  This has no direct analog to a Unity lifecycle event because Unity "ends" the frame processing after physics runs, though the closest conceptually would be an `Update()` that's guaranteed to only be called once between `FixedUpdate()`s.
 
 `void OnGetGameState(ref IGameState state)`
 Populate the `state` variable with your game's current state.  The framework will take care of synchronizing `RigidBody` states, but any other game state that exists in your `GameObject`s or other game logic should be captured in this state.
