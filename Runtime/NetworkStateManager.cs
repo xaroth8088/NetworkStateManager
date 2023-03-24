@@ -712,10 +712,6 @@ namespace NSM
             StateFrameDTO serverGameState = stateBuffer[serverGameStateDelta.gameTick - sendStateEveryNFrames].Duplicate();
             serverGameState.ApplyDelta(serverGameStateDelta);
 
-            // Apply the delta to our history at the server's timestamp
-            lastAuthoritativeTick = serverGameState.gameTick;
-            stateBuffer[serverGameState.gameTick] = serverGameState;
-
             // Set our 'now' to (server tick + estimated lag)
             // If we're fast-forwarding here, we need to run any scheduled events that we know about between then and now
             int framesOfLag = NetworkManager.LocalTime.Tick - NetworkManager.ServerTime.Tick;
@@ -728,14 +724,23 @@ namespace NSM
                 gameEventsBuffer = _pendingGameEventsBuffer;
                 _hasPendingGameEventsBuffer = false;
 
-                // Play missed events
-                // TODO: because we're not doing a full simulation to get caught up, we may create a problem here
+                // Get caught up to the new now
                 for(gameTick = realGameTick; gameTick < targetTick; gameTick++)
                 {
+                    // To save on simulation costs, just copy the state forward
+                    // TODO: because we're not doing a full simulation to get caught up, we may create a problem here
+                    stateBuffer[gameTick] = stateBuffer[gameTick - 1];
+                    ApplyState(stateBuffer[gameTick].gameState);
+
+                    // Play missed events
                     ApplyEvents(gameEventsBuffer[gameTick]);
                 }
             }
             realGameTick = targetTick;
+
+            // Apply the delta to our history at the server's timestamp
+            lastAuthoritativeTick = serverGameState.gameTick;
+            stateBuffer[serverGameState.gameTick] = serverGameState;
 
             // Schedule a replay for (server tick)
             ScheduleStateReplay(serverGameState.gameTick);
@@ -866,8 +871,8 @@ namespace NSM
                 VerboseLog("Undoing events at tick " + tick);
 
                 gameTick = tick;
-                RollbackEvents(gameEventsBuffer[tick]);
                 ApplyState(stateBuffer[gameTick].gameState);
+                RollbackEvents(gameEventsBuffer[tick]);
             }
 
             // Swap in the new events buffer (if any)

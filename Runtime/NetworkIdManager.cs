@@ -72,7 +72,8 @@ namespace NSM
 
             if (!reservedNetworkIds[networkId])
             {
-                throw new Exception("Tried to release network ID " + networkId + ", but this is not a registered network ID");
+                Debug.LogWarning("Tried to release network ID " + networkId + ", but this is not a registered network ID.  This may happen during rollback scenarios.");
+                return;
             }
 
             reservedNetworkIds[networkId] = false;
