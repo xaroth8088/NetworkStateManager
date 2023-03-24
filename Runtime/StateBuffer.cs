@@ -23,7 +23,21 @@ namespace NSM
 
                 if (!stateBuffer.ContainsKey(i))
                 {
-                    stateBuffer[i] = new StateFrameDTO();
+                    // Our best guess as to what this frame's data should be is what the previous frame's data was, minus any scheduled events.
+                    // So, find the next earliest frame that has data, and copy it to here.
+
+                    // TODO: keep track of the most recent frame we've received, so that we can create a blank state for any request for a frame that happens after that
+
+                    int prevIndex;
+                    for (prevIndex = i; prevIndex >= 0; prevIndex--)
+                    {
+                        if (stateBuffer.ContainsKey(prevIndex))
+                        {
+                            break;
+                        }
+                    }
+
+                    stateBuffer[i] = stateBuffer[prevIndex].Duplicate();
                 }
 
                 return stateBuffer[i];

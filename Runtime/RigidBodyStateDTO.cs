@@ -6,67 +6,50 @@ namespace NSM
 {
     public struct RigidBodyStateDTO : INetworkSerializable, IEquatable<RigidBodyStateDTO>
     {
+        public Vector3 angularVelocity;
+        public bool isSleeping;
+        public byte networkId;
         public Vector3 position;
         public Quaternion rotation;
         public Vector3 velocity;
-        public Vector3 angularVelocity;
-        public byte networkId;
 
-        // TODO: we probably need to track the body's active/inactive state
-        public RigidBodyStateDTO(Rigidbody _rigidbody)
+        // TODO: we probably need to track the body's active/inactive state (beyond just sleeping)
+        public RigidBodyStateDTO(Rigidbody rigidbody)
         {
-            position = _rigidbody.position;
-            rotation = _rigidbody.rotation;
-            velocity = _rigidbody.velocity;
-            angularVelocity = _rigidbody.angularVelocity;
+            position = rigidbody.gameObject.transform.position;
+            rotation = rigidbody.gameObject.transform.rotation;
+            velocity = rigidbody.velocity;
+            angularVelocity = rigidbody.angularVelocity;
+            isSleeping = rigidbody.IsSleeping();
 
             try
             {
-                networkId = _rigidbody.gameObject.GetComponent<NetworkId>().networkId;
+                networkId = rigidbody.gameObject.GetComponent<NetworkId>().networkId;
             }
             catch
             {
-                Debug.LogError("Found a rigidbody that doesn't have a NetworkId: " + _rigidbody.gameObject);
+                Debug.LogError("Found a rigidbody that doesn't have a NetworkId: " + rigidbody.gameObject);
                 networkId = 0;
             }
         }
 
-        void INetworkSerializable.NetworkSerialize<T>(BufferSerializer<T> serializer)
+        public void ApplyState(Rigidbody rigidbody)
         {
-            serializer.SerializeValue(ref position);
-            serializer.SerializeValue(ref rotation);
-            serializer.SerializeValue(ref velocity);
-            serializer.SerializeValue(ref angularVelocity);
-            serializer.SerializeValue(ref networkId);
-        }
-
-        public void ApplyState(GameObject gameObject)
-        {
-            Rigidbody rigidbody = gameObject.GetComponentInChildren<Rigidbody>();
-
-            // Find the associated rigidbody (if any)
-            if (gameObject.activeInHierarchy == false)
+            if (isSleeping)
             {
-                // This object no longer exists in the scene
-                Debug.Log("Attempted to restore state to a GameObject that no longer exists");
-                // TODO: this seems like it'll lead to some bugs later with objects that disappeared recently
-                return;
+                rigidbody.Sleep();
+            }
+            else
+            {
+                rigidbody.WakeUp();
             }
 
-            // Apply the state
-            gameObject.transform.SetPositionAndRotation(position, rotation);
-            try
+            rigidbody.gameObject.transform.SetPositionAndRotation(position, rotation);
+
+            if (rigidbody.isKinematic == false)
             {
-                rigidbody.position = position;
                 rigidbody.velocity = velocity;
-
-                rigidbody.rotation = rotation;
                 rigidbody.angularVelocity = angularVelocity;
-            }
-            catch
-            {
-                Debug.LogError("Tried to apply rigidbody info to gameobject, and failed");
-                Debug.LogError(gameObject);
             }
         }
 
@@ -77,8 +60,20 @@ namespace NSM
                 position.Equals(other.position) &&
                 rotation.Equals(other.rotation) &&
                 velocity.Equals(other.velocity) &&
-                angularVelocity.Equals(other.angularVelocity)
+                angularVelocity.Equals(other.angularVelocity) &&
+                isSleeping.Equals(other.isSleeping)
             );
+        }
+
+        void INetworkSerializable.NetworkSerialize<T>(BufferSerializer<T> serializer)
+        {
+            // TODO: if the rigidbody is asleep, maybe we don't need to send any data at all about it beyond that?
+            serializer.SerializeValue(ref position);
+            serializer.SerializeValue(ref rotation);
+            serializer.SerializeValue(ref velocity);
+            serializer.SerializeValue(ref angularVelocity);
+            serializer.SerializeValue(ref networkId);
+            serializer.SerializeValue(ref isSleeping);
         }
     }
 }

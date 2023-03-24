@@ -11,7 +11,7 @@ namespace NSM
 
         public Dictionary<byte, RigidBodyStateDTO> RigidBodyStates
         {
-            get => _rigidBodyStates ?? new();
+            get => _rigidBodyStates ??= new();
             set => _rigidBodyStates = value;
         }
 
