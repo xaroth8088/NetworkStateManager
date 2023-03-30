@@ -2,9 +2,9 @@ using System;
 
 namespace NSM
 {
-    public interface IGameState : ICloneable
+    public interface IGameState
     {
-        // TODO: research if there's a more "normal" interface for doing this
+        // TODO: see if we can get ISerializable to work for this instead
         public byte[] GetBinaryRepresentation();
 
         public void RestoreFromBinaryRepresentation(byte[] bytes);
