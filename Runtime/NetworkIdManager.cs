@@ -9,9 +9,11 @@ namespace NSM
     {
         private GameObject[] networkIdGameObjectCache = new GameObject[256];
         private bool[] reservedNetworkIds = new bool[256];
+        private NetworkStateManager _networkStateManager;
 
-        public NetworkIdManager()
+        public NetworkIdManager(NetworkStateManager networkStateManager)
         {
+            _networkStateManager = networkStateManager;
             Reset();
         }
 
@@ -35,7 +37,7 @@ namespace NSM
                 networkId = ReserveNetworkId();
             }
 
-            VerboseLog("Registering network ID " + networkId + " to " + gameObject.name);
+            _networkStateManager.VerboseLog("Registering network ID " + networkId + " to " + gameObject.name);
 
             if (!gameObject.TryGetComponent<NetworkId>(out NetworkId networkIdComponent))
             {
@@ -57,7 +59,7 @@ namespace NSM
                     continue;
                 }
 
-                VerboseLog("Reserved network ID " + i);
+                _networkStateManager.VerboseLog("Reserved network ID " + i);
                 reservedNetworkIds[i] = true;
 
                 return i;
@@ -68,7 +70,7 @@ namespace NSM
 
         public void ReleaseNetworkId(byte networkId)
         {
-            VerboseLog("Releasing network id " + networkId);
+            _networkStateManager.VerboseLog("Releasing network id " + networkId);
 
             if (!reservedNetworkIds[networkId])
             {
@@ -80,7 +82,7 @@ namespace NSM
 
             if (networkIdGameObjectCache[networkId] != null)
             {
-                VerboseLog("A game object was found with this network ID, so resetting its network ID to 0");
+                _networkStateManager.VerboseLog("A game object was found with this network ID, so resetting its network ID to 0");
 
                 if (networkIdGameObjectCache[networkId].TryGetComponent<NetworkId>(out NetworkId networkIdComponent))
                 {
@@ -99,13 +101,6 @@ namespace NSM
         public GameObject GetGameObjectByNetworkId(byte networkId)
         {
             return networkIdGameObjectCache[networkId];
-        }
-
-        private void VerboseLog(string message)
-        {
-#if UNITY_EDITOR
-            Debug.Log(message);
-#endif
         }
     }
 }

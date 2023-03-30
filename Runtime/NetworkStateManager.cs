@@ -62,7 +62,7 @@ namespace NSM
         [SerializeField]
         private int replayFromTick = -1;    // anything negative is a flag value, meaning "don't replay anything"...TODO: make this an explicit bool instead of the flag value
 
-        public NetworkIdManager networkIdManager = new();
+        public NetworkIdManager networkIdManager;
 
         #endregion Runtime state
 
@@ -345,6 +345,8 @@ namespace NSM
 
             // TODO: If NetworkManager isn't ready yet, we should throw an error and refuse to start up.
 
+            networkIdManager = new(this);
+
             TypeStore.Instance.GameStateType = gameStateType;
             TypeStore.Instance.PlayerInputType = playerInputType;
             TypeStore.Instance.GameEventType = gameEventType;
@@ -372,6 +374,10 @@ namespace NSM
             Random.InitState(new System.Random().Next(int.MinValue, int.MaxValue));
 
             // Capture the initial game state
+            StateFrameDTO blankFrame = new()
+            {
+                gameTick = 0,
+            };
             StateFrameDTO newFrame = new()
             {
                 gameTick = 0,
@@ -385,7 +391,9 @@ namespace NSM
 
             // Ensure clients are starting from the same view of the world
             // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
-            StartGameClientRpc(stateBuffer[0]);
+            StateFrameDTO delta = blankFrame.GenerateDelta(newFrame);
+            VerboseLog("Sending initial state with delta size:" + delta._gameStateDiffBytes.Length);
+            StartGameClientRpc(delta);
         }
 
         private void Awake()
@@ -499,6 +507,7 @@ namespace NSM
                 // TODO: there's an opportunity to be slightly more aggressive by skipping sending anything if the entire
                 //       state frame is exactly the same (except for the realGameTick, of course).
                 StateFrameDTO delta = stateBuffer[realGameTick - sendStateEveryNFrames].GenerateDelta(stateBuffer[realGameTick]);
+                VerboseLog("Sending delta with diff size of " + delta._gameStateDiffBytes?.Length);
 
                 // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
                 UpdateGameStateClientRpc(delta, gameEventsBuffer);
@@ -656,17 +665,23 @@ namespace NSM
         }
 
         [ClientRpc]
-        private void StartGameClientRpc(StateFrameDTO serverGameState)
+        private void StartGameClientRpc(StateFrameDTO initialStateFrameDelta)
         {
             if (IsHost)
             {
                 return;
             }
 
-            VerboseLog("Initial game state received from server");
+            VerboseLog("Initial game state received from server.  Diff size:" + initialStateFrameDelta._gameStateDiffBytes.Length);
 
             // Store the state
-            stateBuffer[0] = serverGameState;
+            StateFrameDTO initialFrame = new()
+            {
+                gameTick = 0,
+            };
+            initialFrame.ApplyDelta(initialStateFrameDelta);
+
+            stateBuffer[0] = initialFrame;
 
             // Set our 'now' to (server tick + estimated lag)
             lastAuthoritativeTick = 0;
@@ -706,7 +721,7 @@ namespace NSM
             if (Math.Abs(realGameTick - serverGameStateDelta.gameTick) > (sendStateEveryNFrames * 2))
             {
                 // TODO: decide to handle this, esp. in light of a hacker that sends forged server state from out-of-tolerance timestamps.
-                Debug.Log("Received server state is greatly out of tolerance.  Client may experience slowdown or jumping.");
+                Debug.LogWarning("Received server state is greatly out of tolerance.  Client may experience slowdown, jumping, or other bad behavior.");
             }
 
             // Schedule the scheduled events swap
@@ -714,6 +729,7 @@ namespace NSM
 
             // Reconstitute the state from our delta
             StateFrameDTO serverGameState = stateBuffer[serverGameStateDelta.gameTick - sendStateEveryNFrames].Duplicate();
+            VerboseLog("Applying delta against frame " + (serverGameStateDelta.gameTick - sendStateEveryNFrames));
             serverGameState.ApplyDelta(serverGameStateDelta);
 
             // Set our 'now' to (server tick + estimated lag)
@@ -729,7 +745,7 @@ namespace NSM
                 _hasPendingGameEventsBuffer = false;
 
                 // Get caught up to the new now
-                for(gameTick = realGameTick; gameTick < targetTick; gameTick++)
+                for(gameTick = realGameTick + 1; gameTick < targetTick; gameTick++)
                 {
                     // To save on simulation costs, just copy the state forward
                     // TODO: because we're not doing a full simulation to get caught up, we may create a problem here
@@ -1017,7 +1033,7 @@ namespace NSM
             }
         }
 
-        private void VerboseLog(string message)
+        public void VerboseLog(string message)
         {
 #if UNITY_EDITOR
             // TODO: abstract this into its own thing, use everywhere
@@ -1029,7 +1045,7 @@ namespace NSM
             string log = realGameTick + ": ";
             if (isReplaying)
             {
-                log += "**REPLAY** ";
+                log += "**REPLAY (replaying tick " + gameTick + ")** ";
             }
             log += message;
 
