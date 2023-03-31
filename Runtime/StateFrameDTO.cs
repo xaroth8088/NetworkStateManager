@@ -60,11 +60,11 @@ namespace NSM
 
             byte[] baseStateArray = gameState.GetBinaryRepresentation();
             byte[] compressedDiffArray = deltaState._gameStateDiffBytes;
-            byte[] uncompressedDiffArray = DecompressBytesAsync(compressedDiffArray).GetAwaiter().GetResult();
+            byte[] decompressedDiffArray = DecompressBytes(compressedDiffArray);
 
             using MemoryStream baseMs = new(baseStateArray);
             using MemoryStream patchedMs = new();
-            BsDiff.BinaryPatchUtility.Apply(baseMs, () => new MemoryStream(uncompressedDiffArray), patchedMs);
+            BsDiff.BinaryPatchUtility.Apply(baseMs, () => new MemoryStream(decompressedDiffArray), patchedMs);
             byte[] targetStateArray = patchedMs.ToArray();
 
             gameState.RestoreFromBinaryRepresentation(targetStateArray);
@@ -128,29 +128,29 @@ namespace NSM
             diffArray = patchMs.ToArray();
 
             // Send compressed bytes instead of uncompressed (and decompress when received)
-            byte[] compressedBytes = CompressBytesAsync(diffArray).GetAwaiter().GetResult();
+            byte[] compressedBytes = CompressBytes(diffArray);
             deltaState._gameStateDiffBytes = compressedBytes;
 
             return deltaState;
         }
 
-        private static async Task<byte[]> CompressBytesAsync(byte[] bytes, CancellationToken cancel = default)
+        private static byte[] CompressBytes(byte[] input)
         {
-            using var outputStream = new MemoryStream();
-            using (var compressionStream = new BrotliStream(outputStream, CompressionLevel.Optimal))
+            MemoryStream outputStream = new();
+            using (BrotliStream compressionStream = new(outputStream, CompressionLevel.Optimal))
             {
-                await compressionStream.WriteAsync(bytes, 0, bytes.Length, cancel);
+                compressionStream.Write(input, 0, input.Length);
             }
             return outputStream.ToArray();
         }
 
-        public static async Task<byte[]> DecompressBytesAsync(byte[] bytes, CancellationToken cancel = default)
+        public static byte[] DecompressBytes(byte[] compressedInput)
         {
-            using MemoryStream inputStream = new(bytes);
-            using MemoryStream outputStream = new();
+            MemoryStream inputStream = new(compressedInput);
+            MemoryStream outputStream = new();
             using (BrotliStream compressionStream = new(inputStream, CompressionMode.Decompress))
             {
-                await compressionStream.CopyToAsync(outputStream, cancel);
+                compressionStream.CopyTo(outputStream);
             }
             return outputStream.ToArray();
         }
