@@ -15,14 +15,6 @@ namespace NSM
         // TODO: a variety of strategies for predicting the input of other players
         // TODO: the ability to arbitrarily play back a section of history
         // TODO: the ability to spread out the catch-up frames when replaying, so that the client doesn't need to stop completely to replay to present
-        /*
-            TODO: Possible bandwidth optimization ideas:
-             * When an individual field hasn't changed from the previous frame, don't serialize it (also may be fun for replaying to handle all edge cases)
-                 * Maybe something like take in the previous frame to compare against and create a bitmap of which fields have changed.  Use this
-                   bitmap to decide which fields can safely be skipped when sending to the clients.  Then, on the client side, reconstitute
-                   the full state by taking in the previous frame and copying over values that didn't change.
-             * Compression of data to be sent across the wire?  Is this already done automatically?
-        */
 
         #region NetworkStateManager configuration
 
@@ -82,7 +74,7 @@ namespace NSM
         /// <seealso cref="OnRollbackEvents"/>
         /// </summary>
         /// <param name="events">A list of game events to roll back.  Remember to cast back to the event type you started NetworkStateManager with!</param>
-        public delegate void RollbackEventsDelegateHandler(HashSet<IGameEvent> events);
+        public delegate void RollbackEventsDelegateHandler(HashSet<IGameEvent> events, IGameState stateAfterEvent);
 
         /// <summary>
         /// Delegate declaration for the OnApplyInputs event.<br/>
@@ -238,7 +230,7 @@ namespace NSM
             OnApplyEvents?.Invoke(events);
         }
 
-        private void RollbackEvents(HashSet<IGameEvent> events)
+        private void RollbackEvents(HashSet<IGameEvent> events, IGameState stateAfterEvent)
         {
             int count = events.Count;
 
@@ -248,7 +240,7 @@ namespace NSM
             }
 
             VerboseLog("Rolling back " + events.Count + " events");
-            OnRollbackEvents?.Invoke(events);
+            OnRollbackEvents?.Invoke(events, stateAfterEvent);
         }
 
         private void ApplyInputs(Dictionary<byte, IPlayerInput> playerInputs)
@@ -335,6 +327,17 @@ namespace NSM
             SyncGameEventsToClientsClientRpc(tick, gameEventsBuffer);
         }
 
+        /// <summary>
+        /// Given a tick and a predicate that can find which event you want to remove, de-schedule that event at that tick.
+        /// </summary>
+        /// <param name="willSpawnAtTick">The game tick the event was previously scheduled to fire on.</param>
+        /// <param name="gameEventPredicate">If this function returns true for a given event, that event will be de-scheduled.</param>
+        /// <exception cref="NotImplementedException"></exception>
+        public void RemoveEventAtTick(int willSpawnAtTick, Predicate<IGameEvent> gameEventPredicate)
+        {
+            gameEventsBuffer[willSpawnAtTick].RemoveWhere(gameEventPredicate);
+        }
+
         #endregion Public Interface
 
         #region Initialization code
@@ -383,7 +386,9 @@ namespace NSM
                 gameTick = 0,
             };
             newFrame.randomState.State = Random.state;
-            GetGameState(ref newFrame.gameState);
+            IGameState newGameState = TypeStore.Instance.CreateBlankGameState();
+            GetGameState(ref newGameState);
+            newFrame.GameState = newGameState;
             newFrame.PhysicsState = new PhysicsStateDTO();
             newFrame.PhysicsState.TakeSnapshot(GetNetworkedRigidbodies());
 
@@ -559,7 +564,7 @@ namespace NSM
         {
             RunScheduledStateReplay();
 
-            if (realGameTick > lastAuthoritativeTick + (sendStateEveryNFrames * 2))
+            if (realGameTick > lastAuthoritativeTick + (sendStateEveryNFrames * 2)) // TODO: explicitly configurable, instead of implicitly
             {
                 // TODO: is this the best thing we can do here?
                 VerboseLog("Client is too far ahead of the last server frame, so pause until we get caught up.");
@@ -652,7 +657,7 @@ namespace NSM
                 return;
             }
 
-            VerboseLog("Updating upcoming game events");
+            VerboseLog("Updating upcoming game events, taking effect on tick " + serverTimeTick);
             ScheduleGameEventsSwap(newGameEventsBuffer);
 
             ScheduleStateReplay(serverTimeTick);
@@ -660,6 +665,9 @@ namespace NSM
 
         private void ScheduleGameEventsSwap(GameEventsBuffer newGameEventsBuffer)
         {
+            // Game events need to be swapped in like this because we first need to roll back against the client's view of the events list
+            // before we then play back events according to what the server's view of the events list is.
+
             _pendingGameEventsBuffer = newGameEventsBuffer; // TODO: do we need to make a copy of this?  Is there an immutable version we can use instead?
             _hasPendingGameEventsBuffer = true;
         }
@@ -741,20 +749,10 @@ namespace NSM
                 VerboseLog("We have to fast-forward, so we're running through any missed event triggers");
 
                 // Use the server's accounting of events
-                gameEventsBuffer = _pendingGameEventsBuffer;
-                _hasPendingGameEventsBuffer = false;
+                LoadPendingEventsBuffer();
 
                 // Get caught up to the new now
-                for(gameTick = realGameTick + 1; gameTick < targetTick; gameTick++)
-                {
-                    // To save on simulation costs, just copy the state forward
-                    // TODO: because we're not doing a full simulation to get caught up, we may create a problem here
-                    stateBuffer[gameTick] = stateBuffer[gameTick - 1];
-                    ApplyState(stateBuffer[gameTick].gameState);
-
-                    // Play missed events
-                    ApplyEvents(gameEventsBuffer[gameTick]);
-                }
+                SimulateFrames(realGameTick + 1, targetTick);
             }
             realGameTick = targetTick;
 
@@ -817,43 +815,37 @@ namespace NSM
             return newInputs;
         }
 
-        private void ReplayHistoryFromTick(int tickToReplayFrom)
+        private void SimulateFrames(int startTick, int endTick)
         {
+            VerboseLog("Running frames from " + startTick + " to " + endTick + " (inclusive)");
+
             // For each tick from then to now...
             // Go through the rest of the frames, advancing physics and updating the buffer to match the revised history
-            int tick = tickToReplayFrom;
+            gameTick = startTick;
 
-            if (tick > realGameTick)
+            while (gameTick <= endTick)
             {
-                return;
-            }
+                VerboseLog("Replaying for tick " + gameTick);
 
-            VerboseLog("Replaying history from " + tick);
-
-            while (tick < realGameTick)
-            {
-                VerboseLog("Replaying for tick " + tick);
-
-                if (tick <= 0)
+                if (gameTick <= 0)
                 {
-                    VerboseLog("Replaying tick " + tick + ", which just means 'reset to frame 0'");
+                    VerboseLog("Replaying tick " + gameTick + ", which just means 'reset to frame 0'");
                     // To "replay" frame 0 means to just reset the world to that state.  There's no actual simulation in frame 0.
                     StateFrameDTO frameZero = stateBuffer[0];
 
                     ApplyPhysicsState(frameZero.PhysicsState);
                     Random.state = frameZero.randomState.State;
-                    ApplyState(frameZero.gameState);
+                    ApplyState(frameZero.GameState);
                     ApplyInputs(frameZero.PlayerInputs);
                     ApplyEvents(gameEventsBuffer[0]);
-                    tick++;
+                    gameTick++;
                     continue;
                 }
 
                 // Get the new frame and put it in place
-                StateFrameDTO stateFrame = RunSingleGameFrame(tick, stateBuffer[tick].PlayerInputs, gameEventsBuffer[tick]);
-                stateBuffer[tick] = stateFrame;
+                stateBuffer[gameTick] = RunSingleGameFrame(gameTick, stateBuffer[gameTick].PlayerInputs, gameEventsBuffer[gameTick]);
 
-                tick++;
+                gameTick++;
             }
         }
 
@@ -862,6 +854,7 @@ namespace NSM
             VerboseLog("Checking scheduled state replay.  Currently " + replayFromTick);
             if (replayFromTick < 0)
             {
+                LoadPendingEventsBuffer();
                 return;
             }
 
@@ -888,33 +881,33 @@ namespace NSM
             VerboseLog("Rewinding events");
             for (int tick = realGameTick - 1; tick >= 0 && tick >= frameToActuallyReplayFrom; tick--)
             {
-                VerboseLog("Undoing events at tick " + tick);
-
                 gameTick = tick;
-                ApplyState(stateBuffer[gameTick].gameState);
-                RollbackEvents(gameEventsBuffer[tick]);
+
+                // TODO: We can probably skip restoring gamestate at all whenever there are no events inside of a frame to roll back
+
+                VerboseLog("Undoing events at tick " + tick + " (setting state to the moment before the events were originally run)");
+                VerboseLog("The frame thinks it's tick " + stateBuffer[gameTick].gameTick);
+                ApplyState(stateBuffer[gameTick].GameState);
+                RollbackEvents(gameEventsBuffer[tick], stateBuffer[gameTick + 1].GameState);
             }
 
-            // Swap in the new events buffer (if any)
-            if ( _hasPendingGameEventsBuffer)
-            {
-                gameEventsBuffer = _pendingGameEventsBuffer;
-                _hasPendingGameEventsBuffer = false;
-            }
+            // Now that we've undone any local view of events, swap in the new events buffer (if any)
+            LoadPendingEventsBuffer();
 
             // Set the state to the requested frame
             VerboseLog("Resetting state to start of tick " + frameToActuallyReplayFrom);
+
+            isReplaying = true;
             StateFrameDTO frameToReplayFrom = stateBuffer[frameToActuallyReplayFrom];
 
             ApplyInputs(frameToReplayFrom.PlayerInputs);
             ApplyPhysicsState(frameToReplayFrom.PhysicsState);
             Random.state = frameToReplayFrom.randomState.State;
-            ApplyState(frameToReplayFrom.gameState);
+            ApplyState(frameToReplayFrom.GameState);
             ApplyEvents(gameEventsBuffer[frameToActuallyReplayFrom]);
 
             // Replay history until we're back to 'now'
-            isReplaying = true;
-            ReplayHistoryFromTick(frameToActuallyReplayFrom + 1);
+            SimulateFrames(frameToActuallyReplayFrom + 1, realGameTick - 1);
 
             // Reset to "nothing scheduled"
             replayFromTick = -1;
@@ -922,6 +915,16 @@ namespace NSM
             gameTick = realGameTick;
 
             VerboseLog("######################### END REPLAY #########################");
+        }
+
+        private void LoadPendingEventsBuffer()
+        {
+            if (_hasPendingGameEventsBuffer)
+            {
+                VerboseLog("Replacing local view of events with server's view of events");
+                gameEventsBuffer = _pendingGameEventsBuffer;
+                _hasPendingGameEventsBuffer = false;
+            }
         }
 
         private StateFrameDTO RunSingleGameFrame(int tick, Dictionary<byte, IPlayerInput> playerInputs, HashSet<IGameEvent> events)
@@ -945,7 +948,9 @@ namespace NSM
 
             // Capture the state from the scene/game
             newFrame.randomState.State = Random.state;
-            GetGameState(ref newFrame.gameState);
+            IGameState newGameState = TypeStore.Instance.CreateBlankGameState();
+            GetGameState(ref newGameState);
+            newFrame.GameState = newGameState;
             newFrame.PhysicsState.TakeSnapshot(GetNetworkedRigidbodies());
 
             // Events come last
@@ -1042,10 +1047,22 @@ namespace NSM
                 return;
             }
 
-            string log = realGameTick + ": ";
+            string log = "";
+
+            if (realGameTick != gameTick)
+            {
+                log += "** ";
+            }
+
+            log += realGameTick + "";
+            if(realGameTick != gameTick)
+            {
+                log += " (" + gameTick + ")";
+            }
+            log += ": ";
             if (isReplaying)
             {
-                log += "**REPLAY (replaying tick " + gameTick + ")** ";
+                log += "**REPLAY** ";
             }
             log += message;
 

@@ -34,6 +34,11 @@ namespace NSM
             }
         }
 
+        public IGameState CreateBlankGameState()
+        {
+            return (IGameState)Activator.CreateInstance(GameStateType);
+        }
+
         private Type playerInputType;
 
         public Type PlayerInputType
