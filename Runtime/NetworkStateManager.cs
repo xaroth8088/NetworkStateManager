@@ -867,14 +867,10 @@ namespace NSM
                 if (gameTick <= 0)
                 {
                     VerboseLog("Replaying tick " + gameTick + ", which just means 'reset to frame 0'");
-                    // To "replay" frame 0 means to just reset the world to that state.  There's no actual simulation in frame 0.
-                    StateFrameDTO frameZero = stateBuffer[0];
 
-                    ApplyPhysicsState(frameZero.PhysicsState);
-                    Random.state = frameZero.randomState.State;
-                    ApplyState(frameZero.GameState);
-                    ApplyInputs(frameZero.PlayerInputs);
-                    ApplyEvents(gameEventsBuffer[0]);
+                    // To "replay" frame 0 means to just reset the world to that state.  There's no actual simulation in frame 0.
+                    ApplyFullStateFrame(stateBuffer[0]);
+
                     gameTick++;
                     continue;
                 }
