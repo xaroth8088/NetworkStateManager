@@ -8,16 +8,10 @@ using Random = UnityEngine.Random;
 
 namespace NSM
 {
-    public struct SerializableRandomState : INetworkSerializeByMemcpy
-    {
-        public Random.State State;
-    }
-
     public struct StateFrameDTO : INetworkSerializable
     {
         public byte[] _gameStateDiffBytes;
         public int gameTick;
-        public SerializableRandomState randomState;
         private byte[] _gameStateBytes;
         private PhysicsStateDTO _physicsState;
         private Dictionary<byte, IPlayerInput> _playerInputs;
@@ -63,7 +57,6 @@ namespace NSM
         public void ApplyDelta(StateFrameDTO deltaState)
         {
             gameTick = deltaState.gameTick;
-            randomState = deltaState.randomState;
 
             PhysicsState.ApplyDelta(deltaState.PhysicsState);
 
@@ -116,7 +109,6 @@ namespace NSM
             {
                 gameTick = targetState.gameTick,
                 _playerInputs = new(),
-                randomState = targetState.randomState
             };
 
             deltaState.PhysicsState = deltaState.PhysicsState.GenerateDelta(targetState.PhysicsState);
@@ -158,7 +150,6 @@ namespace NSM
             _physicsState ??= new PhysicsStateDTO();
             _gameStateDiffBytes ??= new byte[0];
 
-            serializer.SerializeValue(ref randomState);
             serializer.SerializeValue(ref gameTick);
             serializer.SerializeValue(ref _physicsState);
             serializer.SerializeValue(ref _gameStateDiffBytes);

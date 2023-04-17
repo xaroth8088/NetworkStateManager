@@ -58,6 +58,8 @@ namespace NSM
 
         public NetworkIdManager networkIdManager;
 
+        private int randomSeedBase;
+
         #endregion Runtime state
 
         #region Lifecycle event delegates and wrappers
@@ -373,7 +375,7 @@ namespace NSM
             gameTick = 0;
             realGameTick = 0;
 
-            if (!NetworkManager.IsHost)
+            if (!IsHost)
             {
                 return;
             }
@@ -393,11 +395,13 @@ namespace NSM
 
             stateBuffer[0] = CaptureStateFrame(0);
 
+            randomSeedBase = Random.Range(int.MinValue, int.MaxValue);
+
             // Ensure clients are starting from the same view of the world
             // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
             StateFrameDTO delta = blankFrame.GenerateDelta(stateBuffer[0]);
             VerboseLog("Sending initial state with delta size:" + delta._gameStateDiffBytes.Length);
-            StartGameClientRpc(delta);
+            StartGameClientRpc(delta, randomSeedBase);
         }
 
         private void Awake()
@@ -671,7 +675,7 @@ namespace NSM
         }
 
         [ClientRpc]
-        private void StartGameClientRpc(StateFrameDTO initialStateFrameDelta)
+        private void StartGameClientRpc(StateFrameDTO initialStateFrameDelta, int _randomSeedBase)
         {
             if (IsHost)
             {
@@ -691,6 +695,8 @@ namespace NSM
 
             // Set our 'now' to (server tick + estimated lag)
             lastAuthoritativeTick = 0;
+
+            randomSeedBase = _randomSeedBase;
 
             // Start things off!
             isRunning = true;
@@ -783,7 +789,7 @@ namespace NSM
             }
 
             // Go forward until we get to the synchronized "now", accounting for estimated lag from the server
-            ApplyFullStateFrame(stateBuffer[serverTick]);
+            ApplyFullStateFrame(stateBuffer[Math.Max(0, serverTick)]);
             SimulateFrames(serverTick + 1, targetTick);
             realGameTick = targetTick;
             gameTick = realGameTick;
@@ -915,21 +921,15 @@ namespace NSM
 
             VerboseLog("Rewinding time");
 
-            // The frame _after_ the event fires may not be locally available to the buffer.  However, if the event has already fired
-            // locally, then the event's effects _will_ be represented in the current world state.
-            // As such, capture the game state before doing the events rollback.
-            CaptureStateFrame(realGameTick);
-
             for (gameTick = realGameTick - 1; gameTick >= rewindToTick; gameTick--)
             {
                 // TODO: We can probably skip restoring gamestate at all whenever there are no events inside of a frame to roll back
 
                 VerboseLog("Undoing events at tick " + gameTick + " (setting state to the moment before the events were originally run)");
-                ApplyState(stateBuffer[gameTick].GameState);
+                ApplyState(stateBuffer[Math.Max(0, gameTick - 1)].GameState);
 
-                RollbackEvents(gameEventsBuffer[gameTick], stateBuffer[gameTick + 1].GameState);
+                RollbackEvents(gameEventsBuffer[gameTick], stateBuffer[gameTick].GameState);
             }
-            gameTick++;
             VerboseLog("Done rewinding");
         }
 
@@ -937,11 +937,17 @@ namespace NSM
         {
             VerboseLog("Applying full state frame");
 
+            ResetRandom(stateFrame.gameTick);
+
+            ApplyEvents(gameEventsBuffer[stateFrame.gameTick]);
             ApplyInputs(stateFrame.PlayerInputs);
             ApplyPhysicsState(stateFrame.PhysicsState);
-            Random.state = stateFrame.randomState.State;
             ApplyState(stateFrame.GameState);
-            ApplyEvents(gameEventsBuffer[stateFrame.gameTick]);
+        }
+
+        private void ResetRandom(int tick)
+        {
+            Random.InitState(randomSeedBase + tick);
         }
 
         private void LoadPendingEventsBuffer()
@@ -959,7 +965,10 @@ namespace NSM
             VerboseLog("Running single frame for tick " + tick);
             gameTick = tick;
 
+            ResetRandom(tick);
+
             // Simulate the frame
+            ApplyEvents(events);
             ApplyInputs(playerInputs);
             Physics.SyncTransforms();
             PrePhysicsFrameUpdate();
@@ -969,9 +978,6 @@ namespace NSM
             // Capture the state from the scene/game
             StateFrameDTO newFrame = CaptureStateFrame(tick);
             newFrame.PlayerInputs = playerInputs;
-
-            // Events come last
-            ApplyEvents(events);
 
             return newFrame;
         }
@@ -984,7 +990,6 @@ namespace NSM
                 PhysicsState = new PhysicsStateDTO()
             };
 
-            newFrame.randomState.State = Random.state;
             IGameState newGameState = TypeStore.Instance.CreateBlankGameState();
             GetGameState(ref newGameState);
             newFrame.GameState = newGameState;
@@ -1074,6 +1079,8 @@ namespace NSM
             realGameTick++;
             gameTick = realGameTick;
             VerboseLog("---- NEW FRAME ----");
+
+            ResetRandom(realGameTick);
 
             if (IsHost)
             {
