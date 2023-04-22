@@ -36,15 +36,11 @@ namespace NSM
 
         public void TakeSnapshot(List<Rigidbody> rigidbodies)
         {
-            if (_rigidBodyStates == null)
-            {
-                _rigidBodyStates = new();
-            }
+            _rigidBodyStates ??= new();
 
             foreach (Rigidbody body in rigidbodies)
             {
-                NetworkId networkIdComponent = body.gameObject.GetComponent<NetworkId>();
-                if (networkIdComponent == null)
+                if (!body.gameObject.TryGetComponent<NetworkId>(out var networkIdComponent))
                 {
                     continue;
                 }
