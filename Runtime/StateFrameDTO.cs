@@ -28,7 +28,7 @@ namespace NSM
 
                 return gameState;
             }
-            set => _gameStateBytes = value.GetBinaryRepresentation();
+            set => _gameStateBytes = (byte[])value.GetBinaryRepresentation().Clone();
         }
 
         public PhysicsStateDTO PhysicsState

@@ -1,8 +1,10 @@
+using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Unity.Netcode;
+using UnityEditor.PackageManager;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 using Random = UnityEngine.Random;
@@ -111,14 +113,14 @@ namespace NSM
         public delegate void OnGetInputsDelegateHandler(ref Dictionary<byte, IPlayerInput> playerInputs);
 
         /// <summary>
-        /// Delegate declaration for the OnPostPhysicsFrameUpdateDelegateHandler event.<br/>
+        /// Delegate declaration for the OnPostPhysicsFrameUpdate event.<br/>
         /// See also: <br/>
         /// <seealso cref="OnPostPhysicsFrameUpdate"/>
         /// </summary>
         public delegate void OnPostPhysicsFrameUpdateDelegateHandler();
 
         /// <summary>
-        /// Delegate declaration for the OnPrePhysicsFrameUpdateDelegateHandler event.<br/>
+        /// Delegate declaration for the OnPrePhysicsFrameUpdate event.<br/>
         /// See also: <br/>
         /// <seealso cref="OnPrePhysicsFrameUpdate"/>
         /// </summary>
@@ -167,6 +169,11 @@ namespace NSM
         /// This event fires when a given state needs to be applied to your game.
         /// Primarily, this will happen at the beginning of the server
         /// reconciliation process (or when otherwise beginning a replay).
+        /// 
+        /// Because NSM doesn't fully manage instantiating GameObjects (yet?), your game
+        /// will need to be able to detect when a GameObject is missing from the scene but
+        /// present in the game state, or if any other meaningful discrepancy exists, and
+        /// then correct it.
         /// <br/>
         /// See also: <br/>
         /// <seealso cref="ApplyStateDelegateHandler"/> and
@@ -544,6 +551,7 @@ namespace NSM
                 // For now, just apply to the current timestamp.
                 // TODO: NOTE: this could cause issues for client-side prediction, esp. if clients are
                 //             filtering out their own inputs.
+                Debug.LogWarning("Client input is coming from server's future.  Server time: " + realGameTick + " Client time: " + clientTimeTick);
                 clientTimeTick = realGameTick;
             }
 
@@ -557,6 +565,26 @@ namespace NSM
             // Forward the input to all clients so they can do the same
             // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
             ForwardPlayerInputClientRpc(playerId, value, clientTimeTick);
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        private void RequestFullStateUpdateServerRpc(ServerRpcParams serverRpcParams = default)
+        {
+            VerboseLog("Received request for full state update");
+
+            ClientRpcParams clientRpcParams = new()
+            {
+                Send = new ClientRpcSendParams
+                {
+                    TargetClientIds = new ulong[] { serverRpcParams.Receive.SenderClientId }
+                }
+            };
+
+            // To avoid problems later with applying diffs, go back to the last time we would've sent out a
+            // frame update normally.
+            int requestedGameTick = realGameTick - (realGameTick % sendStateEveryNFrames);
+
+            ProcessFullStateUpdateClientRpc(stateBuffer[requestedGameTick], gameEventsBuffer, clientRpcParams);
         }
 
         #endregion Server-side only code
@@ -665,15 +693,6 @@ namespace NSM
             ScheduleStateReplay(serverTimeTick);
         }
 
-        private void ScheduleGameEventsSwap(GameEventsBuffer newGameEventsBuffer)
-        {
-            // Game events need to be swapped in like this because we first need to roll back against the client's view of the events list
-            // before we then play back events according to what the server's view of the events list is.
-
-            _pendingGameEventsBuffer = newGameEventsBuffer; // TODO: do we need to make a copy of this?  Is there an immutable version we can use instead?
-            _hasPendingGameEventsBuffer = true;
-        }
-
         [ClientRpc]
         private void StartGameClientRpc(StateFrameDTO initialStateFrameDelta, int _randomSeedBase)
         {
@@ -722,32 +741,61 @@ namespace NSM
             VerboseLog("Server state received.  Server time:" + serverGameStateDelta.gameTick);
 
             // Did the state arrive out of order?  If so, panic.
-            if (serverGameStateDelta.gameTick != lastAuthoritativeTick + sendStateEveryNFrames)
+            if (serverGameStateDelta.gameTick != (lastAuthoritativeTick + sendStateEveryNFrames))
             {
-                // TODO: decide what to do about this case, since we need that prior frame in order to properly apply the delta
-                // Probably, make an RPC to request a full state sync instead of the delta
-                throw new Exception(
-                    "Server snapshot arrived out of order!  Game state will be indeterminate from here on out.  Server state tick: " + serverGameStateDelta.gameTick +
-                    " expected: " + lastAuthoritativeTick + sendStateEveryNFrames
+                VerboseLog(
+                    "xxx Server snapshot arrived out of order!  Requesting full state refresh.  Server state tick: " + serverGameStateDelta.gameTick +
+                    " expected: " + lastAuthoritativeTick + " + " + sendStateEveryNFrames + " = " + (lastAuthoritativeTick + sendStateEveryNFrames)
                 );
+
+                // We can't just process this as-is since we need that prior frame in order to properly apply the delta.
+                // As such, request a full state sync instead of the delta
+                RequestFullStateUpdateServerRpc();
+                return;
             }
 
-            // Is the server too far in the future or past?  If so, log a message.
+            // Is the server too far in the future or past?  If so, get back in sync.
             if (Math.Abs(realGameTick - serverGameStateDelta.gameTick) > (sendStateEveryNFrames * 2))
             {
-                // TODO: decide to handle this, esp. in light of a hacker that sends forged server state from out-of-tolerance timestamps.
-                Debug.LogWarning("Received server state is greatly out of tolerance.  Client may experience slowdown, jumping, or other bad behavior.");
+                // TODO: decide to handle a hacker that sends forged server state from out-of-tolerance timestamps.
+                Debug.LogWarning("xxx Received server state is greatly out of tolerance.  Client may experience slowdown, jumping, or other bad behavior.");
+                RequestFullStateUpdateServerRpc();
+                return;
             }
 
             // Schedule the scheduled events swap
             ScheduleGameEventsSwap(newGameEventsBuffer);
 
             // Reconstitute the state from our delta
-            StateFrameDTO serverGameState = stateBuffer[serverGameStateDelta.gameTick - sendStateEveryNFrames].Duplicate();
-            VerboseLog("Applying delta against frame " + (serverGameStateDelta.gameTick - sendStateEveryNFrames));
-            serverGameState.ApplyDelta(serverGameStateDelta);
+            StateFrameDTO serverGameState;
+            try
+            {
+                serverGameState = stateBuffer[serverGameStateDelta.gameTick - sendStateEveryNFrames].Duplicate();
+                VerboseLog("Applying delta against frame " + (serverGameStateDelta.gameTick - sendStateEveryNFrames));
+                serverGameState.ApplyDelta(serverGameStateDelta);
+            } catch (Exception e)
+            {
+                VerboseLog("xxx Something went wrong when reconstituting game state from diff: " + e.Message);
+                RequestFullStateUpdateServerRpc();
+                return;
+            }
 
             lastAuthoritativeTick = serverGameState.gameTick;
+            ResyncWithServer(serverGameState);
+        }
+
+        [ClientRpc]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "Needed for server to send to specific clients")]
+        private void ProcessFullStateUpdateClientRpc(StateFrameDTO serverGameState, GameEventsBuffer serverGameEventsBuffer, ClientRpcParams clientRpcParams = default)
+        {
+            VerboseLog("xxx Received full state update from server");
+
+            // Set the time to match the server (so that replays won't be dropped)
+            gameTick = serverGameState.gameTick;
+            realGameTick = serverGameState.gameTick;
+
+            // Get us back in sync
+            ScheduleGameEventsSwap(serverGameEventsBuffer);
             ResyncWithServer(serverGameState);
         }
 
@@ -758,48 +806,57 @@ namespace NSM
             VerboseLog("Resync with server, server tick is " + serverTick);
 
             // Apply the delta to our history at the server's timestamp
-            stateBuffer[serverTick] = serverState;
+            stateBuffer[serverTick] = serverState.Duplicate();
 
             ScheduleStateReplay(serverTick);
         }
 
-        private void ReplayFrames(int serverTick, int targetTick)
+        #endregion Client-side only code
+
+        #region Core simulation functionality
+
+        private void ReplayFrames(int startTick, int targetTick)
         {
-            VerboseLog("Replaying frames " + serverTick + " until " + targetTick + " (non-inclusive)");
+            VerboseLog("Replaying frames " + startTick + " until " + targetTick + " (non-inclusive)");
 
             isReplaying = true;
 
             // Get our state matched to the state the server had at the frame we received
-            if (serverTick > realGameTick)
+            if (startTick > realGameTick)
             {
                 // "client is lagging behind, and needs to catch up"
                 VerboseLog("Client needs to catch up to server, so fast-forward to server time");
 
                 // Fast-forward, so that we trigger any relevant events
                 LoadPendingEventsBuffer();
-                SimulateFrames(realGameTick, serverTick - 1);   // TODO: add a flag that's like "skip any frames without events", maybe?
+                SimulateFrames(realGameTick, startTick - 1);   // TODO: add a flag that's like "skip any frames without events", maybe?
             }
             else
             {
                 // "normal operation, needs rewind and replay"
                 VerboseLog("Client is ahead of server frame (the normal case), so rewind, apply, and replay to now");
 
-                RewindTime(serverTick);
+                RewindTime(startTick);
                 LoadPendingEventsBuffer();
             }
 
-            // Go forward until we get to the synchronized "now", accounting for estimated lag from the server
-            ApplyFullStateFrame(stateBuffer[Math.Max(0, serverTick)]);
-            SimulateFrames(serverTick + 1, targetTick);
+            // Go forward until we get to the synchronized "now"
+            ApplyFullStateFrame(stateBuffer[Math.Max(0, startTick)]);
+            SimulateFrames(startTick + 1, targetTick);
             realGameTick = targetTick;
             gameTick = realGameTick;
 
             isReplaying = false;
         }
 
-        #endregion Client-side only code
+        private void ScheduleGameEventsSwap(GameEventsBuffer newGameEventsBuffer)
+        {
+            // Game events need to be swapped in like this because we first need to roll back against the client's view of the events list
+            // before we then play back events according to what the server's view of the events list is.
 
-        #region Core simulation functionality
+            _pendingGameEventsBuffer = newGameEventsBuffer; // TODO: do we need to make a copy of this?  Is there an immutable version we can use instead?
+            _hasPendingGameEventsBuffer = true;
+        }
 
         private void ApplyPhysicsState(PhysicsStateDTO physicsState)
         {
@@ -1055,6 +1112,12 @@ namespace NSM
 
         private int GetEstimatedLag()
         {
+            if(IsHost)
+            {
+                // Host has the authoritative time, but because of when in the flow this is calculated we have to pretend we're 1 frame "behind" now.
+                return 1;
+            }
+
             int framesOfLag = NetworkManager.LocalTime.Tick - NetworkManager.ServerTime.Tick;
             if(framesOfLag < 0)
             {
