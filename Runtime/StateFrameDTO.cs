@@ -1,16 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using Unity.Netcode;
-using Random = UnityEngine.Random;
 
 namespace NSM
 {
     public struct StateFrameDTO : INetworkSerializable
     {
-        public byte[] _gameStateDiffBytes;
         public int gameTick;
         private byte[] _gameStateBytes;
         private PhysicsStateDTO _physicsState;
@@ -20,12 +17,13 @@ namespace NSM
         {
             get
             {
-                IGameState gameState = TypeStore.Instance.CreateBlankGameState();
-                if (_gameStateBytes != null)
+                if( _gameStateBytes == null)
                 {
-                    gameState.RestoreFromBinaryRepresentation(_gameStateBytes);
+                    return null;
                 }
 
+                IGameState gameState = TypeStore.Instance.CreateBlankGameState();
+                gameState.RestoreFromBinaryRepresentation(_gameStateBytes);
                 return gameState;
             }
             set => _gameStateBytes = (byte[])value.GetBinaryRepresentation().Clone();
@@ -43,53 +41,17 @@ namespace NSM
             set => _playerInputs = value;
         }
 
-        public static byte[] DecompressBytes(byte[] compressedInput)
-        {
-            MemoryStream inputStream = new(compressedInput);
-            MemoryStream outputStream = new();
-            using (BrotliStream compressionStream = new(inputStream, CompressionMode.Decompress))
-            {
-                compressionStream.CopyTo(outputStream);
-            }
-            return outputStream.ToArray();
-        }
-
-        public void ApplyDelta(StateFrameDTO deltaState)
-        {
-            gameTick = deltaState.gameTick;
-
-            PhysicsState.ApplyDelta(deltaState.PhysicsState);
-
-            foreach (KeyValuePair<byte, IPlayerInput> entry in deltaState.PlayerInputs)
-            {
-                _playerInputs[entry.Key] = entry.Value;
-            }
-
-            // Game state rehydration
-            if (deltaState._gameStateDiffBytes.Length == 0)
-            {
-                UnityEngine.Debug.Log("No diff bytes, so skipping.");
-                return;
-            }
-
-            byte[] baseStateArray = GameState.GetBinaryRepresentation();
-            byte[] compressedDiffArray = deltaState._gameStateDiffBytes;
-            byte[] decompressedDiffArray = DecompressBytes(compressedDiffArray);
-
-            using MemoryStream baseMs = new(baseStateArray);
-            using MemoryStream patchedMs = new();
-            BsDiff.BinaryPatchUtility.Apply(baseMs, () => new MemoryStream(decompressedDiffArray), patchedMs);
-            _gameStateBytes = patchedMs.ToArray();
-
-            // We don't need the diff bytes anymore, so ditch 'em
-            _gameStateDiffBytes = new byte[0];
-        }
-
         public StateFrameDTO Duplicate()
         {
             // TODO: change all mutable collections inside this struct (and its children) to instead use immutable versions,
             //       so that we don't need to do this (and can avoid other sneaky bugs down the line)
             // TODO: ICloneable for this object?
+
+            if(_gameStateBytes == null)
+            {
+                throw new Exception("_gameStateBytes was null, so can't duplicate state");
+            }
+
             StateFrameDTO newFrame = new()
             {
                 gameTick = gameTick,
@@ -101,14 +63,15 @@ namespace NSM
             return newFrame;
         }
 
-        public StateFrameDTO GenerateDelta(StateFrameDTO targetState)
+        #region Deltas
+        public StateFrameDeltaDTO GenerateDelta(StateFrameDTO targetState)
         {
             // TODO: this whole thing feels a lot like we should rethink how we're syncing frames, with more happening over in NSM and less here
 
-            StateFrameDTO deltaState = new()
+            StateFrameDeltaDTO deltaState = new()
             {
                 gameTick = targetState.gameTick,
-                _playerInputs = new(),
+                PlayerInputs = new(),
             };
 
             deltaState.PhysicsState = deltaState.PhysicsState.GenerateDelta(targetState.PhysicsState);
@@ -123,7 +86,7 @@ namespace NSM
                     continue;
                 }
 
-                deltaState._playerInputs[entry.Key] = entry.Value;
+                deltaState.PlayerInputs[entry.Key] = entry.Value;
             }
 
             // Make a gamestate diff
@@ -135,40 +98,63 @@ namespace NSM
             BsDiff.BinaryPatchUtility.Create(baseStateArray, targetStateArray, patchMs);
             diffArray = patchMs.ToArray();
 
-            // Send compressed bytes instead of uncompressed (and decompress when received)
-            byte[] compressedBytes = CompressBytes(diffArray);
-            deltaState._gameStateDiffBytes = compressedBytes;
+            deltaState._gameStateDiffBytes = diffArray;
 
             return deltaState;
         }
 
+        public void ApplyDelta(StateFrameDeltaDTO deltaState)
+        {
+            gameTick = deltaState.gameTick;
+
+            PhysicsState.ApplyDelta(deltaState.PhysicsState);
+
+            foreach (KeyValuePair<byte, IPlayerInput> entry in deltaState.PlayerInputs)
+            {
+                _playerInputs[entry.Key] = entry.Value;
+            }
+
+            // Game state rehydration
+            byte[] baseStateArray = GameState.GetBinaryRepresentation();
+
+            using MemoryStream baseMs = new(baseStateArray);
+            using MemoryStream patchedMs = new();
+            BsDiff.BinaryPatchUtility.Apply(baseMs, () => new MemoryStream(deltaState._gameStateDiffBytes), patchedMs);
+            _gameStateBytes = patchedMs.ToArray();
+        }
+
+        #endregion Deltas
+
+        #region Serialization
         void INetworkSerializable.NetworkSerialize<T>(BufferSerializer<T> serializer)
         {
-            // NOTE: Intentionally don't serialize _gameStateBytes, since we're serializing the diffs instead
-
             _playerInputs ??= new Dictionary<byte, IPlayerInput>();
             _physicsState ??= new PhysicsStateDTO();
-            _gameStateDiffBytes ??= new byte[0];
+            _gameStateBytes ??= new byte[0];
 
             serializer.SerializeValue(ref gameTick);
             serializer.SerializeValue(ref _physicsState);
-            serializer.SerializeValue(ref _gameStateDiffBytes);
-            SerializePlayerInputs(ref _playerInputs, serializer);
-        }
 
-        private static byte[] CompressBytes(byte[] input)
-        {
-            MemoryStream outputStream = new();
-            using (BrotliStream compressionStream = new(outputStream, CompressionLevel.Optimal))
+            byte[] compressionBuffer = new byte[0];
+            if( serializer.IsReader )
             {
-                compressionStream.Write(input, 0, input.Length);
+                serializer.SerializeValue(ref compressionBuffer);
+                _gameStateBytes = Compression.DecompressBytes(compressionBuffer);
             }
-            return outputStream.ToArray();
+
+            if (serializer.IsWriter)
+            {
+                compressionBuffer = Compression.CompressBytes(_gameStateBytes);
+                serializer.SerializeValue(ref compressionBuffer);
+            }
+
+            SerializePlayerInputs(ref _playerInputs, serializer);
         }
 
         private void SerializePlayerInputs<T>(ref Dictionary<byte, IPlayerInput> playerInputs, BufferSerializer<T> serializer)
             where T : IReaderWriter
         {
+            // This is copied in StateFrameDeltaDTO::SerializePlayerInputs
             if (serializer.IsReader)
             {
                 // Read the length of the dictionary
@@ -209,5 +195,6 @@ namespace NSM
                 }
             }
         }
+        #endregion Serialization
     }
 }

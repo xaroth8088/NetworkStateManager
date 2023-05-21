@@ -393,20 +393,14 @@ namespace NSM
             Random.InitState(new System.Random().Next(int.MinValue, int.MaxValue));
 
             // Capture the initial game state
-            StateFrameDTO blankFrame = new()
-            {
-                gameTick = 0,
-            };
-
             stateBuffer[0] = CaptureStateFrame(0);
 
             randomSeedBase = Random.Range(int.MinValue, int.MaxValue);
 
             // Ensure clients are starting from the same view of the world
             // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
-            StateFrameDTO delta = blankFrame.GenerateDelta(stateBuffer[0]);
-            VerboseLog("Sending initial state with delta size:" + delta._gameStateDiffBytes.Length);
-            StartGameClientRpc(delta, randomSeedBase);
+            VerboseLog("Sending initial state");
+            StartGameClientRpc(stateBuffer[0], randomSeedBase);
         }
 
         private void Awake()
@@ -519,7 +513,7 @@ namespace NSM
 
                 // TODO: there's an opportunity to be slightly more aggressive by skipping sending anything if the entire
                 //       state frame is exactly the same (except for the realGameTick, of course).
-                StateFrameDTO delta = stateBuffer[realGameTick - sendStateEveryNFrames].GenerateDelta(stateBuffer[realGameTick]);
+                StateFrameDeltaDTO delta = stateBuffer[realGameTick - sendStateEveryNFrames].GenerateDelta(stateBuffer[realGameTick]);
                 VerboseLog("Sending delta with diff size of " + delta._gameStateDiffBytes?.Length);
 
                 // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
@@ -568,8 +562,9 @@ namespace NSM
         [ServerRpc(RequireOwnership = false)]
         private void RequestFullStateUpdateServerRpc(ServerRpcParams serverRpcParams = default)
         {
-            VerboseLog("Received request for full state update");
+            VerboseLog("xxx Received request for full state update");
 
+            // Send this back to only the client that requested it
             ClientRpcParams clientRpcParams = new()
             {
                 Send = new ClientRpcSendParams
@@ -581,8 +576,9 @@ namespace NSM
             // To avoid problems later with applying diffs, go back to the last time we would've sent out a
             // frame update normally.
             int requestedGameTick = realGameTick - (realGameTick % sendStateEveryNFrames);
+            VerboseLog("xxx Full frame requested for " + requestedGameTick);
 
-            ProcessFullStateUpdateClientRpc(stateBuffer[requestedGameTick], gameEventsBuffer, clientRpcParams);
+            ProcessFullStateUpdateClientRpc(stateBuffer[requestedGameTick], gameEventsBuffer, realGameTick, clientRpcParams);
         }
 
         #endregion Server-side only code
@@ -692,36 +688,28 @@ namespace NSM
         }
 
         [ClientRpc]
-        private void StartGameClientRpc(StateFrameDTO initialStateFrameDelta, int _randomSeedBase)
+        private void StartGameClientRpc(StateFrameDTO initialStateFrame, int _randomSeedBase)
         {
+            // TODO: figure out what to do if the initial game state never arrives
             if (IsHost)
             {
                 return;
             }
 
-            VerboseLog("Initial game state received from server.  Diff size:" + initialStateFrameDelta._gameStateDiffBytes.Length);
+            VerboseLog("Initial game state received from server.");
 
             // Store the state
-            StateFrameDTO initialFrame = new()
-            {
-                gameTick = 0,
-            };
-            initialFrame.ApplyDelta(initialStateFrameDelta);
-
-            stateBuffer[0] = initialFrame;
-
-            // Set our 'now' to (server tick + estimated lag)
+            stateBuffer[0] = initialStateFrame.Duplicate();
             lastAuthoritativeTick = 0;
-
             randomSeedBase = _randomSeedBase;
 
             // Start things off!
             isRunning = true;
-            ResyncWithServer(initialFrame);
+            ResyncWithServer(initialStateFrame);
         }
 
         [ClientRpc]
-        private void UpdateGameStateClientRpc(StateFrameDTO serverGameStateDelta, GameEventsBuffer newGameEventsBuffer)
+        private void UpdateGameStateClientRpc(StateFrameDeltaDTO serverGameStateDelta, GameEventsBuffer newGameEventsBuffer)
         {
             if (!isRunning)
             {
@@ -738,6 +726,12 @@ namespace NSM
 
             VerboseLog("Server state received.  Server time:" + serverGameStateDelta.gameTick);
 
+            if (serverGameStateDelta.gameTick < lastAuthoritativeTick)
+            {
+                VerboseLog("Server state was from before last authoritative, so drop it.  Last authoritative tick: " + lastAuthoritativeTick);
+                return;
+            }
+
             // Did the state arrive out of order?  If so, panic.
             if (serverGameStateDelta.gameTick != (lastAuthoritativeTick + sendStateEveryNFrames))
             {
@@ -748,15 +742,6 @@ namespace NSM
 
                 // We can't just process this as-is since we need that prior frame in order to properly apply the delta.
                 // As such, request a full state sync instead of the delta
-                RequestFullStateUpdateServerRpc();
-                return;
-            }
-
-            // Is the server too far in the future or past?  If so, get back in sync.
-            if (Math.Abs(realGameTick - serverGameStateDelta.gameTick) > (sendStateEveryNFrames * 2))
-            {
-                // TODO: decide to handle a hacker that sends forged server state from out-of-tolerance timestamps.
-                Debug.LogWarning("xxx Received server state is greatly out of tolerance.  Client may experience slowdown, jumping, or other bad behavior.");
                 RequestFullStateUpdateServerRpc();
                 return;
             }
@@ -784,13 +769,19 @@ namespace NSM
 
         [ClientRpc]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "Needed for server to send to specific clients")]
-        private void ProcessFullStateUpdateClientRpc(StateFrameDTO serverGameState, GameEventsBuffer serverGameEventsBuffer, ClientRpcParams clientRpcParams = default)
+        private void ProcessFullStateUpdateClientRpc(StateFrameDTO serverGameState, GameEventsBuffer serverGameEventsBuffer, int serverTick, ClientRpcParams clientRpcParams = default)
         {
             VerboseLog("xxx Received full state update from server");
 
+            if( serverTick < lastAuthoritativeTick)
+            {
+                VerboseLog("xxx Received full frame update from before the last authoritative, so drop it.  Server tick: " + serverTick + " Last authoritative tick: " + lastAuthoritativeTick);
+                return;
+            }
+
             // Set the time to match the server (so that replays won't be dropped)
-            gameTick = serverGameState.gameTick;
-            realGameTick = serverGameState.gameTick;
+            gameTick = serverTick;
+            realGameTick = serverTick;
 
             // Get us back in sync
             ScheduleGameEventsSwap(serverGameEventsBuffer);
@@ -978,10 +969,24 @@ namespace NSM
 
             for (gameTick = realGameTick - 1; gameTick >= rewindToTick; gameTick--)
             {
-                // TODO: We can probably skip restoring gamestate at all whenever there are no events inside of a frame to roll back
+                // We can skip restoring gamestate at all whenever there are no events inside of a frame to roll back
+                if(gameEventsBuffer[gameTick].Count == 0)
+                {
+                    continue;
+                }
 
+                // TODO: There's an edge case here where the client was fast-forwarded and then had to replay events,
+                //       and as such has no game state for the frame before the last authoritative tick.
+                //       If this happens, it's unclear what the right thing to do is.
+                //       For now, just assume that the tick that we _do_ have is better than nothing.
                 VerboseLog("Undoing events at tick " + gameTick + " (setting state to the moment before the events were originally run)");
-                ApplyState(stateBuffer[Math.Max(0, gameTick - 1)].GameState);
+                StateFrameDTO frameToRestore = stateBuffer[Math.Max(0, gameTick - 1)];
+                if( frameToRestore.GameState == null)
+                {
+                    Debug.LogWarning("We don't have actual gamestate from the frame just before this event, so we're setting the state to the one after it");
+                    frameToRestore = stateBuffer[Math.Max(0, gameTick)];
+                }
+                ApplyState(frameToRestore.GameState);
 
                 RollbackEvents(gameEventsBuffer[gameTick], stateBuffer[gameTick].GameState);
             }
@@ -1047,7 +1052,14 @@ namespace NSM
 
             IGameState newGameState = TypeStore.Instance.CreateBlankGameState();
             GetGameState(ref newGameState);
-            newFrame.GameState = newGameState;
+            newFrame.GameState = newGameState ?? throw new Exception("GetGameState failed to return a valid IGameState object");
+
+            // Did something fail during serialization?
+            if( newFrame.GameState == null)
+            {
+                throw new Exception("Gamestate serialization to bytes failed");
+            }
+
             newFrame.PhysicsState.TakeSnapshot(GetNetworkedRigidbodies());
 
             return newFrame;
