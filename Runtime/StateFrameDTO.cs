@@ -98,7 +98,7 @@ namespace NSM
             BsDiff.BinaryPatchUtility.Create(baseStateArray, targetStateArray, patchMs);
             diffArray = patchMs.ToArray();
 
-            deltaState._gameStateDiffBytes = diffArray;
+            deltaState._gameStateDiffBytes = (byte[])diffArray.Clone();
 
             return deltaState;
         }
@@ -120,7 +120,7 @@ namespace NSM
             using MemoryStream baseMs = new(baseStateArray);
             using MemoryStream patchedMs = new();
             BsDiff.BinaryPatchUtility.Apply(baseMs, () => new MemoryStream(deltaState._gameStateDiffBytes), patchedMs);
-            _gameStateBytes = patchedMs.ToArray();
+            _gameStateBytes = (byte[])patchedMs.ToArray().Clone();
         }
 
         #endregion Deltas

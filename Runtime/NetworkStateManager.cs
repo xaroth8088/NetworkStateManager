@@ -24,7 +24,8 @@ namespace NSM
         // lag we'll permit beyond what Unity's networking system thinks the lag is.
         public int maxPastTolerance = 5;
 
-        public int sendStateEveryNFrames = 10;
+        public int sendStateDeltaEveryNFrames = 10;
+        public int sendFullStateEveryNFrames = 100;
         public bool verboseLogging = false;
 
         [Header("Debug - Rollback")]
@@ -507,17 +508,27 @@ namespace NSM
             stateBuffer[realGameTick] = RunSingleGameFrame(realGameTick, playerInputs, gameEventsBuffer[realGameTick]);
 
             // (Maybe) send the new state to the clients for reconciliation
-            if (realGameTick % sendStateEveryNFrames == 0)
+            if (realGameTick % sendFullStateEveryNFrames == 0)
             {
-                VerboseLog("Sending delta - base frame comes from tick " + (realGameTick - sendStateEveryNFrames));
+                VerboseLog("Sending full state to clients");
+
+                // To avoid problems later with applying diffs, go back to the last time we would've sent out a
+                // frame delta normally.
+                int requestedGameTick = realGameTick - (realGameTick % sendStateDeltaEveryNFrames);
+
+                ProcessFullStateUpdateClientRpc(stateBuffer[requestedGameTick], gameEventsBuffer, realGameTick);
+            }
+            else if (realGameTick % sendStateDeltaEveryNFrames == 0)
+            {
+                VerboseLog("Sending delta - base frame comes from tick " + (realGameTick - sendStateDeltaEveryNFrames));
 
                 // TODO: there's an opportunity to be slightly more aggressive by skipping sending anything if the entire
                 //       state frame is exactly the same (except for the realGameTick, of course).
-                StateFrameDeltaDTO delta = stateBuffer[realGameTick - sendStateEveryNFrames].GenerateDelta(stateBuffer[realGameTick]);
+                StateFrameDeltaDTO delta = stateBuffer[realGameTick - sendStateDeltaEveryNFrames].GenerateDelta(stateBuffer[realGameTick]);
                 VerboseLog("Sending delta with diff size of " + delta._gameStateDiffBytes?.Length);
 
                 // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
-                UpdateGameStateClientRpc(delta, gameEventsBuffer);
+                ProcessStateDeltaUpdateClientRpc(delta, gameEventsBuffer);
             }
         }
 
@@ -574,8 +585,8 @@ namespace NSM
             };
 
             // To avoid problems later with applying diffs, go back to the last time we would've sent out a
-            // frame update normally.
-            int requestedGameTick = realGameTick - (realGameTick % sendStateEveryNFrames);
+            // frame delta normally.
+            int requestedGameTick = realGameTick - (realGameTick % sendStateDeltaEveryNFrames);
             VerboseLog("xxx Full frame requested for " + requestedGameTick);
 
             ProcessFullStateUpdateClientRpc(stateBuffer[requestedGameTick], gameEventsBuffer, realGameTick, clientRpcParams);
@@ -589,7 +600,7 @@ namespace NSM
         {
             RunScheduledStateReplay();
 
-            if (realGameTick > lastAuthoritativeTick + (sendStateEveryNFrames * 4)) // TODO: explicitly configurable, instead of implicitly
+            if (realGameTick > lastAuthoritativeTick + (sendStateDeltaEveryNFrames * 4)) // TODO: explicitly configurable, instead of implicitly
             {
                 // TODO: is this the best thing we can do here?
                 VerboseLog("Client is too far ahead of the last server frame, so pause until we get caught up.");
@@ -700,7 +711,6 @@ namespace NSM
 
             // Store the state
             stateBuffer[0] = initialStateFrame.Duplicate();
-            lastAuthoritativeTick = 0;
             randomSeedBase = _randomSeedBase;
 
             // Start things off!
@@ -709,7 +719,7 @@ namespace NSM
         }
 
         [ClientRpc]
-        private void UpdateGameStateClientRpc(StateFrameDeltaDTO serverGameStateDelta, GameEventsBuffer newGameEventsBuffer)
+        private void ProcessStateDeltaUpdateClientRpc(StateFrameDeltaDTO serverGameStateDelta, GameEventsBuffer newGameEventsBuffer)
         {
             if (!isRunning)
             {
@@ -724,20 +734,22 @@ namespace NSM
                 return;
             }
 
-            VerboseLog("Server state received.  Server time:" + serverGameStateDelta.gameTick);
+            VerboseLog("Server state delta received.  Server time:" + serverGameStateDelta.gameTick);
 
             if (serverGameStateDelta.gameTick < lastAuthoritativeTick)
             {
-                VerboseLog("Server state was from before last authoritative, so drop it.  Last authoritative tick: " + lastAuthoritativeTick);
+                VerboseLog("Server state delta was from before last authoritative, so drop it.  Last authoritative tick: " + lastAuthoritativeTick);
                 return;
             }
 
             // Did the state arrive out of order?  If so, panic.
-            if (serverGameStateDelta.gameTick != (lastAuthoritativeTick + sendStateEveryNFrames))
+            if (serverGameStateDelta.gameTick != (lastAuthoritativeTick + sendStateDeltaEveryNFrames))
             {
+                // TODO: maybe this should be an exception thrown from trying to apply the deltas (do the check there), and then do the full
+                //       state request here if caught?
                 VerboseLog(
                     "xxx Server snapshot arrived out of order!  Requesting full state refresh.  Server state tick: " + serverGameStateDelta.gameTick +
-                    " expected: " + lastAuthoritativeTick + " + " + sendStateEveryNFrames + " = " + (lastAuthoritativeTick + sendStateEveryNFrames)
+                    " expected: " + lastAuthoritativeTick + " + " + sendStateDeltaEveryNFrames + " = " + (lastAuthoritativeTick + sendStateDeltaEveryNFrames)
                 );
 
                 // We can't just process this as-is since we need that prior frame in order to properly apply the delta.
@@ -753,8 +765,8 @@ namespace NSM
             StateFrameDTO serverGameState;
             try
             {
-                serverGameState = stateBuffer[serverGameStateDelta.gameTick - sendStateEveryNFrames].Duplicate();
-                VerboseLog("Applying delta against frame " + (serverGameStateDelta.gameTick - sendStateEveryNFrames));
+                VerboseLog("Applying delta against frame " + (serverGameStateDelta.gameTick - sendStateDeltaEveryNFrames));
+                serverGameState = stateBuffer[serverGameStateDelta.gameTick - sendStateDeltaEveryNFrames].Duplicate();
                 serverGameState.ApplyDelta(serverGameStateDelta);
             } catch (Exception e)
             {
@@ -763,7 +775,6 @@ namespace NSM
                 return;
             }
 
-            lastAuthoritativeTick = serverGameState.gameTick;
             ResyncWithServer(serverGameState);
         }
 
@@ -779,10 +790,6 @@ namespace NSM
                 return;
             }
 
-            // Set the time to match the server (so that replays won't be dropped)
-            gameTick = serverTick;
-            realGameTick = serverTick;
-
             // Get us back in sync
             ScheduleGameEventsSwap(serverGameEventsBuffer);
             ResyncWithServer(serverGameState);
@@ -790,12 +797,18 @@ namespace NSM
 
         private void ResyncWithServer(StateFrameDTO serverState)
         {
+            // NOTE: when we get here, we'll be at the _end_ of frame realGameTick
             int serverTick = serverState.gameTick;
 
-            VerboseLog("Resync with server, server tick is " + serverTick);
+            VerboseLog("Resync with server, server state is from the end of tick " + serverTick);
 
             // Apply the delta to our history at the server's timestamp
             stateBuffer[serverTick] = serverState.Duplicate();
+
+            lastAuthoritativeTick = serverState.gameTick;
+
+            realGameTick = serverState.gameTick + GetEstimatedLag();
+            gameTick = realGameTick;
 
             ScheduleStateReplay(serverTick);
         }
@@ -804,34 +817,34 @@ namespace NSM
 
         #region Core simulation functionality
 
-        private void ReplayFrames(int startTick, int targetTick)
+        private void ReplayFramesFromEndOfStartTickUntilEndOfTargetTick (int startAtBeginningOfTick, int targetTick)
         {
-            VerboseLog("Replaying frames " + startTick + " until " + targetTick + " (non-inclusive)");
+            VerboseLog("Replaying frames from start of " + startAtBeginningOfTick + " until end of " + targetTick);
 
             isReplaying = true;
 
             // Get our state matched to the state the server had at the frame we received
-            if (startTick > realGameTick)
+            if (startAtBeginningOfTick > realGameTick)
             {
                 // "client is lagging behind, and needs to catch up"
                 VerboseLog("Client needs to catch up to server, so fast-forward to server time");
 
-                // Fast-forward, so that we trigger any relevant events
+                // Fast-forward to just before the frames we're going to replay, so that we trigger any relevant events
                 LoadPendingEventsBuffer();
-                SimulateFrames(realGameTick, startTick - 1);   // TODO: add a flag that's like "skip any frames without events", maybe?
+                SimulateFrames(realGameTick, startAtBeginningOfTick - 1);   // TODO: add a flag that's like "skip any frames without events", maybe?
             }
             else
             {
                 // "normal operation, needs rewind and replay"
                 VerboseLog("Client is ahead of server frame (the normal case), so rewind, apply, and replay to now");
 
-                RewindTime(startTick);
+                RewindEvents(startAtBeginningOfTick);
                 LoadPendingEventsBuffer();
             }
 
             // Go forward until we get to the synchronized "now"
-            ApplyFullStateFrame(stateBuffer[Math.Max(0, startTick)]);
-            SimulateFrames(startTick + 1, targetTick);
+            ApplyFullStateFrame(stateBuffer[Math.Max(0, startAtBeginningOfTick)]);  // gameTick = 50, realGameTick = 51
+            SimulateFrames(startAtBeginningOfTick + 1, targetTick);
             realGameTick = targetTick;
             gameTick = realGameTick;
 
@@ -946,8 +959,10 @@ namespace NSM
 
             int targetTick = replayFromTick + GetEstimatedLag();
 
-            ReplayFrames(replayFromTick, targetTick);
-            realGameTick = targetTick;
+            ReplayFramesFromEndOfStartTickUntilEndOfTargetTick(replayFromTick, targetTick);
+            
+            // Put us at the start of the next frame
+            realGameTick = targetTick + 1;
             gameTick = realGameTick;
 
             // Reset to "nothing scheduled"
@@ -958,14 +973,14 @@ namespace NSM
         //       and "this frame's remote inputs were predicted before, and need to be re-predicted now".  Because we may have server-authoritative inputs
         //       for some of the frames that are being replayed when we're replaying them.
 
-        private void RewindTime(int rewindToTick)
+        private void RewindEvents(int rewindToTick)
         {
             if(rewindToTick < 0)
             {
                 rewindToTick = 0;
             }
 
-            VerboseLog("Rewinding time");
+            VerboseLog("Rewinding events");
 
             for (gameTick = realGameTick - 1; gameTick >= rewindToTick; gameTick--)
             {
@@ -995,6 +1010,8 @@ namespace NSM
 
         private void ApplyFullStateFrame(StateFrameDTO stateFrame)
         {
+            gameTick = stateFrame.gameTick;
+
             VerboseLog("Applying full state frame");
 
             ResetRandom(stateFrame.gameTick);
@@ -1070,7 +1087,7 @@ namespace NSM
             // Don't worry about replaying something from the future
             if (startTick > realGameTick)
             {
-                VerboseLog("Ignoring replay requested for future or present tick " + startTick);
+                VerboseLog("Ignoring replay requested for future tick " + startTick);
                 return;
             }
 
@@ -1163,6 +1180,7 @@ namespace NSM
             {
                 ClientFixedUpdate();
             }
+            VerboseLog("---- END FRAME ----");
         }
 
         public void VerboseLog(string message)
