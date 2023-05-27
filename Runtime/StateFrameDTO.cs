@@ -2,12 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using Unity.Netcode;
+using UnityEngine;
 
 namespace NSM
 {
     public struct StateFrameDTO : INetworkSerializable
     {
+        public bool authoritative;
         public int gameTick;
         private byte[] _gameStateBytes;
         private PhysicsStateDTO _physicsState;
@@ -26,19 +29,39 @@ namespace NSM
                 gameState.RestoreFromBinaryRepresentation(_gameStateBytes);
                 return gameState;
             }
-            set => _gameStateBytes = (byte[])value.GetBinaryRepresentation().Clone();
+            set {
+                if( authoritative )
+                {
+                    Debug.LogError("Tried to write game state to an authoritative frame");
+                }
+                _gameStateBytes = (byte[])value.GetBinaryRepresentation().Clone();
+            }
         }
 
         public PhysicsStateDTO PhysicsState
         {
             get => _physicsState ??= new PhysicsStateDTO();
-            set => _physicsState = value;
+            set
+            {
+                if (authoritative)
+                {
+                    Debug.LogError("Tried to write physics state to an authoritative frame");
+                }
+                _physicsState = value;
+            }
         }
 
         public Dictionary<byte, IPlayerInput> PlayerInputs
         {
             get => _playerInputs ??= new Dictionary<byte, IPlayerInput>();
-            set => _playerInputs = value;
+            set
+            {
+                if (authoritative)
+                {
+                    Debug.LogError("Tried to write inputs to an authoritative frame");
+                }
+                _playerInputs = value;
+            }
         }
 
         public StateFrameDTO Duplicate()
@@ -52,13 +75,18 @@ namespace NSM
                 throw new Exception("_gameStateBytes was null, so can't duplicate state");
             }
 
+            // Temporarily set authoritative to false, so that the initialization doesn't trigger
+            // the "you're writing to an authoritative frame" warnings
             StateFrameDTO newFrame = new()
             {
+                authoritative = false,
                 gameTick = gameTick,
                 _gameStateBytes = (byte[])_gameStateBytes.Clone(),
                 PhysicsState = PhysicsState,
                 PlayerInputs = new Dictionary<byte, IPlayerInput>(PlayerInputs)
             };
+
+            newFrame.authoritative = authoritative;
 
             return newFrame;
         }
@@ -74,7 +102,7 @@ namespace NSM
                 PlayerInputs = new(),
             };
 
-            deltaState.PhysicsState = deltaState.PhysicsState.GenerateDelta(targetState.PhysicsState);
+            deltaState.PhysicsState = PhysicsState.GenerateDelta(targetState.PhysicsState);
 
             foreach (KeyValuePair<byte, IPlayerInput> entry in targetState.PlayerInputs)
             {
@@ -90,17 +118,39 @@ namespace NSM
             }
 
             // Make a gamestate diff
-            byte[] baseStateArray = GameState.GetBinaryRepresentation();
-            byte[] targetStateArray = targetState.GameState.GetBinaryRepresentation();
-            byte[] diffArray;
+            byte[] baseStateArray = _gameStateBytes;
+            byte[] targetStateArray = targetState._gameStateBytes;
 
             using MemoryStream patchMs = new();
             BsDiff.BinaryPatchUtility.Create(baseStateArray, targetStateArray, patchMs);
-            diffArray = patchMs.ToArray();
 
-            deltaState._gameStateDiffBytes = (byte[])diffArray.Clone();
+            deltaState._gameStateDiffBytes = (byte[])patchMs.ToArray().Clone();
+
+            using (SHA256 mySHA = SHA256.Create())
+            {
+                PrintByteArray(mySHA.ComputeHash(_gameStateBytes));
+            }
+            using (SHA256 mySHA = SHA256.Create())
+            {
+                PrintByteArray(mySHA.ComputeHash(targetState._gameStateBytes));
+            }
+            using (SHA256 mySHA = SHA256.Create())
+            {
+                PrintByteArray(mySHA.ComputeHash(deltaState._gameStateDiffBytes));
+            }
 
             return deltaState;
+        }
+
+        public static void PrintByteArray(byte[] array)
+        {
+            string output = "";
+            for (int i = 0; i < array.Length; i++)
+            {
+                output += $"{array[i]:X2}";
+                if ((i % 4) == 3) output += " ";
+            }
+            Debug.Log(output);
         }
 
         public void ApplyDelta(StateFrameDeltaDTO deltaState)
@@ -115,12 +165,24 @@ namespace NSM
             }
 
             // Game state rehydration
-            byte[] baseStateArray = GameState.GetBinaryRepresentation();
+            using (SHA256 mySHA = SHA256.Create())
+            {
+                PrintByteArray(mySHA.ComputeHash(_gameStateBytes));
+            }
 
-            using MemoryStream baseMs = new(baseStateArray);
+            using MemoryStream baseMs = new(_gameStateBytes);
             using MemoryStream patchedMs = new();
             BsDiff.BinaryPatchUtility.Apply(baseMs, () => new MemoryStream(deltaState._gameStateDiffBytes), patchedMs);
             _gameStateBytes = (byte[])patchedMs.ToArray().Clone();
+
+            using (SHA256 mySHA = SHA256.Create())
+            {
+                PrintByteArray(mySHA.ComputeHash(_gameStateBytes));
+            }
+            using (SHA256 mySHA = SHA256.Create())
+            {
+                PrintByteArray(mySHA.ComputeHash(deltaState._gameStateDiffBytes));
+            }
         }
 
         #endregion Deltas

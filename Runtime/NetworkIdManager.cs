@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace NSM
 {
@@ -102,5 +104,45 @@ namespace NSM
         {
             return networkIdGameObjectCache[networkId];
         }
+
+        public void SetupInitialNetworkIds(Scene scene)
+        {
+            // Basically, we can't know what order everything's going to load in, so we can't know whether all clients will
+            // get the same network id's on instantiation.
+            // So instead, when the scene's ready we'll:
+            //  * reset the counter
+            //  * go through all the game objects that need a network id (in hierarchy order)
+            //  * regenerate the network ids
+            // In theory, the client and server should agree on the objects in the hierarchy at this point in time, so it should
+            // be ok to use as a deterministic ordering mechanism.
+
+            // TODO: [bug] if a game object is at the root level, it won't be found by this and won't get a network id
+
+            Reset();
+            List<GameObject> gameObjects = scene.GetRootGameObjects().ToList();
+            gameObjects.Sort((a, b) => a.transform.GetSiblingIndex() - b.transform.GetSiblingIndex());
+            foreach (GameObject gameObject in gameObjects)
+            {
+                SetupNetworkIdsForChildren(gameObject.transform);
+            }
+        }
+
+        private void SetupNetworkIdsForChildren(Transform node)
+        {
+            for (int i = 0; i < node.childCount; i++)
+            {
+                Transform child = node.GetChild(i);
+                if (child.gameObject.TryGetComponent(out NetworkId _))
+                {
+                    RegisterGameObject(child.gameObject);
+                }
+
+                if (child.childCount > 0)
+                {
+                    SetupNetworkIdsForChildren(child);
+                }
+            }
+        }
+
     }
 }

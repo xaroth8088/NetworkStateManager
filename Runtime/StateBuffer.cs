@@ -49,7 +49,13 @@ namespace NSM
                 {
                     Debug.LogWarning("State for a negative game tick was requested to be written.");
                 }
-
+                if( stateBuffer.ContainsKey(i))
+                {
+                    if(stateBuffer[i].authoritative)
+                    {
+                        Debug.LogError("Tried to overwrite an authoritative frame at tick " + i);
+                    }
+                 }
                 stateBuffer[i] = value;
             }
         }
