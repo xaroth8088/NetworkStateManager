@@ -77,12 +77,14 @@ namespace NSM
 
             // Temporarily set authoritative to false, so that the initialization doesn't trigger
             // the "you're writing to an authoritative frame" warnings
+            PhysicsStateDTO physicsStateDTO = new PhysicsStateDTO();
+            physicsStateDTO.RestoreFromBinaryRepresentation(PhysicsState.GetBinaryRepresentation());
             StateFrameDTO newFrame = new()
             {
                 authoritative = false,
                 gameTick = gameTick,
                 _gameStateBytes = (byte[])_gameStateBytes.Clone(),
-                PhysicsState = PhysicsState,
+                PhysicsState = physicsStateDTO,
                 PlayerInputs = new Dictionary<byte, IPlayerInput>(PlayerInputs)
             };
 
