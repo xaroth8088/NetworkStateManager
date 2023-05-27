@@ -1,10 +1,10 @@
-using System;
-using Unity.Netcode;
+using MemoryPack;
 using UnityEngine;
 
 namespace NSM
 {
-    public struct RigidBodyStateDTO : INetworkSerializable, IEquatable<RigidBodyStateDTO>
+    [MemoryPackable]
+    public partial struct RigidBodyStateDTO
     {
         public Vector3 angularVelocity;
         public bool isSleeping;
@@ -51,29 +51,6 @@ namespace NSM
                 rigidbody.velocity = velocity;
                 rigidbody.angularVelocity = angularVelocity;
             }
-        }
-
-        public bool Equals(RigidBodyStateDTO other)
-        {
-            return (
-                networkId == other.networkId &&
-                position.Equals(other.position) &&
-                rotation.Equals(other.rotation) &&
-                velocity.Equals(other.velocity) &&
-                angularVelocity.Equals(other.angularVelocity) &&
-                isSleeping.Equals(other.isSleeping)
-            );
-        }
-
-        void INetworkSerializable.NetworkSerialize<T>(BufferSerializer<T> serializer)
-        {
-            // TODO: if the rigidbody is asleep, maybe we don't need to send any data at all about it beyond that?
-            serializer.SerializeValue(ref position);
-            serializer.SerializeValue(ref rotation);
-            serializer.SerializeValue(ref velocity);
-            serializer.SerializeValue(ref angularVelocity);
-            serializer.SerializeValue(ref networkId);
-            serializer.SerializeValue(ref isSleeping);
         }
     }
 }

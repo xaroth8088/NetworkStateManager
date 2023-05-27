@@ -10,7 +10,8 @@
   },
   "changelogUrl": "https://github.com/xaroth8088/NetworkStateManager/blob/main/CHANGELOG.md",
   "dependencies": {
-    "com.unity.netcode.gameobjects": "1.2.0"
+    "com.unity.netcode.gameobjects": "1.2.0",
+    "com.cysharp.memorypack": "https://github.com/Cysharp/MemoryPack.git?path=src/MemoryPack.Unity/Assets/Plugins/MemoryPack"
   },
   "documentationUrl": "https://github.com/xaroth8088/NetworkStateManager",
   "keywords": ["physics", "networking", "client-side prediction"],

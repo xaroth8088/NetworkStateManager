@@ -1,8 +1,8 @@
+using InvertedTomato.Crc;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -40,7 +40,7 @@ namespace NSM
 
         public PhysicsStateDTO PhysicsState
         {
-            get => _physicsState ??= new PhysicsStateDTO();
+            get => _physicsState;
             set
             {
                 if (authoritative)
@@ -99,10 +99,8 @@ namespace NSM
             StateFrameDeltaDTO deltaState = new()
             {
                 gameTick = targetState.gameTick,
-                PlayerInputs = new(),
+                PlayerInputs = new()
             };
-
-            deltaState.PhysicsState = PhysicsState.GenerateDelta(targetState.PhysicsState);
 
             foreach (KeyValuePair<byte, IPlayerInput> entry in targetState.PlayerInputs)
             {
@@ -117,47 +115,43 @@ namespace NSM
                 deltaState.PlayerInputs[entry.Key] = entry.Value;
             }
 
-            // Make a gamestate diff
+            // Make a game state diff
             byte[] baseStateArray = _gameStateBytes;
             byte[] targetStateArray = targetState._gameStateBytes;
 
-            using MemoryStream patchMs = new();
-            BsDiff.BinaryPatchUtility.Create(baseStateArray, targetStateArray, patchMs);
+            // CRC for the target
+            CrcAlgorithm crc = CrcAlgorithm.CreateCrc8();
+            crc.Append(targetStateArray);
+            deltaState.gameStateCRC = crc.ToByteArray()[0];
 
+            MemoryStream patchMs = new();
+            BsDiff.BinaryPatchUtility.Create(baseStateArray, targetStateArray, patchMs);
             deltaState._gameStateDiffBytes = (byte[])patchMs.ToArray().Clone();
 
-            using (SHA256 mySHA = SHA256.Create())
-            {
-                PrintByteArray(mySHA.ComputeHash(_gameStateBytes));
-            }
-            using (SHA256 mySHA = SHA256.Create())
-            {
-                PrintByteArray(mySHA.ComputeHash(targetState._gameStateBytes));
-            }
-            using (SHA256 mySHA = SHA256.Create())
-            {
-                PrintByteArray(mySHA.ComputeHash(deltaState._gameStateDiffBytes));
-            }
+            // Make a physics state diff
+            baseStateArray = _physicsState.GetBinaryRepresentation();
+            targetStateArray = targetState._physicsState.GetBinaryRepresentation();
+
+            // CRC for the target
+            crc.Clear();
+            crc.Append(targetStateArray);
+            deltaState.physicsStateCRC = crc.ToByteArray()[0];
+
+            patchMs = new();
+            BsDiff.BinaryPatchUtility.Create(baseStateArray, targetStateArray, patchMs);
+            deltaState._physicsStateDiffBytes = (byte[])patchMs.ToArray().Clone();
 
             return deltaState;
         }
 
-        public static void PrintByteArray(byte[] array)
-        {
-            string output = "";
-            for (int i = 0; i < array.Length; i++)
-            {
-                output += $"{array[i]:X2}";
-                if ((i % 4) == 3) output += " ";
-            }
-            Debug.Log(output);
-        }
-
         public void ApplyDelta(StateFrameDeltaDTO deltaState)
         {
-            gameTick = deltaState.gameTick;
+            if( !authoritative)
+            {
+                throw new Exception("Attempted to apply a delta to a non-authoritative state frame");
+            }
 
-            PhysicsState.ApplyDelta(deltaState.PhysicsState);
+            gameTick = deltaState.gameTick;
 
             foreach (KeyValuePair<byte, IPlayerInput> entry in deltaState.PlayerInputs)
             {
@@ -165,23 +159,31 @@ namespace NSM
             }
 
             // Game state rehydration
-            using (SHA256 mySHA = SHA256.Create())
-            {
-                PrintByteArray(mySHA.ComputeHash(_gameStateBytes));
-            }
-
-            using MemoryStream baseMs = new(_gameStateBytes);
-            using MemoryStream patchedMs = new();
+            MemoryStream baseMs = new(_gameStateBytes);
+            MemoryStream patchedMs = new();
             BsDiff.BinaryPatchUtility.Apply(baseMs, () => new MemoryStream(deltaState._gameStateDiffBytes), patchedMs);
             _gameStateBytes = (byte[])patchedMs.ToArray().Clone();
 
-            using (SHA256 mySHA = SHA256.Create())
+            // CRC check
+            var crc = CrcAlgorithm.CreateCrc8();
+            crc.Append(_gameStateBytes);
+            if( deltaState.gameStateCRC != crc.ToByteArray()[0] )
             {
-                PrintByteArray(mySHA.ComputeHash(_gameStateBytes));
+                throw new Exception("Incoming game state delta failed CRC check when applied");
             }
-            using (SHA256 mySHA = SHA256.Create())
+
+            // Game state rehydration
+            baseMs = new(_physicsState.GetBinaryRepresentation());
+            patchedMs = new();
+            BsDiff.BinaryPatchUtility.Apply(baseMs, () => new MemoryStream(deltaState._physicsStateDiffBytes), patchedMs);
+            _physicsState.RestoreFromBinaryRepresentation((byte[])patchedMs.ToArray().Clone());
+
+            // CRC check
+            crc.Clear();
+            crc.Append(_physicsState.GetBinaryRepresentation());
+            if (deltaState.physicsStateCRC != crc.ToByteArray()[0])
             {
-                PrintByteArray(mySHA.ComputeHash(deltaState._gameStateDiffBytes));
+                throw new Exception("Incoming physics state delta failed CRC check when applied");
             }
         }
 
@@ -191,22 +193,25 @@ namespace NSM
         void INetworkSerializable.NetworkSerialize<T>(BufferSerializer<T> serializer)
         {
             _playerInputs ??= new Dictionary<byte, IPlayerInput>();
-            _physicsState ??= new PhysicsStateDTO();
             _gameStateBytes ??= new byte[0];
 
             serializer.SerializeValue(ref gameTick);
-            serializer.SerializeValue(ref _physicsState);
 
             byte[] compressionBuffer = new byte[0];
             if( serializer.IsReader )
             {
                 serializer.SerializeValue(ref compressionBuffer);
                 _gameStateBytes = Compression.DecompressBytes(compressionBuffer);
+                serializer.SerializeValue(ref compressionBuffer);
+                _physicsState = new PhysicsStateDTO();
+                _physicsState.RestoreFromBinaryRepresentation(Compression.DecompressBytes(compressionBuffer));
             }
 
             if (serializer.IsWriter)
             {
                 compressionBuffer = Compression.CompressBytes(_gameStateBytes);
+                serializer.SerializeValue(ref compressionBuffer);
+                compressionBuffer = Compression.CompressBytes(_physicsState.GetBinaryRepresentation());
                 serializer.SerializeValue(ref compressionBuffer);
             }
 

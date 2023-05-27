@@ -471,6 +471,8 @@ namespace NSM
         [ServerRpc(RequireOwnership = false)]
         private void SetInputServerRpc(byte playerId, PlayerInputDTO value, int clientTimeTick)
         {
+            return;
+
             if (!isRunning)
             {
                 // RPC's can arrive before this component has started, so skip out if it's too early
@@ -675,6 +677,7 @@ namespace NSM
         [ClientRpc]
         private void ForwardPlayerInputClientRpc(byte playerId, PlayerInputDTO value, int clientTimeTick, int serverTick)
         {
+            return;
             if (!ShouldClientRunRpcs())
             {
                 return;
@@ -827,12 +830,6 @@ namespace NSM
         private void ApplyPhysicsState(PhysicsStateDTO physicsState)
         {
             VerboseLog("Applying physics state");
-
-            if (physicsState == null)
-            {
-                // No rigidbodies in the state yet
-                return;
-            }
 
             // Set each object into the world
             foreach ((byte networkId, RigidBodyStateDTO rigidBodyState) in physicsState.RigidBodyStates)

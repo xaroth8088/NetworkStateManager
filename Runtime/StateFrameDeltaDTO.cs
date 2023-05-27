@@ -9,14 +9,11 @@ namespace NSM
     {
         public int gameTick;
         public byte[] _gameStateDiffBytes;
-        private PhysicsStateDTO _physicsState;
+        public byte[] _physicsStateDiffBytes;
         private Dictionary<byte, IPlayerInput> _playerInputs;
+        public byte gameStateCRC;
+        public byte physicsStateCRC;
 
-        public PhysicsStateDTO PhysicsState
-        {
-            get => _physicsState ??= new PhysicsStateDTO();
-            set => _physicsState = value;
-        }
         public Dictionary<byte, IPlayerInput> PlayerInputs
         {
             get => _playerInputs ??= new Dictionary<byte, IPlayerInput>();
@@ -26,22 +23,27 @@ namespace NSM
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
             _playerInputs ??= new Dictionary<byte, IPlayerInput>();
-            _physicsState ??= new PhysicsStateDTO();
             _gameStateDiffBytes ??= new byte[0];
+            _physicsStateDiffBytes ??= new byte[0];
 
             serializer.SerializeValue(ref gameTick);
-            serializer.SerializeValue(ref _physicsState);
+            serializer.SerializeValue(ref gameStateCRC);
+            serializer.SerializeValue(ref physicsStateCRC);
 
             byte[] compressionBuffer = new byte[0];
             if (serializer.IsReader)
             {
                 serializer.SerializeValue(ref compressionBuffer);
                 _gameStateDiffBytes = Compression.DecompressBytes(compressionBuffer);
+                serializer.SerializeValue(ref compressionBuffer);
+                _physicsStateDiffBytes = Compression.DecompressBytes(compressionBuffer);
             }
 
             if (serializer.IsWriter)
             {
                 compressionBuffer = Compression.CompressBytes(_gameStateDiffBytes);
+                serializer.SerializeValue(ref compressionBuffer);
+                compressionBuffer = Compression.CompressBytes(_physicsStateDiffBytes);
                 serializer.SerializeValue(ref compressionBuffer);
             }
 
