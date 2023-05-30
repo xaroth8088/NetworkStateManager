@@ -25,7 +25,7 @@ namespace NSM
         [Tooltip("1 frame = 20ms, 50 frames = 1s")]
         public int sendFullStateEveryNFrames = 100;
         [Tooltip("1 frame = 20ms, 50 frames = 1s")]
-        public int requestFullFrameIfNoUpdateInNFrames = 40;
+        public int maxFramesWithoutHearingFromServer = 40;
 
         public bool verboseLogging = false;
 
@@ -459,6 +459,7 @@ namespace NSM
                 // To avoid problems later with applying diffs, go back to the last time we would've sent out a
                 // frame delta normally.
                 int requestedGameTick = realGameTick - (realGameTick % sendStateDeltaEveryNFrames);
+                // TODO: send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
                 ProcessFullStateUpdateClientRpc(stateBuffer[requestedGameTick], gameEventsBuffer, realGameTick);
             }
             else if (realGameTick % sendStateDeltaEveryNFrames == 0)
@@ -467,11 +468,10 @@ namespace NSM
 
                 // TODO: there's an opportunity to be slightly more aggressive by skipping sending anything if the entire
                 //       state frame is exactly the same (except for the realGameTick, of course).
-                StateFrameDeltaDTO delta = stateBuffer[realGameTick - sendStateDeltaEveryNFrames].GenerateDelta(stateBuffer[realGameTick]);
-                VerboseLog("Sending delta with diff size of " + delta._gameStateDiffBytes?.Length);
+                StateFrameDeltaDTO delta = new(stateBuffer[realGameTick - sendStateDeltaEveryNFrames], stateBuffer[realGameTick]);
 
-                // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
-                ProcessStateDeltaUpdateClientRpc(delta, gameEventsBuffer);
+                // TODO: send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
+                ProcessStateDeltaUpdateClientRpc(delta, gameEventsBuffer, realGameTick);
             }
         }
 
@@ -502,6 +502,7 @@ namespace NSM
             inputsBuffer.SetPlayerInputsAtTickAndPredictForwardUntil(playerInputs, clientTimeTick, realGameTick);
 
             // Forward the input to all other non-host clients so they can do the same
+            // TODO: maybe gather up all incoming inputs over some span of time and then send them in batches, to reduce RPC calls
             List<ulong> clientIds = new();
             foreach(ulong clientId in NetworkManager.ConnectedClientsIds)
             {
@@ -552,7 +553,7 @@ namespace NSM
 
         private void ClientFixedUpdate()
         {
-            if (realGameTick > lastAuthoritativeTick + requestFullFrameIfNoUpdateInNFrames)
+            if (realGameTick > lastAuthoritativeTick + maxFramesWithoutHearingFromServer)
             {
                 Debug.LogWarning("Haven't heard from the server since " + lastAuthoritativeTick);
                 // TODO: figure out what we want to do here, since we don't want to DoS the server just because we haven't heard from it in a while
@@ -614,6 +615,8 @@ namespace NSM
         {
             // NOTE: when we get here, we'll be at the _end_ of frame realGameTick, and when we leave we'll be at the end of (serverTick + lag)
 
+            // TODO: if the server's frame is exactly the same as our frame in that spot, we may not need to do any rollback simulation at all,
+            //       and can maybe just adjust to the server lag instead (or even do nothing if it's within some tolerance)
             VerboseLog("Resync with server.  Server sent state from the end of tick " + serverState.gameTick + " at server tick " + serverTick);
 
             TimeTravelToEndOf(serverState.gameTick - 1, newGameEventsBuffer);
@@ -724,7 +727,7 @@ namespace NSM
             VerboseLog("Initial game state received from server.");
 
             // Store the state (the frame will be marked as authoritative when we're in SyncToServerState)
-            StateFrameDTO stateFrame = initialStateFrame.Duplicate();
+            StateFrameDTO stateFrame = (StateFrameDTO)initialStateFrame.Clone();
             stateBuffer[0] = stateFrame;
             randomSeedBase = _randomSeedBase;
 
@@ -735,28 +738,28 @@ namespace NSM
 
         // NOTE: Rpc's are processed at the _end_ of each frame
         [ClientRpc]
-        private void ProcessStateDeltaUpdateClientRpc(StateFrameDeltaDTO serverGameStateDelta, GameEventsBuffer newGameEventsBuffer)
+        private void ProcessStateDeltaUpdateClientRpc(StateFrameDeltaDTO serverGameStateDelta, GameEventsBuffer newGameEventsBuffer, int serverTick)
         {
             if (!ShouldClientRunRpcs())
             {
                 return;
             }
 
-            VerboseLog("Server state delta received.  Server time:" + serverGameStateDelta.gameTick);
+            VerboseLog("Server state delta received.");
 
-            if (serverGameStateDelta.gameTick < lastAuthoritativeTick)
+            if (serverTick < lastAuthoritativeTick)
             {
                 VerboseLog("Server state delta was from before last authoritative, so drop it.  Last authoritative tick: " + lastAuthoritativeTick);
                 return;
             }
 
             // Did the state arrive out of order?  If so, panic.
-            if (serverGameStateDelta.gameTick != (lastAuthoritativeTick + sendStateDeltaEveryNFrames))
+            if (serverTick != (lastAuthoritativeTick + sendStateDeltaEveryNFrames))
             {
                 // TODO: maybe this should be an exception thrown from trying to apply the deltas (do the check there), and then do the full
                 //       state request here if caught?
                 VerboseLog(
-                    "Server snapshot arrived out of order!  Requesting full state refresh.  Server state tick: " + serverGameStateDelta.gameTick +
+                    "Server snapshot arrived out of order!  Requesting full state refresh.  Server state tick: " + serverTick +
                     " expected: " + lastAuthoritativeTick + " + " + sendStateDeltaEveryNFrames + " = " + (lastAuthoritativeTick + sendStateDeltaEveryNFrames)
                 );
 
@@ -770,11 +773,8 @@ namespace NSM
             StateFrameDTO serverGameState;
             try
             {
-                VerboseLog("Applying delta against frame " + (serverGameStateDelta.gameTick - sendStateDeltaEveryNFrames));
-                serverGameState = stateBuffer[serverGameStateDelta.gameTick - sendStateDeltaEveryNFrames].Duplicate();
-                VerboseLog("HERE 1");
-                serverGameState.ApplyDelta(serverGameStateDelta);
-                VerboseLog("HERE 2");
+                VerboseLog("Applying delta against frame " + (serverTick - sendStateDeltaEveryNFrames));
+                serverGameState = serverGameStateDelta.ApplyTo(stateBuffer[serverTick - sendStateDeltaEveryNFrames]);
                 serverGameState.authoritative = true;
             } catch (Exception e)
             {
@@ -783,7 +783,7 @@ namespace NSM
                 return;
             }
 
-            SyncToServerState(serverGameState, newGameEventsBuffer, serverGameStateDelta.gameTick);
+            SyncToServerState(serverGameState, newGameEventsBuffer, serverTick);
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame

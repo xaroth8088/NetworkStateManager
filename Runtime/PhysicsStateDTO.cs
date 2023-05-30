@@ -23,15 +23,5 @@ namespace NSM
                 RigidBodyStates[networkIdComponent.networkId] = new RigidBodyStateDTO(body);
             }
         }
-
-        public byte[] GetBinaryRepresentation()
-        {
-            return MemoryPackSerializer.Serialize(this);
-        }
-
-        public void RestoreFromBinaryRepresentation(byte[] bytes)
-        {
-            MemoryPackSerializer.Deserialize(bytes, ref this);
-        }
     }
 }
