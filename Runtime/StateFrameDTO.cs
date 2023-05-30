@@ -13,8 +13,7 @@ namespace NSM
         public bool authoritative;
         public int gameTick;
         private byte[] _gameStateBytes;
-        private PhysicsStateDTO _physicsState;
-        private Dictionary<byte, IPlayerInput> _playerInputs;
+        public PhysicsStateDTO PhysicsState;
 
         public IGameState GameState
         {
@@ -38,32 +37,6 @@ namespace NSM
             }
         }
 
-        public PhysicsStateDTO PhysicsState
-        {
-            get => _physicsState;
-            set
-            {
-                if (authoritative)
-                {
-                    Debug.LogError("Tried to write physics state to an authoritative frame");
-                }
-                _physicsState = value;
-            }
-        }
-
-        public Dictionary<byte, IPlayerInput> PlayerInputs
-        {
-            get => _playerInputs ??= new Dictionary<byte, IPlayerInput>();
-            set
-            {
-                if (authoritative)
-                {
-                    Debug.LogError("Tried to write inputs to an authoritative frame");
-                }
-                _playerInputs = value;
-            }
-        }
-
         public StateFrameDTO Duplicate()
         {
             // TODO: change all mutable collections inside this struct (and its children) to instead use immutable versions,
@@ -75,20 +48,15 @@ namespace NSM
                 throw new Exception("_gameStateBytes was null, so can't duplicate state");
             }
 
-            // Temporarily set authoritative to false, so that the initialization doesn't trigger
-            // the "you're writing to an authoritative frame" warnings
-            PhysicsStateDTO physicsStateDTO = new PhysicsStateDTO();
+            PhysicsStateDTO physicsStateDTO = new();
             physicsStateDTO.RestoreFromBinaryRepresentation(PhysicsState.GetBinaryRepresentation());
             StateFrameDTO newFrame = new()
             {
                 authoritative = false,
                 gameTick = gameTick,
                 _gameStateBytes = (byte[])_gameStateBytes.Clone(),
-                PhysicsState = physicsStateDTO,
-                PlayerInputs = new Dictionary<byte, IPlayerInput>(PlayerInputs)
+                PhysicsState = physicsStateDTO
             };
-
-            newFrame.authoritative = authoritative;
 
             return newFrame;
         }
@@ -100,22 +68,8 @@ namespace NSM
 
             StateFrameDeltaDTO deltaState = new()
             {
-                gameTick = targetState.gameTick,
-                PlayerInputs = new()
+                gameTick = targetState.gameTick
             };
-
-            foreach (KeyValuePair<byte, IPlayerInput> entry in targetState.PlayerInputs)
-            {
-                Type playerInputType = TypeStore.Instance.PlayerInputType;
-                IPlayerInput defaultInput = (IPlayerInput)Activator.CreateInstance(playerInputType);
-
-                if (_playerInputs != null && _playerInputs.GetValueOrDefault(entry.Key, defaultInput).Equals(entry.Value))
-                {
-                    continue;
-                }
-
-                deltaState.PlayerInputs[entry.Key] = entry.Value;
-            }
 
             // Make a game state diff
             byte[] baseStateArray = _gameStateBytes;
@@ -131,8 +85,8 @@ namespace NSM
             deltaState._gameStateDiffBytes = (byte[])patchMs.ToArray().Clone();
 
             // Make a physics state diff
-            baseStateArray = _physicsState.GetBinaryRepresentation();
-            targetStateArray = targetState._physicsState.GetBinaryRepresentation();
+            baseStateArray = PhysicsState.GetBinaryRepresentation();
+            targetStateArray = targetState.PhysicsState.GetBinaryRepresentation();
 
             // CRC for the target
             crc.Clear();
@@ -143,22 +97,27 @@ namespace NSM
             BsDiff.BinaryPatchUtility.Create(baseStateArray, targetStateArray, patchMs);
             deltaState._physicsStateDiffBytes = (byte[])patchMs.ToArray().Clone();
 
+            Debug.LogWarning("Created delta, target count: " + targetState.PhysicsState.RigidBodyStates.Count);
+
             return deltaState;
         }
 
         public void ApplyDelta(StateFrameDeltaDTO deltaState)
         {
+            Debug.LogWarning("HERE 3");
             if( !authoritative)
             {
+                Debug.LogError("Attempted to apply a delta to a non-authoritative state frame.  We are tick " + gameTick + " and delta is for tick " + deltaState.gameTick);
+
+                /*** 
+                 * For some reason, this Exception doesn't appear to be actually thrown?!
+                 */
+
                 throw new Exception("Attempted to apply a delta to a non-authoritative state frame");
             }
 
+            Debug.LogWarning("HERE 4");
             gameTick = deltaState.gameTick;
-
-            foreach (KeyValuePair<byte, IPlayerInput> entry in deltaState.PlayerInputs)
-            {
-                _playerInputs[entry.Key] = entry.Value;
-            }
 
             // Game state rehydration
             MemoryStream baseMs = new(_gameStateBytes);
@@ -173,20 +132,24 @@ namespace NSM
             {
                 throw new Exception("Incoming game state delta failed CRC check when applied");
             }
+            Debug.LogWarning("HERE 5");
 
             // Game state rehydration
-            baseMs = new(_physicsState.GetBinaryRepresentation());
+            baseMs = new(PhysicsState.GetBinaryRepresentation());
             patchedMs = new();
             BsDiff.BinaryPatchUtility.Apply(baseMs, () => new MemoryStream(deltaState._physicsStateDiffBytes), patchedMs);
-            _physicsState.RestoreFromBinaryRepresentation((byte[])patchedMs.ToArray().Clone());
+            PhysicsState.RestoreFromBinaryRepresentation((byte[])patchedMs.ToArray().Clone());
 
+            Debug.LogWarning("HERE 6");
             // CRC check
             crc.Clear();
-            crc.Append(_physicsState.GetBinaryRepresentation());
+            crc.Append(PhysicsState.GetBinaryRepresentation());
             if (deltaState.physicsStateCRC != crc.ToByteArray()[0])
             {
                 throw new Exception("Incoming physics state delta failed CRC check when applied");
             }
+
+            Debug.LogWarning("Applied delta, new count: " + PhysicsState.RigidBodyStates.Count);
         }
 
         #endregion Deltas
@@ -194,7 +157,6 @@ namespace NSM
         #region Serialization
         void INetworkSerializable.NetworkSerialize<T>(BufferSerializer<T> serializer)
         {
-            _playerInputs ??= new Dictionary<byte, IPlayerInput>();
             _gameStateBytes ??= new byte[0];
 
             serializer.SerializeValue(ref gameTick);
@@ -205,65 +167,19 @@ namespace NSM
                 serializer.SerializeValue(ref compressionBuffer);
                 _gameStateBytes = Compression.DecompressBytes(compressionBuffer);
                 serializer.SerializeValue(ref compressionBuffer);
-                _physicsState = new PhysicsStateDTO();
-                _physicsState.RestoreFromBinaryRepresentation(Compression.DecompressBytes(compressionBuffer));
+                PhysicsState = new PhysicsStateDTO();
+                PhysicsState.RestoreFromBinaryRepresentation(Compression.DecompressBytes(compressionBuffer));
             }
 
             if (serializer.IsWriter)
             {
                 compressionBuffer = Compression.CompressBytes(_gameStateBytes);
                 serializer.SerializeValue(ref compressionBuffer);
-                compressionBuffer = Compression.CompressBytes(_physicsState.GetBinaryRepresentation());
+                compressionBuffer = Compression.CompressBytes(PhysicsState.GetBinaryRepresentation());
                 serializer.SerializeValue(ref compressionBuffer);
             }
-
-            SerializePlayerInputs(ref _playerInputs, serializer);
         }
 
-        private void SerializePlayerInputs<T>(ref Dictionary<byte, IPlayerInput> playerInputs, BufferSerializer<T> serializer)
-            where T : IReaderWriter
-        {
-            // This is copied in StateFrameDeltaDTO::SerializePlayerInputs
-            if (serializer.IsReader)
-            {
-                // Read the length of the dictionary
-                byte length = 0;
-                serializer.SerializeValue(ref length);
-
-                // Set up our interim storage for the data
-                byte[] keys = new byte[length];
-                IPlayerInput[] values = new IPlayerInput[length];
-
-                // Fill the values array with concrete instances, so we can tell them to serialize later
-                Type playerInputType = TypeStore.Instance.PlayerInputType;
-                IPlayerInput defaultPlayerInput = (IPlayerInput)Activator.CreateInstance(playerInputType);
-                Array.Fill(values, defaultPlayerInput);
-
-                // Read the data
-                for (byte i = 0; i < length; i++)
-                {
-                    serializer.SerializeValue(ref keys[i]);
-                    values[i].NetworkSerialize(serializer);
-                }
-
-                // Construct the output dictionary and set it
-                playerInputs = Enumerable.Range(0, keys.Length).ToDictionary(i => keys[i], i => values[i]);
-            }
-            else if (serializer.IsWriter)
-            {
-                // Write the length of the dictionary
-                byte length = (byte)playerInputs.Count;
-                serializer.SerializeValue(ref length);
-
-                // Write the data
-                foreach (KeyValuePair<byte, IPlayerInput> item in playerInputs)
-                {
-                    byte key = item.Key;
-                    serializer.SerializeValue(ref key);
-                    item.Value.NetworkSerialize(serializer);
-                }
-            }
-        }
         #endregion Serialization
     }
 }

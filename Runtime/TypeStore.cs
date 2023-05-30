@@ -60,6 +60,11 @@ namespace NSM
             }
         }
 
+        public IPlayerInput CreateBlankPlayerInput()
+        {
+            return (IPlayerInput)Activator.CreateInstance(PlayerInputType);
+        }
+
         private Type gameEventType;
 
         public Type GameEventType
@@ -81,8 +86,7 @@ namespace NSM
             }
         }
 
-        private static readonly Lazy<TypeStore> lazy =
-            new Lazy<TypeStore>(() => new TypeStore());
+        private static readonly Lazy<TypeStore> lazy = new(() => new TypeStore());
 
         public static TypeStore Instance
         { get { return lazy.Value; } }

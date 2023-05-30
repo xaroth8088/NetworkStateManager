@@ -7,17 +7,11 @@ namespace NSM
     [MemoryPackable]
     public partial struct PhysicsStateDTO
     {
-        private Dictionary<byte, RigidBodyStateDTO> _rigidBodyStates;
-
-        public Dictionary<byte, RigidBodyStateDTO> RigidBodyStates
-        {
-            get => _rigidBodyStates ??= new();
-            set => _rigidBodyStates = value;
-        }
+        public Dictionary<byte, RigidBodyStateDTO> RigidBodyStates;
 
         public void TakeSnapshot(List<Rigidbody> rigidbodies)
         {
-            _rigidBodyStates ??= new();
+            RigidBodyStates = new();
 
             foreach (Rigidbody body in rigidbodies)
             {
@@ -26,7 +20,7 @@ namespace NSM
                     continue;
                 }
 
-                _rigidBodyStates[networkIdComponent.networkId] = new RigidBodyStateDTO(body);
+                RigidBodyStates[networkIdComponent.networkId] = new RigidBodyStateDTO(body);
             }
         }
 
