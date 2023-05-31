@@ -266,7 +266,9 @@ namespace NSM
             }
 
             VerboseLog("Applying game state");
+            Physics.SyncTransforms();
             OnApplyState?.Invoke(gameState);
+            Physics.SyncTransforms();
         }
 
         private void GetGameState(ref IGameState gameState)
@@ -632,9 +634,11 @@ namespace NSM
             VerboseLog("SimulateAuthoritativeFrame");
             int serverTick = serverFrame.gameTick;
             gameTick = serverTick;
+            ResetRandom(gameTick);
 
             ApplyEvents(gameEventsBuffer[serverTick]);
             ApplyInputs(inputsBuffer.GetInputsForTick(serverTick));
+            ApplyPhysicsState(serverFrame.PhysicsState);
             ApplyState(serverFrame.GameState);
 
             serverFrame.authoritative = true;
@@ -730,6 +734,7 @@ namespace NSM
             StateFrameDTO stateFrame = (StateFrameDTO)initialStateFrame.Clone();
             stateBuffer[0] = stateFrame;
             randomSeedBase = _randomSeedBase;
+            ResetRandom(0);
 
             // Start things off!
             isRunning = true;
@@ -888,11 +893,11 @@ namespace NSM
                 StateFrameDTO previousFrameState = stateBuffer[Math.Max(0, gameTick - 1)];
                 Dictionary<byte, IPlayerInput> previousFrameInputs = inputsBuffer.GetInputsForTick(Math.Max(0, gameTick - 1));
 
+                ResetRandom(gameTick - 1);
                 ApplyInputs(previousFrameInputs);
                 ApplyPhysicsState(previousFrameState.PhysicsState);
                 ApplyState(previousFrameState.GameState);
 
-                // Apply the random state for gameTick
                 ResetRandom(gameTick);
 
                 // Rewind any events present in gameTick
