@@ -9,7 +9,7 @@ namespace NSM
     public class StateFrameDeltaDTO : INetworkSerializable
     {
         private byte[] _stateDiffBytes;
-        private byte stateCRC;
+        private byte targetStateCRC;
 
         public StateFrameDeltaDTO()
         {
@@ -23,9 +23,10 @@ namespace NSM
             byte[] targetStateArray = targetState.GetBinaryRepresentation();
 
             // CRC for the target
+            // TODO: minor optimization - a globally available instance of CrcAlgorithm, so that we're not creating/destroying them here
             CrcAlgorithm crc = CrcAlgorithm.CreateCrc8();
             crc.Append(targetStateArray);
-            stateCRC = crc.ToByteArray()[0];
+            targetStateCRC = crc.ToByteArray()[0];
 
             // Create and store the patch
             MemoryStream patchMs = new();
@@ -46,7 +47,7 @@ namespace NSM
             // CRC check
             var crc = CrcAlgorithm.CreateCrc8();
             crc.Append(targetBytes);
-            if (stateCRC != crc.ToByteArray()[0])
+            if (targetStateCRC != crc.ToByteArray()[0])
             {
                 Debug.LogError("Incoming game state delta failed CRC check when applied");
                 throw new Exception("Incoming game state delta failed CRC check when applied");
@@ -60,7 +61,7 @@ namespace NSM
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
             // TODO: some sort of metrics around how much data is sent, original data size, original size of target
-            serializer.SerializeValue(ref stateCRC);
+            serializer.SerializeValue(ref targetStateCRC);
 
             byte[] compressionBuffer = new byte[0];
             if (serializer.IsWriter)

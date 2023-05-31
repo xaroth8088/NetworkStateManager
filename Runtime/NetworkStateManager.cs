@@ -12,11 +12,16 @@ namespace NSM
     {
         // TODO: specify whether you want a ring buffer or a complete buffer
         // TODO: flags for toggling which transform and rigidbody state needs to be sync'd, or what's safe to skip
-        // TODO: a variety of bandwidth-saving options, including things like crunching down floats to bytes
-        // TODO: a variety of strategies for predicting the input of other players
+        // TODO: a variety of bandwidth-saving options, including things like crunching down doubles to floats, or floats to bytes, etc.
         // TODO: the ability to arbitrarily play back a section of history
-        // TODO: the ability to spread out the catch-up frames when replaying, so that the client doesn't need to stop completely to replay to present
-        // TODO: some sort of configurable amount of events into the past that we'll hang onto (for clients to be able to undo during replay) so that we're not trying to sync the entire history of all events each time
+        // TODO: the ability to spread out the catch-up frames when replaying, so that the client doesn't need to stop completely to
+        //       replay to present
+        // TODO: some sort of configurable amount of events into the past that we'll hang onto (for clients to be able to undo during
+        //       replay) so that we're not trying to sync the entire history of all events each time
+        // TODO: the server can maybe calculate a diff for the events buffer whenever something happens to make it change, and only send
+        //       over those (instead of the whole history each time).  This would need to be aware of state replays, though, so that it
+        //       doesn't send a bunch of "add this event, no just kidding delete it, ok no really add it." sort of noise.
+        // TODO: some sort of configurable amount of player inputs into the past that we'll hang onto, to conserve runtime memory
 
         #region NetworkStateManager configuration
 
@@ -137,7 +142,8 @@ namespace NSM
         /// NOTE: The game state will be restored to the state just before the event originally
         /// fired, NOT the game state immediately after the event fired (as would be the case
         /// for a strict rewinding of time).  This way, your rollback handler has access to the
-        /// state that originally triggered the event.
+        /// state that originally triggered the event.  The GameState from after the event fires is
+        /// passed in as a parameter to your callback just in case, though.
         /// See also: <br/>
         /// <seealso cref="RollbackEventsDelegateHandler"/> and
         /// <seealso cref="StateFrameDTO"/>
@@ -148,6 +154,11 @@ namespace NSM
         /// This event fires when a given input needs to be applied to your game.
         /// Primarily, this will happen at the beginning of the server
         /// reconciliation process (or when otherwise beginning a replay).
+        /// 
+        /// NOTE: Because NetworkStateManager doesn't know anything about how
+        /// many players you have, you'll need to iterate through all your
+        /// player id's and ask for a prediction for any inputs not included
+        /// in playerInputs
         /// <br/>
         /// See also: <br/>
         /// <seealso cref="ApplyInputsDelegateHandler"/> and
@@ -164,6 +175,9 @@ namespace NSM
         /// will need to be able to detect when a GameObject is missing from the scene but
         /// present in the game state, or if any other meaningful discrepancy exists, and
         /// then correct it.
+        /// 
+        /// Note that if you only ever create/destroy objects during game Events and their
+        /// rollbacks, it's unlikely that you'll encounter this as a problem.
         /// <br/>
         /// See also: <br/>
         /// <seealso cref="ApplyStateDelegateHandler"/> and
@@ -348,6 +362,17 @@ namespace NSM
             gameEventsBuffer[willSpawnAtTick].RemoveWhere(gameEventPredicate);
         }
 
+        /// <summary>
+        /// When applying inputs, some player id's may be omitted.  In this case, you should call this function to fill in input
+        /// predictions for those players.
+        /// </summary>
+        /// <param name="playerId"></param>
+        /// <returns>A predicted IPlayerInput</returns>
+        public IPlayerInput PredictInputForPlayer(byte playerId)
+        {
+            return inputsBuffer.PredictInput(playerId, gameTick);
+        }
+
         #endregion Public Interface
 
         #region Initialization code
@@ -501,7 +526,7 @@ namespace NSM
             }
 
             // Set the input in our buffer
-            inputsBuffer.SetPlayerInputsAtTickAndPredictForwardUntil(playerInputs, clientTimeTick, realGameTick);
+            inputsBuffer.SetPlayerInputsAtTick(playerInputs, clientTimeTick);
 
             // Forward the input to all other non-host clients so they can do the same
             // TODO: maybe gather up all incoming inputs over some span of time and then send them in batches, to reduce RPC calls
@@ -677,10 +702,6 @@ namespace NSM
                 return;
             }
 
-            // TODO: optimization: it seems like there should be some way to say "this is just the reflection
-            //       of our own input, and we're authoritative for our own input, so we can ignore this
-            //       and/or don't even send it to us in the first place."
-
             // If this happened before our last authoritative tick, we can safely ignore it
             if (clientTimeTick < lastAuthoritativeTick || serverTick < lastAuthoritativeTick)
             {
@@ -692,7 +713,7 @@ namespace NSM
 
             // Rewind, set & predict, get caught up again
             TimeTravelToEndOf(clientTimeTick - 1, gameEventsBuffer);
-            inputsBuffer.SetPlayerInputsAtTickAndPredictForwardUntil(playerInputs, clientTimeTick, serverTick + GetEstimatedLag());
+            inputsBuffer.SetPlayerInputsAtTick(playerInputs, clientTimeTick);
             TimeTravelToEndOf(serverTick + GetEstimatedLag(), gameEventsBuffer);
         }
 
@@ -714,8 +735,12 @@ namespace NSM
 
             VerboseLog("Updating upcoming game events, taking effect on tick " + serverTimeTick);
 
-            TimeTravelToEndOf(serverTimeTick - 1, newGameEventsBuffer); // Probably rewinding time
-            TimeTravelToEndOf(serverTimeTick + GetEstimatedLag(), newGameEventsBuffer); // Almost certainly fast-fowarding
+            // Probably rewinding time.
+            // In either event, the new events buffer will be in place after this first call.
+            TimeTravelToEndOf(serverTimeTick - 1, newGameEventsBuffer);
+            
+            // Now, get caught up to where the server is
+            TimeTravelToEndOf(serverTimeTick + GetEstimatedLag(), newGameEventsBuffer);
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
@@ -860,10 +885,6 @@ namespace NSM
             realGameTick = gameTick;
         }
 
-        // TODO: I think player inputs need a way to distinguish between "this frame's remote inputs came from the server, and therefore don't need to be predicted"
-        //       and "this frame's remote inputs were predicted before, and need to be re-predicted now".  Because we may have server-authoritative inputs
-        //       for some of the frames that are being replayed when we're replaying them.
-
         private void RewindTimeUntilEndOfFrame(int targetTick)
         {
             // We want to end this function as though the frame at targetTick just ran
@@ -907,6 +928,7 @@ namespace NSM
             }
 
             // We may escape the loop without doing any events (and therefore never applying state), so apply the state for the end of targetTick
+            // TODO: minor optimization: detect when this happens, and skip applying state here
             VerboseLog("Applying final state from tick " + targetTick);
             StateFrameDTO frameToRestore = stateBuffer[targetTick];
             Dictionary<byte, IPlayerInput> inputsFromFrameToRestore = inputsBuffer.GetInputsForTick(targetTick);

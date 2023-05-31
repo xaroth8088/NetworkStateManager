@@ -44,23 +44,24 @@ namespace NSM
         {
             // TODO: alternate prediction algorithms
 
-            // For now, just return the previous tick's input, if any, or a new blank one if not
-            // (and store it so we don't have to make a new one each time)
-            Dictionary<byte, InputWrapper> inputWrappers = this[tick - 1];
+            // For now, find the last authoritative tick and just return that.
+            // TODO: maintain an ordered list of (tick, authoritative input) for each player, so that we don't have to iterate
+            //       through every input in the buffer to find the last authoritative input.
 
-            if(!inputWrappers.TryGetValue(playerId, out InputWrapper inputWrapper))
+            int pastTick = tick - 1;
+            while (pastTick > 0)
             {
-                IPlayerInput defaultInput = TypeStore.Instance.CreateBlankPlayerInput();
+                Dictionary<byte, InputWrapper> inputWrappers = this[pastTick];
 
-                this[tick - 1][playerId] = new()
+                if (inputWrappers.TryGetValue(playerId, out InputWrapper inputWrapper) && inputWrapper.serverAuthoritative == true)
                 {
-                    input = defaultInput
-                };
+                    return inputWrapper.input;
+                }
 
-                return defaultInput;
+                pastTick--;
             }
 
-            return inputWrapper.input;
+            return TypeStore.Instance.CreateBlankPlayerInput();
         }
 
         public void SetLocalInputs(Dictionary<byte, IPlayerInput> localInputs, int tick)
@@ -124,37 +125,22 @@ namespace NSM
             return playerInputs;
         }
 
-        internal void SetPlayerInputsAtTickAndPredictForwardUntil(PlayerInputsDTO playerInputs, int clientTimeTick, int untilTick)
+        internal void SetPlayerInputsAtTick(PlayerInputsDTO playerInputs, int clientTick)
         {
             foreach((byte playerId, IPlayerInput playerInput) in playerInputs.PlayerInputs)
             {
                 // If we have a locally authoritative input for this player, skip them
-                if (this[clientTimeTick].TryGetValue(playerId, out InputWrapper inputWrapper) && inputWrapper.localInput == true)
+                if (this[clientTick].TryGetValue(playerId, out InputWrapper inputWrapper) && inputWrapper.localInput == true)
                 {
                     continue;
                 }
 
                 // Set the input at clientTimeTick
-                this[clientTimeTick][playerId] = new()
+                this[clientTick][playerId] = new()
                 {
                     input = playerInput,
                     serverAuthoritative = true
                 };
-
-                // Then, for each tick from there +1 until untilTick, predict the input if we don't already have an authoritative input
-                for(int tick = clientTimeTick + 1; tick <= untilTick; tick++)
-                {
-                    if (this[clientTimeTick].TryGetValue(playerId, out InputWrapper wrapper) && wrapper.serverAuthoritative == true)
-                    {
-                        continue;
-                    }
-
-                    this[clientTimeTick][playerId] = new()
-                    {
-                        input = PredictInput(playerId, tick),
-                        serverAuthoritative = true
-                    };
-                }
             }
         }
     }

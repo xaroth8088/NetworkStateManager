@@ -11,6 +11,7 @@ namespace NSM
         [MemoryPackIgnore]
         public bool authoritative;
 
+        // TODO: While gameTick is nice as a safety measure of sorts, we probably don't need it, so look into removing it
         public int gameTick;
         public PhysicsStateDTO PhysicsState;
         private byte[] _gameStateBytes;
