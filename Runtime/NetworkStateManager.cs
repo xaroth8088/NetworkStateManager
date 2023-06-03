@@ -56,6 +56,7 @@ namespace NSM
         public NetworkIdManager networkIdManager;
 
         private int randomSeedBase;
+        private System.Random _random;
 
         #endregion Runtime state
 
@@ -373,6 +374,23 @@ namespace NSM
             return inputsBuffer.PredictInput(playerId, gameTick);
         }
 
+        // TODO: prevent usage of random numbers while applying state - only permit when running simulation (events, pre/post physics)
+
+        public int GetRandomNext()
+        {
+            return _random.Next();
+        }
+
+        public float GetRandomRange(float minInclusive, float maxInclusive)
+        {
+            return (float)((_random.NextDouble() * (maxInclusive - minInclusive)) + minInclusive);
+        }
+
+        public int GetRandomRange(int minInclusive, int maxExclusive)
+        {
+            return _random.Next(minInclusive, maxExclusive);
+        }
+
         #endregion Public Interface
 
         #region Initialization code
@@ -410,14 +428,12 @@ namespace NSM
             // Server-only from here down
             isRunning = true;
 
-            // If we don't explicitly seed UnityEngine.Random, then it won't have a reproducible state until after
-            // the first random number is requested of it.
-            Random.InitState(new System.Random().Next(int.MinValue, int.MaxValue));
+            randomSeedBase = Random.Range(int.MinValue, int.MaxValue);
+            _random = new(randomSeedBase);
 
             // Capture the initial game state
             stateBuffer[0] = CaptureStateFrame(0);
 
-            randomSeedBase = Random.Range(int.MinValue, int.MaxValue);
 
             // Ensure clients are starting from the same view of the world
             // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
@@ -759,7 +775,6 @@ namespace NSM
             StateFrameDTO stateFrame = (StateFrameDTO)initialStateFrame.Clone();
             stateBuffer[0] = stateFrame;
             randomSeedBase = _randomSeedBase;
-            ResetRandom(0);
 
             // Start things off!
             isRunning = true;
@@ -911,10 +926,10 @@ namespace NSM
                 VerboseLog("Undoing events at tick " + gameTick + " (setting state to the moment before the events were originally run)");
 
                 // Apply the frame state just prior to gameTick
-                StateFrameDTO previousFrameState = stateBuffer[Math.Max(0, gameTick - 1)];
-                Dictionary<byte, IPlayerInput> previousFrameInputs = inputsBuffer.GetInputsForTick(Math.Max(0, gameTick - 1));
+                int prevTick = Math.Max(0, gameTick - 1);
+                StateFrameDTO previousFrameState = stateBuffer[prevTick];
+                Dictionary<byte, IPlayerInput> previousFrameInputs = inputsBuffer.GetInputsForTick(prevTick);
 
-                ResetRandom(gameTick - 1);
                 ApplyInputs(previousFrameInputs);
                 ApplyPhysicsState(previousFrameState.PhysicsState);
                 ApplyState(previousFrameState.GameState);
@@ -933,7 +948,6 @@ namespace NSM
             StateFrameDTO frameToRestore = stateBuffer[targetTick];
             Dictionary<byte, IPlayerInput> inputsFromFrameToRestore = inputsBuffer.GetInputsForTick(targetTick);
 
-            ResetRandom(targetTick);
             ApplyInputs(inputsFromFrameToRestore);
             ApplyPhysicsState(frameToRestore.PhysicsState);
             ApplyState(frameToRestore.GameState);
@@ -946,7 +960,7 @@ namespace NSM
 
         private void ResetRandom(int tick)
         {
-            Random.InitState(randomSeedBase + tick);
+            _random = new(randomSeedBase + tick);
         }
 
         private StateFrameDTO RunSingleGameFrame(int tick, Dictionary<byte, IPlayerInput> playerInputs, HashSet<IGameEvent> events)
@@ -1045,8 +1059,6 @@ namespace NSM
             realGameTick++;
             gameTick = realGameTick;
             VerboseLog("---- NEW FRAME ----");
-
-            ResetRandom(realGameTick);
 
             if (IsHost)
             {
