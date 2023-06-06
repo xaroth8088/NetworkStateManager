@@ -4,7 +4,6 @@ using System.Diagnostics;
 using Unity.Netcode;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
-using Random = UnityEngine.Random;
 
 namespace NSM
 {
@@ -428,12 +427,11 @@ namespace NSM
             // Server-only from here down
             isRunning = true;
 
-            randomSeedBase = Random.Range(int.MinValue, int.MaxValue);
+            randomSeedBase = UnityEngine.Random.Range(int.MinValue, int.MaxValue);
             _random = new(randomSeedBase);
 
             // Capture the initial game state
             stateBuffer[0] = CaptureStateFrame(0);
-
 
             // Ensure clients are starting from the same view of the world
             // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
@@ -960,6 +958,7 @@ namespace NSM
 
         private void ResetRandom(int tick)
         {
+            UnityEngine.Random.InitState(randomSeedBase + tick);
             _random = new(randomSeedBase + tick);
         }
 
