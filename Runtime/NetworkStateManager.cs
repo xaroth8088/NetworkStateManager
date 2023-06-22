@@ -354,12 +354,12 @@ namespace NSM
         /// <summary>
         /// Given a tick and a predicate that can find which event you want to remove, de-schedule that event at that tick.
         /// </summary>
-        /// <param name="willSpawnAtTick">The game tick the event was previously scheduled to fire on.</param>
+        /// <param name="eventTick">The game tick the event was previously scheduled to fire on.</param>
         /// <param name="gameEventPredicate">If this function returns true for a given event, that event will be de-scheduled.</param>
-        public void RemoveEventAtTick(int willSpawnAtTick, Predicate<IGameEvent> gameEventPredicate)
+        public void RemoveEventAtTick(int eventTick, Predicate<IGameEvent> gameEventPredicate)
         {
             // TODO: since this is only ever happening during a rollback of some sort, do we even need to resend the new events state to the clients?
-            gameEventsBuffer[willSpawnAtTick].RemoveWhere(gameEventPredicate);
+            gameEventsBuffer[eventTick].RemoveWhere(gameEventPredicate);
         }
 
         /// <summary>
@@ -370,6 +370,7 @@ namespace NSM
         /// <returns>A predicted IPlayerInput</returns>
         public IPlayerInput PredictInputForPlayer(byte playerId)
         {
+            // TODO: this is an awkward thing to ask implementers to do; see if this can be improved
             return inputsBuffer.PredictInput(playerId, gameTick);
         }
 

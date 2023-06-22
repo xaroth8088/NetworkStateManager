@@ -21,6 +21,7 @@ NetworkStateManager networkStateManager = FindObjectOfType<NetworkStateManager>(
 // Attach event handlers for lifecycle events (all are technically optional)
 networkStateManager.OnGetGameState += NetworkStateManager_OnGetGameState;
 networkStateManager.OnGetInputs += NetworkStateManager_OnGetInputs;
+networkStateManager.OnPrePhysicsFrameUpdate += NetworkStateManager_OnPrePhysicsFrameUpdate;
 networkStateManager.OnPostPhysicsFrameUpdate += NetworkStateManager_OnPostPhysicsFrameUpdate;
 networkStateManager.OnApplyState += NetworkStateManager_OnApplyState;
 networkStateManager.OnApplyInputs += NetworkStateManager_OnApplyInputs;
@@ -49,9 +50,15 @@ There are three types of game objects that the framework needs to know about in 
 1. are `struct`s, and
 2. they implement the appropriate interface
 
-All three interfaces derive from at least `INetworkSerializable`, from Unity's Netcode for GameObjects library.  ([Unity's documentation here](https://docs-multiplayer.unity3d.com/netcode/current/advanced-topics/serialization/inetworkserializable/index.html))
+Two of the interfaces derive from at least `INetworkSerializable`, from Unity's Netcode for GameObjects library.  ([Unity's documentation here](https://docs-multiplayer.unity3d.com/netcode/current/advanced-topics/serialization/inetworkserializable/index.html)).
+The other one requires that you implement two serialization-related methods:
 
-These game objects will be synchronized across the network automagically, and will be handed back to your game logic via the appropriate lifecycle events.
+- `byte[] GetBinaryRepresentation()`
+- `void RestoreFromBinaryRepresentation(byte[] bytes)`
+
+I recommend using [MemoryPack](https://github.com/Cysharp/MemoryPack) for this purpose, as the API is simple and the conversion to/from `byte[]` is highly performant.  You do not need to worry about compressing this output, as NSM will take care of that for you automatically.
+
+In any case, these game objects will be synchronized across the network automagically, and will be handed back to your game logic via the appropriate lifecycle events.
 
 #### Game State (`IGameState`)
 
@@ -81,13 +88,15 @@ Fill the dictionary with `(playerId, <your IPlayerInput object here>)` pairs, as
 
 Because the `playerId` is set by you, you can even have several players hosted by the same client - allowing both network players and couch co-op to play nicely together!
 
-`void OnApplyInputs(Dictionary<byte, IPlayerInput> playerInputs)`
-The keys are the `playerId`s you set during `OnGetInputs`, above.  Take whatever input is present, and apply it to your game state / `GameObject`s as needed.
+`void OnApplyEvents(HashSet<IGameEvent> events)`
+Run through the collection and apply the effects of each event.
 
 You'll want to cast the values back to your own game state object's type before using them.
 
-`void OnApplyEvents(HashSet<IGameEvent> events)`
-Run through the collection and apply the effects of each event.  Similar to player input, above, you'll want to cast the objects inside of `events` appropriately.
+`void OnApplyInputs(Dictionary<byte, IPlayerInput> playerInputs)`
+The keys are the `playerId`s you set during `OnGetInputs`, above.  Take whatever input is present, and apply it to your game state / `GameObject`s as needed.
+
+Similar to game events, above, you'll want to cast the objects inside of `playerInputs` appropriately.
 
 `void OnPrePhysicsFrameUpdate()`
 Do whatever you'd normally do with your game before the physics engine runs for the frame.  This is the equivalent of `FixedUpdate()`.
@@ -106,15 +115,16 @@ First, the game state is rewound by calling these events:
 `void OnApplyState(IGameState state)`
 Read from the `state` object (after casting to your custom game state object type) and set your game's state accordingly, including anything on `GameObject`s that require it.
 
-`void OnRollbackEvents(HashSet<IGameEvent> events)`
+`void OnRollbackEvents(HashSet<IGameEvent> events, IGameState stateAfterEvent)`
 Undo any event handling from a previously fired event.  NOTE: the game state will be set to what it was when the event originally fired, NOT the state immediately after the event originally fired (as might be expected for a strict rewinding of time).  This is specifically done so that you know what data was used to originally trigger the event, which can be helpful for figuring out how to undo any side-effects your event had.
+That said, the `IGameState` object associated with the _next_ frame is passed in via `stateAfterEvent` for convenience.
 
-`OnApplyInputs`
 `OnApplyEvents`
+`OnApplyInputs`
 
 Then, every frame that needs to be projected forwards is run via these events:
-`OnApplyInputs`
 `OnApplyEvents`
+`OnApplyInputs`
 `OnPrePhysicsFrameUpdate`
 `OnPostPhysicsFrameUpdate`
 `OnGetGameState`
