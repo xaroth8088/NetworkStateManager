@@ -11,13 +11,14 @@ public struct GameEventDTO : IGameEvent
 
 public struct GameStateDTO : IGameState
 {
-    public object Clone()
+    public byte[] GetBinaryRepresentation()
     {
-        return new GameStateDTO();
+        return new byte[0];
     }
 
-    public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+    public void RestoreFromBinaryRepresentation(byte[] bytes)
     {
+        // Intentionally do nothing (right now)
     }
 }
 

@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 705507994}
-  m_IndirectSpecularColor: {r: 0.44657898, g: 0.4964133, b: 0.5748178, a: 1}
+  m_IndirectSpecularColor: {r: 0.44657838, g: 0.49641228, b: 0.57481676, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -1188,13 +1188,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 593a2fe42fa9d37498c96f9a383b6521, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  RunInBackground: 1
-  LogLevel: 1
   NetworkConfig:
     ProtocolVersion: 0
     NetworkTransport: {fileID: 892233628}
     PlayerPrefab: {fileID: 0}
-    NetworkPrefabs: []
+    Prefabs:
+      NetworkPrefabsLists: []
     TickRate: 30
     ClientConnectionBufferTimeout: 10
     ConnectionApproval: 0
@@ -1210,6 +1209,9 @@ MonoBehaviour:
     LoadSceneTimeOut: 120
     SpawnTimeout: 1
     EnableNetworkLogs: 1
+    OldPrefabList: []
+  RunInBackground: 1
+  LogLevel: 1
 --- !u!114 &892233628
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1232,7 +1234,7 @@ MonoBehaviour:
   ConnectionData:
     Address: 127.0.0.1
     Port: 7777
-    ServerListenAddress: 
+    ServerListenAddress: 127.0.0.1
   DebugSimulator:
     PacketDelayMS: 0
     PacketJitterMS: 0
@@ -2055,6 +2057,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   GlobalObjectIdHash: 2373711543
   AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 1
+  SpawnWithObservers: 1
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
 --- !u!114 &1630782572
@@ -2069,18 +2075,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e78807f203d8216448ad8dbc079c1de8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxPastTolerance: 5
-  sendStateEveryNFrames: 10
+  sendStateDeltaEveryNFrames: 10
+  sendFullStateEveryNFrames: 100
+  maxFramesWithoutHearingFromServer: 40
   verboseLogging: 1
-  debugRollback: 1
-  debugRollbackEveryNFrames: 4
-  debugNumFramesToRollback: 10
-  debugRandomizeNumFramesToRollback: 1
+  realGameTick: 0
   gameTick: 0
   isReplaying: 0
   lastAuthoritativeTick: 0
   isRunning: 0
-  replayFromTick: -1
 --- !u!4 &1630782573
 Transform:
   m_ObjectHideFlags: 0
