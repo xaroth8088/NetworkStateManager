@@ -10,7 +10,7 @@ Leveraging Unity's [Netcode for GameObjects](https://github.com/Unity-Technologi
 
 ### NetworkStateManager
 
-1. Import `NetworkStateManager.unitypackage` to your project.
+1. Install using OpenUPM by visiting the (package's page)[https://openupm.com/packages/com.github.xaroth8088.networkstatemanager/] and following the installation instructions there.
 2. Add a new `GameObject` to your scene and attach the `NetworkStateManager` script to it.
 3. When your scene is fully loaded, call `StartNetworkManager()` with the runtime-determined types of your game state objects (see "State management", below), like so:
 
@@ -128,6 +128,12 @@ Then, every frame that needs to be projected forwards is run via these events:
 `OnPrePhysicsFrameUpdate`
 `OnPostPhysicsFrameUpdate`
 `OnGetGameState`
+
+## Why OpenUPM for package installation?
+
+Starting with version 0.0.5, NSM relies on additional open-source libraries.  However, Unity doesn't have a public repo system for their package manager the way, say, `npm` exists for JavaScript development, and - even more frustratingly - their pacakage manager doesn't allow custom packages to depend on git repos, even though top-level packages _can_ be installed via git.
+
+OpenUPM solves this issue by hosting their own public repo and hiding away all the Unity garbage that needs to happen in order for dependencies like this to work.
 
 ## How can I help this project?
 

@@ -5,8 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.0.5] - 2023-06-22
+
 ### Changed
-- *BREAKING CHANGE*: package name has been updated, to allow compatibility with OpenUPM.  If you were using a previous version of this library, you'll need to remove it before installing the new version.
+
+#### Breaking Changes
+- Package installation now happens via OpenUPM, not installing a .unitypackage
+- The package name has been updated, to allow compatibility with OpenUPM.  If you were using a previous version of this library, you'll need to remove it before installing the new version.
+
 - Substantial refactoring of how game state is stored and transmitted.  This includes using [MemoryPack](https://github.com/Cysharp/MemoryPack) to do binary serialization of all NSM-related game state.
 - Network traffic is reduced by ~84% in my testing, courtesy of more efficient serialization, binary diffing, and compression
 - Inputs are now managed outside the gamestate frames, because it was proving more trouble than it's worth to manage those things together
