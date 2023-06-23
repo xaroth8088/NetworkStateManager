@@ -10,7 +10,7 @@ Leveraging Unity's [Netcode for GameObjects](https://github.com/Unity-Technologi
 
 ### NetworkStateManager
 
-1. Install using OpenUPM by visiting the (package's page)[https://openupm.com/packages/com.github.xaroth8088.networkstatemanager/] and following the installation instructions there.
+1. Install using OpenUPM by visiting the [package's page](https://openupm.com/packages/com.github.xaroth8088.networkstatemanager/) and following the installation instructions there.
 2. Add a new `GameObject` to your scene and attach the `NetworkStateManager` script to it.
 3. When your scene is fully loaded, call `StartNetworkManager()` with the runtime-determined types of your game state objects (see "State management", below), like so:
 
