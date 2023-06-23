@@ -1,5 +1,5 @@
 {
-  "name": "xaroth8088.networkstatemanager",
+  "name": "com.github.xaroth8088.networkstatemanager",
   "version": "0.0.5",
   "description": "A framework to add server-authoritative, client-predictive physics to Unity",
   "displayName": "NetworkStateManager",
