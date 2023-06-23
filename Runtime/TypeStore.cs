@@ -34,6 +34,11 @@ namespace NSM
             }
         }
 
+        public IGameState CreateBlankGameState()
+        {
+            return (IGameState)Activator.CreateInstance(GameStateType);
+        }
+
         private Type playerInputType;
 
         public Type PlayerInputType
@@ -53,6 +58,11 @@ namespace NSM
 
                 playerInputType = value;
             }
+        }
+
+        public IPlayerInput CreateBlankPlayerInput()
+        {
+            return (IPlayerInput)Activator.CreateInstance(PlayerInputType);
         }
 
         private Type gameEventType;
@@ -76,8 +86,7 @@ namespace NSM
             }
         }
 
-        private static readonly Lazy<TypeStore> lazy =
-            new Lazy<TypeStore>(() => new TypeStore());
+        private static readonly Lazy<TypeStore> lazy = new(() => new TypeStore());
 
         public static TypeStore Instance
         { get { return lazy.Value; } }

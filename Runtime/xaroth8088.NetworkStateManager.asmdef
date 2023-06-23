@@ -2,7 +2,8 @@
     "name": "xaroth8088.NetworkStateManager",
     "rootNamespace": "NSM",
     "references": [
-        "Unity.Netcode.Runtime"
+        "Unity.Netcode.Runtime",
+        "MemoryPack"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.5] - 2023-06-22
+
+### Changed
+
+#### Breaking Changes
+- Package installation now happens via OpenUPM, not installing a .unitypackage
+- The package name has been updated, to allow compatibility with OpenUPM.  If you were using a previous version of this library, you'll need to remove it before installing the new version.
+
+- Substantial refactoring of how game state is stored and transmitted.  This includes using [MemoryPack](https://github.com/Cysharp/MemoryPack) to do binary serialization of all NSM-related game state.
+- Network traffic is reduced by ~84% in my testing, courtesy of more efficient serialization, binary diffing, and compression
+- Inputs are now managed outside the gamestate frames, because it was proving more trouble than it's worth to manage those things together
+- Moved NetworkID-related logging to use NSM's verbose logger
+- Moved NetworkID initialization into `NetworkIdManager`
+- Take full control over random number generation, as external sources kept interfering with Unity's Random
+  - This means that you MUST use NSM for synchronization on anything random
+  - If it's not important for synchronization (e.g. "randomly shake the camera"), then you should probably still use Unity's RNG
+- When state inconsistency is detected, the client will request a full state frame from the server, which greatly improves network reliability on spotty connections
+- The `RollbackEvents` event now also passes the `IGameState` object for the frame _after_ the rolled back state, in case it's needed to properly roll back an event
+- Internal simulation functions are named more descriptively, hopefully making it easier to understand what the library actually does.
+- Verbose logging now includes some stack trace info, to make it easier to understand what's happening from only the log messages
+
+### Added
+- Interface requirements for IGameState have changed to now require `GetBinaryRepresentation()` and `RestoreFromBinaryRepresentation()` functions.
+  - On the upside, you no longer have to implement `INetworkSerializable`, so there's that.
+- Optionally send full state frames periodically
+- `RemoveEventAtTick()`, for de-scheduling an event.  Usually this only really comes up when rolling back an event that itself schedules a future event.
+- `PredictInputForPlayer()` function, which will predict an `IPlayerInput` for a given player id.
+  - This is needed right now to handle the case where not all inputs are present for a frame.  In the future, the plan is to change things to make this unnecessary.
+
+### Removed
+- Debug rollback options.  These were really only intended to be used when debugging NSM itself, and are no longer needed.
+
 ## [0.0.4] - 2023-03-24
 ### Changed
 - Major refactoring of how game events work internally.  They should be substantially more reliable and predictable now.

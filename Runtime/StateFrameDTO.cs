@@ -1,159 +1,85 @@
+using MemoryPack;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Unity.Netcode;
-using Random = UnityEngine.Random;
+using UnityEngine;
 
 namespace NSM
 {
-    public struct SerializableRandomState : INetworkSerializeByMemcpy
+    [MemoryPackable]
+    public partial struct StateFrameDTO : ICloneable, INetworkSerializable
     {
-        public Random.State State;
-    }
+        [MemoryPackIgnore]
+        public bool authoritative;
 
-    public struct StateFrameDTO : INetworkSerializable
-    {
-        public IGameState gameState;
+        // TODO: While gameTick is nice as a safety measure of sorts, we probably don't need it, so look into removing it
         public int gameTick;
-        public SerializableRandomState randomState;
-        private PhysicsStateDTO _physicsState;
-        private Dictionary<byte, IPlayerInput> _playerInputs;
+        public PhysicsStateDTO PhysicsState;
+        private byte[] _gameStateBytes;
 
-        public PhysicsStateDTO PhysicsState
+        [MemoryPackIgnore]
+        public IGameState GameState
         {
-            get => _physicsState ??= new PhysicsStateDTO();
-            set => _physicsState = value;
-        }
-
-        public Dictionary<byte, IPlayerInput> PlayerInputs
-        {
-            get => _playerInputs ??= new Dictionary<byte, IPlayerInput>();
-            set => _playerInputs = value;
-        }
-
-        public void ApplyDelta(StateFrameDTO deltaState)
-        {
-            gameTick = deltaState.gameTick;
-            randomState = deltaState.randomState;
-            gameState = (IGameState)deltaState.gameState.Clone();
-
-            PhysicsState.ApplyDelta(deltaState.PhysicsState);
-
-            foreach (KeyValuePair<byte, IPlayerInput> entry in deltaState.PlayerInputs)
+            get
             {
-                _playerInputs[entry.Key] = entry.Value;
+                if (_gameStateBytes == null)
+                {
+                    return null;
+                }
+
+                IGameState gameState = TypeStore.Instance.CreateBlankGameState();
+                gameState.RestoreFromBinaryRepresentation(_gameStateBytes);
+                return gameState;
+            }
+            set
+            {
+                if (authoritative)
+                {
+                    Debug.LogError("Tried to write game state to an authoritative frame");
+                }
+                _gameStateBytes = (byte[])value.GetBinaryRepresentation().Clone();
             }
         }
 
-        public StateFrameDTO Duplicate()
+        #region Serialization
+
+        public object Clone()
         {
-            // TODO: use ICloneable or a copy constructor instead, maybe?
-            // TODO: change all mutable collections inside this struct (and its children) to instead use immutable versions,
-            //       so that we don't need to do this (and can avoid other sneaky bugs down the line)
-            StateFrameDTO newFrame = new()
-            {
-                gameTick = gameTick,
-                gameState = (IGameState)gameState.Clone(),
-                PhysicsState = PhysicsState,
-                PlayerInputs = new Dictionary<byte, IPlayerInput>(PlayerInputs)
-            };
+            StateFrameDTO newFrame = new();
+            newFrame.RestoreFromBinaryRepresentation(GetBinaryRepresentation());
 
             return newFrame;
         }
 
-        public StateFrameDTO GenerateDelta(StateFrameDTO newerState)
+        public byte[] GetBinaryRepresentation()
         {
-            StateFrameDTO deltaState = new();
-
-            deltaState.gameTick = newerState.gameTick;
-            deltaState.PhysicsState = deltaState.PhysicsState.GenerateDelta(newerState.PhysicsState);
-
-            deltaState._playerInputs = new();
-            foreach (KeyValuePair<byte, IPlayerInput> entry in newerState.PlayerInputs)
-            {
-                Type playerInputType = TypeStore.Instance.PlayerInputType;
-                IPlayerInput defaultInput = (IPlayerInput)Activator.CreateInstance(playerInputType);
-
-                if (_playerInputs != null && _playerInputs.GetValueOrDefault(entry.Key, defaultInput).Equals(entry.Value))
-                {
-                    continue;
-                }
-
-                deltaState._playerInputs[entry.Key] = entry.Value;
-            }
-
-            deltaState.randomState = newerState.randomState;
-
-            // TODO: reduce the size of this state object by asking it to generate a delta or something else clever with the serialized form
-            deltaState.gameState = (IGameState)newerState.gameState?.Clone();
-
-            return deltaState;
+            return MemoryPackSerializer.Serialize(this);
         }
 
-        void INetworkSerializable.NetworkSerialize<T>(BufferSerializer<T> serializer)
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
-            // We might not have some of these fields either because this frame simply doesn't have a part of it,
-            // or because the serializer is reading in data and there's no default created yet.
-            // Either way, create default versions of the objects for use in the serialization process.
-            _playerInputs ??= new Dictionary<byte, IPlayerInput>();
-
-            _physicsState ??= new PhysicsStateDTO();
-
-            if (gameState == null)
+            // TODO: some sort of metrics around how much data is sent, original data size, original size of target
+            if (serializer.IsWriter)
             {
-                Type gameStateType = TypeStore.Instance.GameStateType;
-                gameState = (IGameState)Activator.CreateInstance(gameStateType);
+                byte[] compressionBuffer = Compression.CompressBytes(GetBinaryRepresentation());
+                serializer.SerializeValue(ref compressionBuffer);
             }
 
-            serializer.SerializeValue(ref randomState);
-            serializer.SerializeValue(ref gameTick);
-            serializer.SerializeValue(ref _physicsState);
-            gameState.NetworkSerialize(serializer);
-            SerializePlayerInputs<T>(ref _playerInputs, serializer);
-        }
-
-        private void SerializePlayerInputs<T>(ref Dictionary<byte, IPlayerInput> playerInputs, BufferSerializer<T> serializer)
-            where T : IReaderWriter
-        {
             if (serializer.IsReader)
             {
-                // Read the length of the dictionary
-                byte length = 0;
-                serializer.SerializeValue(ref length);
-
-                // Set up our interim storage for the data
-                byte[] keys = new byte[length];
-                IPlayerInput[] values = new IPlayerInput[length];
-
-                // Fill the values array with concrete instances, so we can tell them to serialize later
-                Type playerInputType = TypeStore.Instance.PlayerInputType;
-                IPlayerInput defaultPlayerInput = (IPlayerInput)Activator.CreateInstance(playerInputType);
-                Array.Fill(values, defaultPlayerInput);
-
-                // Read the data
-                for (byte i = 0; i < length; i++)
+                byte[] compressionBuffer = new byte[0];
+                if (serializer.IsReader)
                 {
-                    serializer.SerializeValue(ref keys[i]);
-                    values[i].NetworkSerialize(serializer);
-                }
-
-                // Construct the output dictionary and set it
-                playerInputs = Enumerable.Range(0, keys.Length).ToDictionary(i => keys[i], i => values[i]);
-            }
-            else if (serializer.IsWriter)
-            {
-                // Write the length of the dictionary
-                byte length = (byte)playerInputs.Count;
-                serializer.SerializeValue(ref length);
-
-                // Write the data
-                foreach (KeyValuePair<byte, IPlayerInput> item in playerInputs)
-                {
-                    byte key = item.Key;
-                    serializer.SerializeValue(ref key);
-                    item.Value.NetworkSerialize(serializer);
+                    serializer.SerializeValue(ref compressionBuffer);
+                    RestoreFromBinaryRepresentation(Compression.DecompressBytes(compressionBuffer));
                 }
             }
         }
+
+        public void RestoreFromBinaryRepresentation(byte[] bytes)
+        {
+            MemoryPackSerializer.Deserialize(bytes, ref this);
+        }
+
+        #endregion Serialization
     }
 }
