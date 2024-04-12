@@ -500,8 +500,8 @@ namespace NSM
 
         // TODO: prevent a client from sending input for a player they shouldn't be sending input for
         // NOTE: Rpc's are processed at the _end_ of each frame
-        [ServerRpc(RequireOwnership = false)]
-        private void SetPlayerInputsServerRpc(PlayerInputsDTO playerInputs, int clientTimeTick, ServerRpcParams serverRpcParams = default)
+        [Rpc(SendTo.Server, RequireOwnership = false)]
+        private void SetPlayerInputsServerRpc(PlayerInputsDTO playerInputs, int clientTimeTick)
         {
             if (!isRunning)
             {
@@ -530,8 +530,8 @@ namespace NSM
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
-        [ServerRpc(RequireOwnership = false)]
-        private void RequestFullStateUpdateServerRpc(ServerRpcParams serverRpcParams = default)
+        [Rpc(SendTo.Server, RequireOwnership = false)]
+        private void RequestFullStateUpdateServerRpc(RpcParams rpcParams = default)
         {
             VerboseLog("Received request for full state update");
 
@@ -541,7 +541,7 @@ namespace NSM
             VerboseLog("Full frame requested for " + requestedGameTick);
 
             // Send this back to only the client that requested it
-            ProcessFullStateUpdateClientRpc(stateBuffer[requestedGameTick], gameEventsBuffer, realGameTick, RpcTarget.Single(serverRpcParams.Receive.SenderClientId, RpcTargetUse.Temp));
+            ProcessFullStateUpdateClientRpc(stateBuffer[requestedGameTick], gameEventsBuffer, realGameTick, RpcTarget.Single(rpcParams.Receive.SenderClientId, RpcTargetUse.Temp));
         }
 
         #endregion Server-side only code
