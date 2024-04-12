@@ -18,7 +18,7 @@ namespace NSM
         {
             position = rigidbody.gameObject.transform.position;
             rotation = rigidbody.gameObject.transform.rotation;
-            velocity = rigidbody.velocity;
+            velocity = rigidbody.linearVelocity;
             angularVelocity = rigidbody.angularVelocity;
             isSleeping = rigidbody.IsSleeping();
 
@@ -48,7 +48,7 @@ namespace NSM
 
             if (rigidbody.isKinematic == false)
             {
-                rigidbody.velocity = velocity;
+                rigidbody.linearVelocity = velocity;
                 rigidbody.angularVelocity = angularVelocity;
             }
         }
