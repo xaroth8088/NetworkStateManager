@@ -466,26 +466,7 @@ namespace NSM
                     PlayerInputs = inputsToSend
                 };
 
-                // Send local inputs to all non-host clients
-                List<ulong> clientIds = new();
-                foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
-                {
-                    if (clientId == NetworkManager.LocalClientId)
-                    {
-                        continue;
-                    }
-                    clientIds.Add(clientId);
-                }
-
-                ClientRpcParams clientRpcParams = new()
-                {
-                    Send = new ClientRpcSendParams
-                    {
-                        TargetClientIds = clientIds.ToArray()
-                    }
-                };
-
-                ForwardPlayerInputsClientRpc(playerInputsDTO, realGameTick, realGameTick, clientRpcParams);
+                ForwardPlayerInputsClientRpc(playerInputsDTO, realGameTick, realGameTick);
             }
 
             // Actually simulate the frame
@@ -501,8 +482,8 @@ namespace NSM
                 // To avoid problems later with applying diffs, go back to the last time we would've sent out a
                 // frame delta normally.
                 int requestedGameTick = realGameTick - (realGameTick % sendStateDeltaEveryNFrames);
-                // TODO: send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
-                ProcessFullStateUpdateClientRpc(stateBuffer[requestedGameTick], gameEventsBuffer, realGameTick);
+                
+                ProcessFullStateUpdateClientRpc(stateBuffer[requestedGameTick], gameEventsBuffer, realGameTick, RpcTarget.NotServer);
             }
             else if (realGameTick % sendStateDeltaEveryNFrames == 0)
             {
@@ -545,25 +526,7 @@ namespace NSM
 
             // Forward the input to all other non-host clients so they can do the same
             // TODO: maybe gather up all incoming inputs over some span of time and then send them in batches, to reduce RPC calls
-            List<ulong> clientIds = new();
-            foreach(ulong clientId in NetworkManager.ConnectedClientsIds)
-            {
-                if( clientId == NetworkManager.LocalClientId || clientId == serverRpcParams.Receive.SenderClientId)
-                {
-                    continue;
-                }
-                clientIds.Add(clientId);
-            }
-
-            ClientRpcParams clientRpcParams = new()
-            {
-                Send = new ClientRpcSendParams
-                {
-                    TargetClientIds = clientIds.ToArray()
-                }
-            };
-
-            ForwardPlayerInputsClientRpc(playerInputs, clientTimeTick, realGameTick, clientRpcParams);
+            ForwardPlayerInputsClientRpc(playerInputs, clientTimeTick, realGameTick);
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
@@ -572,21 +535,13 @@ namespace NSM
         {
             VerboseLog("Received request for full state update");
 
-            // Send this back to only the client that requested it
-            ClientRpcParams clientRpcParams = new()
-            {
-                Send = new ClientRpcSendParams
-                {
-                    TargetClientIds = new ulong[] { serverRpcParams.Receive.SenderClientId }
-                }
-            };
-
             // To avoid problems later with applying diffs, go back to the last time we would've sent out a
             // frame delta normally.
             int requestedGameTick = realGameTick - (realGameTick % sendStateDeltaEveryNFrames);
             VerboseLog("Full frame requested for " + requestedGameTick);
 
-            ProcessFullStateUpdateClientRpc(stateBuffer[requestedGameTick], gameEventsBuffer, realGameTick, clientRpcParams);
+            // Send this back to only the client that requested it
+            ProcessFullStateUpdateClientRpc(stateBuffer[requestedGameTick], gameEventsBuffer, realGameTick, RpcTarget.Single(serverRpcParams.Receive.SenderClientId, RpcTargetUse.Temp));
         }
 
         #endregion Server-side only code
@@ -688,31 +643,24 @@ namespace NSM
             realGameTick = serverTick;
         }
 
-        private bool ShouldClientRunRpcs()
+        private bool IsReadyForRpcs()
         {
-            if (!isRunning)
+            if (isRunning)
             {
-                // RPC's can arrive before this component has started, so skip out if it's too early
-                // TODO: is this the right thing to do?  Seems like maybe no?
-                VerboseLog("Server RPC arrived before we've started, so skipping");
-                return false;
+                return true;
             }
 
-            if (IsHost)
-            {
-                // If we're the host, we explicitly do NOT want to do client-side stuff
-                return false;
-            }
-
-            return true;
+            // RPC's can arrive before this component has started, so skip out if it's too early
+            // TODO: is this the right thing to do?  Seems like maybe no?
+            VerboseLog("Server RPC arrived before we've started, so skipping");
+            return false;
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
-        [ClientRpc]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "Needed for server to send to specific clients")]
-        private void ForwardPlayerInputsClientRpc(PlayerInputsDTO playerInputs, int clientTimeTick, int serverTick, ClientRpcParams clientRpcParams = default)
+        [Rpc(SendTo.NotServer)]
+        private void ForwardPlayerInputsClientRpc(PlayerInputsDTO playerInputs, int clientTimeTick, int serverTick)
         {
-            if (!ShouldClientRunRpcs())
+            if (!IsReadyForRpcs())
             {
                 return;
             }
@@ -733,10 +681,10 @@ namespace NSM
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
-        [ClientRpc]
+        [Rpc(SendTo.NotServer)]
         private void SyncGameEventsToClientsClientRpc(int serverTimeTick, GameEventsBuffer newGameEventsBuffer)
         {
-            if (!ShouldClientRunRpcs())
+            if (!IsReadyForRpcs())
             {
                 return;
             }
@@ -759,14 +707,10 @@ namespace NSM
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
-        [ClientRpc]
+        [Rpc(SendTo.NotServer)]
         private void StartGameClientRpc(StateFrameDTO initialStateFrame, int _randomSeedBase)
         {
             // TODO: figure out what to do if the initial game state never arrives
-            if (IsHost)
-            {
-                return;
-            }
 
             VerboseLog("Initial game state received from server.");
 
@@ -781,10 +725,10 @@ namespace NSM
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
-        [ClientRpc]
+        [Rpc(SendTo.NotServer)]
         private void ProcessStateDeltaUpdateClientRpc(StateFrameDeltaDTO serverGameStateDelta, GameEventsBuffer newGameEventsBuffer, int serverTick)
         {
-            if (!ShouldClientRunRpcs())
+            if (!IsReadyForRpcs())
             {
                 return;
             }
@@ -837,12 +781,10 @@ namespace NSM
         /// <param name="serverGameState"></param>
         /// <param name="serverGameEventsBuffer"></param>
         /// <param name="serverTick">This is needed because the server will only ever send full frames that are aligned to the delta tick frequency</param>
-        /// <param name="clientRpcParams"></param>
-        [ClientRpc]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "Needed for server to send to specific clients")]
-        private void ProcessFullStateUpdateClientRpc(StateFrameDTO serverGameState, GameEventsBuffer serverGameEventsBuffer, int serverTick, ClientRpcParams clientRpcParams = default)
+        [Rpc(SendTo.SpecifiedInParams)]
+        private void ProcessFullStateUpdateClientRpc(StateFrameDTO serverGameState, GameEventsBuffer serverGameEventsBuffer, int serverTick, RpcParams _)
         {
-            if (!ShouldClientRunRpcs())
+            if (!IsReadyForRpcs())
             {
                 return;
             }
