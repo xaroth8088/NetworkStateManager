@@ -640,7 +640,6 @@ namespace NSM
             }
 
             // Start a new frame
-            gameStateManager.AdvanceTime();
             VerboseLog("---- NEW FRAME ----");
 
             if (IsHost)

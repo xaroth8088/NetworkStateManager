@@ -4,15 +4,23 @@ using UnityEngine;
 
 namespace NSM
 {
+/// <summary>
+    /// Manages the state of the game, including networking states, input buffering, and state synchronization.
+    /// </summary>
     public class GameStateManager
     {
         public bool isReplaying = false;
         internal GameEventsBuffer gameEventsBuffer = new();
         internal int lastAuthoritativeTick = 0;
         private readonly InputsBuffer inputsBuffer = new();
-        private readonly NetworkStateManager networkStateManager;   // From this class's perspective, NetworkStateManager is the gateway to the game's code, and to Unity more broadly
-        private StateBuffer stateBuffer = new();
+        private readonly NetworkStateManager networkStateManager;
+        private readonly StateBuffer stateBuffer = new();
 
+        /// <summary>
+        /// Initializes the GameStateManager with its parent NetworkStateManager and the scene for setting up network IDs
+        /// </summary>
+        /// <param name="_networkStateManager">From this class's perspective, NetworkStateManager is the gateway to the game's code, and to Unity more broadly</param>
+        /// <param name="scene">Scene to set up initial network IDs.</param>
         public GameStateManager(NetworkStateManager _networkStateManager, UnityEngine.SceneManagement.Scene scene)
         {
             networkStateManager = _networkStateManager;
@@ -25,7 +33,12 @@ namespace NSM
         internal RandomManager Random { get; private set; }
         internal int RealGameTick { get; private set; } = 0;   // The actual game time (may get synchronized with the server sometimes)
 
-        public StateFrameDTO CaptureStateFrame(int tick)
+        /// <summary>
+        /// Captures the current state of the game at a specific tick, including physics and game state data.
+        /// </summary>
+        /// <param name="tick">The game tick for which to capture the state.</param>
+        /// <returns>A DTO containing the captured state.</returns>
+        private StateFrameDTO CaptureStateFrame(int tick)
         {
             StateFrameDTO newFrame = new()
             {
@@ -41,27 +54,47 @@ namespace NSM
             return newFrame;
         }
 
+        /// <summary>
+        /// Advances the game time by one tick.
+        /// </summary>
         internal void AdvanceTime()
         {
             RealGameTick++;
             GameTick = RealGameTick;
         }
 
+        /// <summary>
+        /// Captures the initial frame of the game state.
+        /// </summary>
         internal void CaptureInitialFrame()
         {
             stateBuffer[0] = CaptureStateFrame(0);
         }
 
+        /// <summary>
+        /// Gets the set of players' inputs that have changed from the previous frame
+        /// </summary>
+        /// <returns>A dictionary mapping player IDs to their respective inputs. Player IDs without a change are not included.</returns>
         internal Dictionary<byte, IPlayerInput> GetMinimalInputsDiffForCurrentFrame()
         {
             return inputsBuffer.GetMinimalInputsDiff(RealGameTick);
         }
 
+        /// <summary>
+        /// Retrieves a state frame from the buffer for a specified tick.
+        /// </summary>
+        /// <param name="tick">The tick for which to retrieve the state frame.</param>
+        /// <returns>The state frame at the specified tick.</returns>
         internal StateFrameDTO GetStateFrame(int tick)
         {
             return stateBuffer[tick];
         }
 
+        /// <summary>
+        /// Processes received player inputs, adjusting for any discrepancies in client-server time synchronization.
+        /// </summary>
+        /// <param name="playerInputs">DTO containing player inputs.</param>
+        /// <param name="clientTimeTick">The tick count reported by the client.</param>
         internal void PlayerInputsReceived(PlayerInputsDTO playerInputs, int clientTimeTick)
         {
             if (clientTimeTick > RealGameTick)
@@ -74,13 +107,29 @@ namespace NSM
             }
 
             inputsBuffer.SetPlayerInputsAtTick(playerInputs, clientTimeTick);
+
+            ReplayDueToInputs(playerInputs, clientTimeTick, RealGameTick, 0);
         }
 
+        /// <summary>
+        /// Predicts player input for a given player at a specified game tick.
+        /// </summary>
+        /// <param name="playerId">The ID of the player for whom to predict input.</param>
+        /// <param name="gameTick">The game tick at which to predict input.</param>
+        /// <returns>The predicted input for the player.</returns>
         internal IPlayerInput PredictedInputForPlayer(byte playerId, int gameTick)
         {
             return inputsBuffer.PredictInput(playerId, gameTick);
         }
 
+        /// <summary>
+        /// Receives a state delta from the server and synchronizes to that state
+        /// </summary>
+        /// <param name="serverGameStateDelta">The state delta received from the server.</param>
+        /// <param name="newGameEventsBuffer">Buffer for new game events received with the state delta.</param>
+        /// <param name="serverTick">The server tick when the state delta was generated.  Effectively, this is the target time to replay to.</param>
+        /// <param name="estimatedLag">The estimated network lag in ticks.</param>
+        /// <param name="sendStateDeltaEveryNFrames">The interval at which state deltas are sent from the server.</param>
         internal void ProcessStateDeltaReceived(StateFrameDeltaDTO serverGameStateDelta, GameEventsBuffer newGameEventsBuffer, int serverTick, int estimatedLag, int sendStateDeltaEveryNFrames)
         {
             // Did the state arrive out of order?  If so, panic.
@@ -100,12 +149,23 @@ namespace NSM
             SyncToServerState(serverGameState, newGameEventsBuffer, serverTick, estimatedLag);
         }
 
+        /// <summary>
+        /// Removes game events at a specified tick based on a predicate condition.
+        /// </summary>
+        /// <param name="eventTick">The tick at which to remove events.</param>
+        /// <param name="gameEventPredicate">A predicate to determine which events to remove.</param>
         internal void RemoveEventAtTick(int eventTick, Predicate<IGameEvent> gameEventPredicate)
         {
             // TODO: since this is only ever happening during a rollback of some sort, do we even need to resend the new events state to the clients?
             gameEventsBuffer[eventTick].RemoveWhere(gameEventPredicate);
         }
 
+        /// <summary>
+        /// Initiates a replay process due to new game events
+        /// </summary>
+        /// <param name="serverTimeTick">The server tick that triggered the replay.</param>
+        /// <param name="newGameEventsBuffer">The new buffer containing game events.</param>
+        /// <param name="estimatedLag">Estimated network lag in ticks.</param>
         internal void ReplayDueToEvents(int serverTimeTick, GameEventsBuffer newGameEventsBuffer, int estimatedLag)
         {
             networkStateManager.VerboseLog("Updating upcoming game events, taking effect on tick " + serverTimeTick);
@@ -118,6 +178,13 @@ namespace NSM
             TimeTravelToEndOf(serverTimeTick + estimatedLag, newGameEventsBuffer);
         }
 
+        /// <summary>
+        /// Replays game state due to new player inputs
+        /// </summary>
+        /// <param name="playerInputs">DTO containing player inputs that triggered the replay.</param>
+        /// <param name="clientTimeTick">The client-reported tick at which the inputs were recorded.</param>
+        /// <param name="serverTick">The current server tick for synchronization purposes.</param>
+        /// <param name="estimatedLag">Estimated network lag in ticks.</param>
         internal void ReplayDueToInputs(PlayerInputsDTO playerInputs, int clientTimeTick, int serverTick, int estimatedLag)
         {
             networkStateManager.VerboseLog("Replaying due to player inputs at client time " + clientTimeTick);
@@ -128,8 +195,13 @@ namespace NSM
             TimeTravelToEndOf(serverTick + estimatedLag, gameEventsBuffer);
         }
 
+        /// <summary>
+        /// Performs the game's fixed update cycle, processing inputs and simulating the next game frame.
+        /// </summary>
         internal void RunFixedUpdate()
         {
+            AdvanceTime();
+
             Dictionary<byte, IPlayerInput> localInputs = new();
             networkStateManager.GetInputs(ref localInputs);
             inputsBuffer.SetLocalInputs(localInputs, RealGameTick);
@@ -138,6 +210,11 @@ namespace NSM
             stateBuffer[RealGameTick] = RunSingleGameFrame(RealGameTick);
         }
 
+        /// <summary>
+        /// Runs a single game frame, applying inputs and events, and capturing the resulting game state.
+        /// </summary>
+        /// <param name="tick">The tick at which the game frame should be simulated.  This may not be the same as realGameTick if we're currently replaying.</param>
+        /// <returns>A DTO representing the state after the game frame has been run.</returns>
         internal StateFrameDTO RunSingleGameFrame(int tick)
         {
             Dictionary<byte, IPlayerInput> playerInputs = inputsBuffer.GetInputsForTick(tick);
@@ -162,6 +239,11 @@ namespace NSM
             return newFrame;
         }
 
+        /// <summary>
+        /// Schedules a game event to occur at a specified future tick.
+        /// </summary>
+        /// <param name="gameEvent">The game event to schedule.</param>
+        /// <param name="eventTick">The tick at which the event should occur. If set to -1, schedules for the next tick.</param>
         internal void ScheduleGameEvent(IGameEvent gameEvent, int eventTick)
         {
             if (eventTick == -1)
@@ -178,6 +260,12 @@ namespace NSM
             gameEventsBuffer[eventTick].Add(gameEvent);
         }
 
+        /// <summary>
+        /// Sets the initial game state from the server's initial state, and initializes the random number generator with a specified seed.
+        /// </summary>
+        /// <param name="initialStateFrame">The initial state frame to set.</param>
+        /// <param name="randomSeedBase">The seed for the random number generator.</param>
+        /// <param name="estimatedLag">Estimated network lag in ticks.</param>
         internal void SetInitialGameState(StateFrameDTO initialStateFrame, int randomSeedBase, int estimatedLag)
         {
             // Store the state (the frame will be marked as authoritative when we're in SyncToServerState)
@@ -187,14 +275,17 @@ namespace NSM
             SyncToServerState(stateBuffer[0], gameEventsBuffer, 0, estimatedLag);
         }
 
+        /// <summary>
+        /// Sets the base seed for the game's random number generator.
+        /// </summary>
+        /// <param name="randomSeedBase">The seed value to set.</param>
         internal void SetRandomBase(int randomSeedBase)
         {
             Random = new(randomSeedBase);
         }
 
         /// <summary>
-        /// Given an authoritative server state and a target frame to catch up to based on network conditions,
-        /// rewind the state to the given authoritative frame, apply the state, then fast-forward back to the estimate of where the server is
+        /// Synchronizes the local game state to match a received server state
         /// </summary>
         /// <param name="serverState">The authoritative state to apply</param>
         /// <param name="newGameEventsBuffer">The authoritative set of game events</param>
@@ -222,6 +313,11 @@ namespace NSM
             lastAuthoritativeTick = serverState.gameTick;
         }
 
+        /// <summary>
+        /// Rewinds the game state to the end of a specified target tick. This is used to rollback to a previous state
+        /// in response to synchronization issues or received game events.
+        /// </summary>
+        /// <param name="targetTick">The tick to which the game state should be rewound.</param>
         private void RewindTimeUntilEndOfFrame(int targetTick)
         {
             // We want to end this function as though the frame at targetTick just ran
@@ -280,6 +376,10 @@ namespace NSM
             networkStateManager.VerboseLog("Done rewinding");
         }
 
+        /// <summary>
+        /// Simulates the game state for an authoritative server frame. This includes applying the game state, physics state, and any necessary inputs and events.
+        /// </summary>
+        /// <param name="serverFrame">The state frame to populate with state data.</param>
         private void SimulateAuthoritativeFrame(StateFrameDTO serverFrame)
         {
             networkStateManager.VerboseLog("SimulateAuthoritativeFrame");
@@ -299,6 +399,11 @@ namespace NSM
             RealGameTick = serverTick;
         }
 
+        /// <summary>
+        /// Continuously simulates game frames until reaching a specific target tick. This is used for fast-forwarding
+        /// the game state to catch up to a current or future state.
+        /// </summary>
+        /// <param name="targetTick">The tick to simulate up to.</param>
         private void SimulateUntilEndOfFrame(int targetTick)
         {
             networkStateManager.VerboseLog("Running frames from (end of)" + RealGameTick + " to (end of)" + targetTick);
@@ -316,6 +421,13 @@ namespace NSM
             RealGameTick = GameTick;
         }
 
+        /// <summary>
+        /// Manages time travel within the game state, either by rewinding to a past state or simulating forward
+        /// to a future state, based on the target tick. This function ensures that the game state is consistent 
+        /// with either past events or anticipated future events.
+        /// </summary>
+        /// <param name="targetTick">The target game tick to reach.</param>
+        /// <param name="newGameEventsBuffer">The updated authoritative list of future and past game events</param>
         private void TimeTravelToEndOf(int targetTick, GameEventsBuffer newGameEventsBuffer)
         {
             networkStateManager.VerboseLog("Time traveling from end of " + RealGameTick + " until end of " + targetTick);
