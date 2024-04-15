@@ -46,7 +46,7 @@ namespace NSM
         [SerializeField]
         private bool isRunning = false;
 
-        public NetworkIdManager networkIdManager;
+        public NetworkIdManager NetworkIdManager { get => gameStateManager.NetworkIdManager; }
 
         [SerializeField]
         private GameStateManager gameStateManager;
@@ -279,7 +279,7 @@ namespace NSM
             OnGetGameState?.Invoke(ref gameState);
         }
 
-        private void GetInputs(ref Dictionary<byte, IPlayerInput> inputs)
+        internal void GetInputs(ref Dictionary<byte, IPlayerInput> inputs)
         {
             VerboseLog("Capturing player inputs");
             OnGetInputs?.Invoke(ref inputs);
@@ -329,6 +329,7 @@ namespace NSM
         /// <param name="gameEventPredicate">If this function returns true for a given event, that event will be de-scheduled.</param>
         public void RemoveEventAtTick(int eventTick, Predicate<IGameEvent> gameEventPredicate)
         {
+            // TODO: If an event is being de-scheduled during a rollback when processing a client's input data, do the clients need to know about the de-scheduling?
             gameStateManager.RemoveEventAtTick(eventTick, gameEventPredicate);
         }
 
@@ -340,8 +341,8 @@ namespace NSM
         /// <returns>A predicted IPlayerInput</returns>
         public IPlayerInput PredictInputForPlayer(byte playerId)
         {
-            // TODO: this is an awkward thing to ask implementers to do; see if this can be improved
-            return gameStateManager.inputsBuffer.PredictInput(playerId, GameTick);
+            // TODO: calling this function is an awkward thing to ask implementers to do; see if this can be improved
+            return gameStateManager.PredictedInputForPlayer(playerId, GameTick);
         }
 
         #endregion Public Interface
@@ -354,16 +355,13 @@ namespace NSM
 
             // TODO: If NetworkManager isn't ready yet, we should throw an error and refuse to start up.
 
-            networkIdManager = new(this);
-
             TypeStore.Instance.GameStateType = gameStateType;
             TypeStore.Instance.PlayerInputType = playerInputType;
             TypeStore.Instance.GameEventType = gameEventType;
 
             VerboseLog("Setting up network ids for scene objects that need them");
-            networkIdManager.SetupInitialNetworkIds(gameObject.scene);
 
-            gameStateManager = new(this);
+            gameStateManager = new(this, gameObject.scene);
 
             isRunning = false;
 
@@ -379,7 +377,7 @@ namespace NSM
             gameStateManager.SetRandomBase(randomSeedBase);
 
             // Capture the initial game state
-            gameStateManager.CaptureInitialFrame(networkIdManager);
+            gameStateManager.CaptureInitialFrame();
 
             // Ensure clients are starting from the same view of the world
             // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
@@ -400,9 +398,9 @@ namespace NSM
 
         private void HostFixedUpdate()
         {
-            Dictionary<byte, IPlayerInput> localInputs = new();
-            GetInputs(ref localInputs);
-            gameStateManager.inputsBuffer.SetLocalInputs(localInputs, realGameTick);
+            gameStateManager.RunFixedUpdate();
+
+            // Send inputs for the frame
             Dictionary<byte, IPlayerInput> inputsToSend = gameStateManager.inputsBuffer.GetMinimalInputsDiff(realGameTick);
             if( inputsToSend.Count > 0)
             {
@@ -413,15 +411,6 @@ namespace NSM
 
                 ForwardPlayerInputsClientRpc(playerInputsDTO, realGameTick, realGameTick);
             }
-
-            // Actually simulate the frame
-            StateFrameDTO lastFrame = gameStateManager.RunSingleGameFrame(
-                realGameTick,
-                gameStateManager.inputsBuffer.GetInputsForTick(realGameTick),
-                gameStateManager.gameEventsBuffer[realGameTick],
-                networkIdManager
-            );
-            gameStateManager.stateBuffer[realGameTick] = lastFrame;
 
             // (Maybe) send the new state to the clients for reconciliation
             // TODO: If we're sending a frame update AND sending inputs, we can consolidate those into a single RPC instead of doing two of them.
@@ -453,7 +442,7 @@ namespace NSM
         [Rpc(SendTo.Server, RequireOwnership = false)]
         private void SetPlayerInputsServerRpc(PlayerInputsDTO playerInputs, int clientTimeTick)
         {
-            if (!isRunning)
+            if (!IsReadyForRpcs())
             {
                 // RPC's can arrive before this component has started, so skip out if it's too early
                 VerboseLog("Player inputs received, but we haven't started yet so ignoring.");
@@ -462,19 +451,11 @@ namespace NSM
 
             VerboseLog("Player inputs received at " + clientTimeTick);
 
-            if (clientTimeTick > realGameTick)
-            {
-                // The server slowed down enough for the clients to get ahead of it.  For small deltas,
-                // this isn't usually an issue.
-                // TODO: figure out a strategy for inputs that have far-future inputs
-                // TODO: figure out a strategy for detecting cheating that's happening (vs. normal slowdowns)
-                Debug.LogWarning("Client inputs are coming from server's future.  Server time: " + realGameTick + " Client time: " + clientTimeTick);
-            }
-
             // Set the input in our buffer
-            gameStateManager.inputsBuffer.SetPlayerInputsAtTick(playerInputs, clientTimeTick);
+            gameStateManager.PlayerInputsReceived(playerInputs, clientTimeTick);
 
             // Forward the input to all other non-host clients so they can do the same
+            // TODO: maybe exclude the client that sent this to us, since they've already got it
             // TODO: maybe gather up all incoming inputs over some span of time and then send them in batches, to reduce RPC calls
             ForwardPlayerInputsClientRpc(playerInputs, clientTimeTick, realGameTick);
         }
@@ -488,7 +469,7 @@ namespace NSM
             // To avoid problems later with applying diffs, go back to the last time we would've sent out a
             // frame delta normally.
             int requestedGameTick = realGameTick - (realGameTick % sendStateDeltaEveryNFrames);
-            VerboseLog("Full frame requested for " + requestedGameTick);
+            VerboseLog($"Full frame requested for {requestedGameTick}");
 
             // Send this back to only the client that requested it
             ProcessFullStateUpdateClientRpc(gameStateManager.stateBuffer[requestedGameTick], gameStateManager.gameEventsBuffer, realGameTick, RpcTarget.Single(rpcParams.Receive.SenderClientId, RpcTargetUse.Temp));
@@ -502,23 +483,11 @@ namespace NSM
         {
             if (realGameTick > gameStateManager.lastAuthoritativeTick + maxFramesWithoutHearingFromServer)
             {
-                Debug.LogWarning("Haven't heard from the server since " + gameStateManager.lastAuthoritativeTick);
+                Debug.LogWarning($"Haven't heard from the server since {gameStateManager.lastAuthoritativeTick}");
                 // TODO: figure out what we want to do here, since we don't want to DoS the server just because we haven't heard from it in a while
             }
 
-            // Gather the local inputs to override the prediction,
-            // but track them separately since we'll need to forward to the server via RPC
-            Dictionary<byte, IPlayerInput> localInputs = new();
-            GetInputs(ref localInputs);
-            gameStateManager.inputsBuffer.SetLocalInputs(localInputs, realGameTick);
-
-            // Actually simulate the frame (this is the client-side "prediction" of what'll happen)
-            gameStateManager.stateBuffer[realGameTick] = gameStateManager.RunSingleGameFrame(
-                realGameTick,
-                gameStateManager.inputsBuffer.GetInputsForTick(realGameTick),
-                gameStateManager.gameEventsBuffer[realGameTick],
-                networkIdManager
-            );
+            gameStateManager.RunFixedUpdate();
 
             // Send our local inputs to the server, if they changed from the previous frame
             Dictionary<byte, IPlayerInput> inputsToSend = gameStateManager.inputsBuffer.GetMinimalInputsDiff(realGameTick);
@@ -530,7 +499,6 @@ namespace NSM
                     PlayerInputs = inputsToSend
                 };
 
-                // TODO: send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
                 SetPlayerInputsServerRpc(playerInputsDTO, realGameTick);
             }
         }
@@ -564,7 +532,7 @@ namespace NSM
                 return;
             }
 
-            gameStateManager.ReplayDueToInputs(playerInputs, clientTimeTick, serverTick, GetEstimatedLag(), networkIdManager);
+            gameStateManager.ReplayDueToInputs(playerInputs, clientTimeTick, serverTick, GetEstimatedLag());
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
@@ -583,7 +551,7 @@ namespace NSM
                 return;
             }
 
-            gameStateManager.ReplayDueToEvents(serverTimeTick, newGameEventsBuffer, GetEstimatedLag(), networkIdManager);
+            gameStateManager.ReplayDueToEvents(serverTimeTick, newGameEventsBuffer, GetEstimatedLag());
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
@@ -594,7 +562,7 @@ namespace NSM
 
             VerboseLog("Initial game state received from server.");
 
-            gameStateManager.SetInitialGameState(initialStateFrame, randomSeedBase, GetEstimatedLag(), networkIdManager);
+            gameStateManager.SetInitialGameState(initialStateFrame, randomSeedBase, GetEstimatedLag());
 
             // Start things off!
             isRunning = true;
@@ -611,43 +579,15 @@ namespace NSM
 
             VerboseLog("Server state delta received.");
 
-            if (serverTick < gameStateManager.lastAuthoritativeTick)
-            {
-                VerboseLog($"Server state delta was from before last authoritative, so drop it.  Last authoritative tick: {gameStateManager.lastAuthoritativeTick}");
-                return;
-            }
-
-            // Did the state arrive out of order?  If so, panic.
-            if (serverTick != (gameStateManager.lastAuthoritativeTick + sendStateDeltaEveryNFrames))
-            {
-                // TODO: maybe this should be an exception thrown from trying to apply the deltas (do the check there), and then do the full
-                //       state request here if caught?
-                VerboseLog(
-                    "Server snapshot arrived out of order!  Requesting full state refresh.  Server state tick: " + serverTick +
-                    " expected: " + gameStateManager.lastAuthoritativeTick + " + " + sendStateDeltaEveryNFrames + " = " + (gameStateManager.lastAuthoritativeTick + sendStateDeltaEveryNFrames)
-                );
-
-                // We can't just process this as-is since we need that prior frame in order to properly apply the delta.
-                // As such, request a full state sync instead of the delta
-                RequestFullStateUpdateServerRpc();
-                return;
-            }
-
-            // Reconstitute the state from our delta
-            StateFrameDTO serverGameState;
             try
             {
-                VerboseLog("Applying delta against frame " + (serverTick - sendStateDeltaEveryNFrames));
-                serverGameState = serverGameStateDelta.ApplyTo(gameStateManager.stateBuffer[serverTick - sendStateDeltaEveryNFrames]);
-                serverGameState.authoritative = true;
-            } catch (Exception e)
-            {
-                VerboseLog("Something went wrong when reconstituting game state from diff: " + e.Message);
-                RequestFullStateUpdateServerRpc();
-                return;
+                gameStateManager.ProcessStateDeltaReceived(serverGameStateDelta, newGameEventsBuffer, serverTick, GetEstimatedLag(), sendStateDeltaEveryNFrames);
             }
-
-            gameStateManager.SyncToServerState(serverGameState, newGameEventsBuffer, serverTick, GetEstimatedLag(), networkIdManager);
+            catch(Exception e)
+            {
+                VerboseLog($"Something went wrong when reconstituting game state from diff: {e.Message}");
+                RequestFullStateUpdateServerRpc();
+            }
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
@@ -666,23 +606,14 @@ namespace NSM
             }
 
             VerboseLog("Received full state update from server");
-            if(serverGameState.gameTick < gameStateManager.lastAuthoritativeTick)
-            {
-                VerboseLog($"Received full frame update from before the last authoritative, so drop it.  Server tick: {serverTick} Last authoritative tick: {gameStateManager.lastAuthoritativeTick}");
-                return;
-            }
 
             // Get us back in sync
-            gameStateManager.SyncToServerState(serverGameState, serverGameEventsBuffer, serverTick, GetEstimatedLag(), networkIdManager);
+            gameStateManager.SyncToServerState(serverGameState, serverGameEventsBuffer, serverTick, GetEstimatedLag());
         }
-
-        #endregion Client-side only code
-
-        #region Core simulation functionality
 
         private int GetEstimatedLag()
         {
-            if(IsHost)
+            if (IsHost)
             {
                 throw new Exception("The host shouldn't ever call this");
             }
@@ -698,7 +629,7 @@ namespace NSM
             return framesOfLag;
         }
 
-        #endregion Core simulation functionality
+        #endregion Client-side only code
 
         private void FixedUpdate()
         {
