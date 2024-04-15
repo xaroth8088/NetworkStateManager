@@ -452,7 +452,7 @@ namespace NSM
 
             VerboseLog("Player inputs received at " + clientTimeTick);
 
-            // Set the input in our buffer
+            // Set the input in our buffer and replay to include the input
             gameStateManager.PlayerInputsReceived(playerInputs, clientTimeTick);
 
             // Forward the input to all other non-host clients so they can do the same
