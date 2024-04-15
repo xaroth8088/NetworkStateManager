@@ -341,11 +341,6 @@ namespace NSM
             VerboseLog("Game event scheduled for tick " + eventTick);
             gameEventsBuffer[eventTick].Add(gameEvent);
 
-            if(!IsHost)
-            {
-                return;
-            }
-
             // Let everyone know that an event is happening
             // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
             SyncGameEventsToClientsClientRpc(gameTick, gameEventsBuffer);
