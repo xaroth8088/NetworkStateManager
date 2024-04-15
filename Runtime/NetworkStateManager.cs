@@ -39,7 +39,7 @@ namespace NSM
 
         [Header("Runtime state: Time")]
         [SerializeField]
-        private int realGameTick { get => gameStateManager.realGameTick; }   // This is the internal game tick, which keeps track of "now"
+        private int realGameTick { get => gameStateManager.RealGameTick; }   // This is the internal game tick, which keeps track of "now"
         public int GameTick { get => gameStateManager.GameTick; }    // Users of the library will get the tick associated with whatever frame is currently being processed, which might include frames that are being replayed
         public bool isReplaying { get => gameStateManager.isReplaying; }
 
@@ -51,6 +51,7 @@ namespace NSM
         [SerializeField]
         private GameStateManager gameStateManager;
 
+        // TODO: add documentation about the hows and whys on the custom Random handling
         public RandomManager Random { get => gameStateManager.Random; }
 
         #endregion Runtime state
