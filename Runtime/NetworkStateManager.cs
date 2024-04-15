@@ -40,7 +40,7 @@ namespace NSM
         [Header("Runtime state: Time")]
         [SerializeField]
         private int realGameTick = 0;   // This is the internal game tick, which keeps track of "now"
-        public int gameTick = 0;    // Users of the library will get the tick associated with whatever frame is currently being processed, which might include frames that are being replayed
+        public int GameTick { get; private set; } = 0;    // Users of the library will get the tick associated with whatever frame is currently being processed, which might include frames that are being replayed
         public bool isReplaying = false;
         public int lastAuthoritativeTick = 0;
 
@@ -54,8 +54,7 @@ namespace NSM
 
         public NetworkIdManager networkIdManager;
 
-        private int randomSeedBase;
-        private System.Random _random;
+        public RandomManager Random { get; private set; }
 
         #endregion Runtime state
 
@@ -272,9 +271,9 @@ namespace NSM
             }
 
             VerboseLog("Applying game state");
-            Physics.SyncTransforms();
+            PhysicsManager.SyncTransforms();
             OnApplyState?.Invoke(gameState);
-            Physics.SyncTransforms();
+            PhysicsManager.SyncTransforms();
         }
 
         private void GetGameState(ref IGameState gameState)
@@ -322,10 +321,10 @@ namespace NSM
 
             if (eventTick == -1)
             {
-                eventTick = gameTick + 1;
+                eventTick = GameTick + 1;
             }
 
-            if (eventTick <= gameTick)
+            if (eventTick <= GameTick)
             {
                 Debug.LogWarning("Game event scheduled for the past - will not be replayed on clients");
             }
@@ -335,7 +334,7 @@ namespace NSM
 
             // Let everyone know that an event is happening
             // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
-            SyncGameEventsToClientsClientRpc(gameTick, gameEventsBuffer);
+            SyncGameEventsToClientsClientRpc(GameTick, gameEventsBuffer);
         }
 
         /// <summary>
@@ -358,39 +357,7 @@ namespace NSM
         public IPlayerInput PredictInputForPlayer(byte playerId)
         {
             // TODO: this is an awkward thing to ask implementers to do; see if this can be improved
-            return inputsBuffer.PredictInput(playerId, gameTick);
-        }
-
-        // TODO: prevent usage of random numbers while applying state - only permit when running simulation (events, pre/post physics)
-
-        public int GetRandomNext()
-        {
-            if(_random == null)
-            {
-                throw new Exception("GetRandomNext() was called before StartNetworkStateManager(), which is not allowed");
-            }
-
-            return _random.Next();
-        }
-
-        public float GetRandomRange(float minInclusive, float maxInclusive)
-        {
-            if (_random == null)
-            {
-                throw new Exception("GetRandomRange() was called before StartNetworkStateManager(), which is not allowed");
-            }
-
-            return (float)((_random.NextDouble() * (maxInclusive - minInclusive)) + minInclusive);
-        }
-
-        public int GetRandomRange(int minInclusive, int maxExclusive)
-        {
-            if (_random == null)
-            {
-                throw new Exception("GetRandomRange() was called before StartNetworkStateManager(), which is not allowed");
-            }
-
-            return _random.Next(minInclusive, maxExclusive);
+            return inputsBuffer.PredictInput(playerId, GameTick);
         }
 
         #endregion Public Interface
@@ -419,7 +386,7 @@ namespace NSM
             isRunning = false;
             isReplaying = false;
             lastAuthoritativeTick = 0;
-            gameTick = 0;
+            GameTick = 0;
             realGameTick = 0;
 
             if (!IsHost)
@@ -430,8 +397,8 @@ namespace NSM
             // Server-only from here down
             isRunning = true;
 
-            randomSeedBase = UnityEngine.Random.Range(int.MinValue, int.MaxValue);
-            _random = new(randomSeedBase);
+            int randomSeedBase = UnityEngine.Random.Range(int.MinValue, int.MaxValue);
+            Random = new(randomSeedBase);
 
             // Capture the initial game state
             stateBuffer[0] = CaptureStateFrame(0);
@@ -446,9 +413,7 @@ namespace NSM
         {
             isRunning = false;
 
-            // In order for NSM to work, we'll need to fully control physics (Muahahaha)
-            Physics.simulationMode = SimulationMode.Script;
-            Physics.autoSyncTransforms = false;
+            PhysicsManager.InitPhysics();
         }
 
         #endregion Initialization code
@@ -630,12 +595,12 @@ namespace NSM
         {
             VerboseLog("SimulateAuthoritativeFrame");
             int serverTick = serverFrame.gameTick;
-            gameTick = serverTick;
-            ResetRandom(gameTick);
+            GameTick = serverTick;
+            Random.ResetRandom(GameTick);
 
             ApplyEvents(gameEventsBuffer[serverTick]);
             ApplyInputs(inputsBuffer.GetInputsForTick(serverTick));
-            ApplyPhysicsState(serverFrame.PhysicsState);
+            PhysicsManager.ApplyPhysicsState(serverFrame.PhysicsState, networkIdManager);
             ApplyState(serverFrame.GameState);
 
             serverFrame.authoritative = true;
@@ -710,7 +675,7 @@ namespace NSM
 
         // NOTE: Rpc's are processed at the _end_ of each frame
         [Rpc(SendTo.NotServer)]
-        private void StartGameClientRpc(StateFrameDTO initialStateFrame, int _randomSeedBase)
+        private void StartGameClientRpc(StateFrameDTO initialStateFrame, int randomSeedBase)
         {
             // TODO: figure out what to do if the initial game state never arrives
 
@@ -719,7 +684,7 @@ namespace NSM
             // Store the state (the frame will be marked as authoritative when we're in SyncToServerState)
             StateFrameDTO stateFrame = (StateFrameDTO)initialStateFrame.Clone();
             stateBuffer[0] = stateFrame;
-            randomSeedBase = _randomSeedBase;
+            Random = new(randomSeedBase);
 
             // Start things off!
             isRunning = true;
@@ -806,41 +771,21 @@ namespace NSM
 
         #region Core simulation functionality
 
-        private void ApplyPhysicsState(PhysicsStateDTO physicsState)
-        {
-            VerboseLog("Applying physics state");
-
-            // Set each object into the world
-            foreach ((byte networkId, RigidBodyStateDTO rigidBodyState) in physicsState.RigidBodyStates)
-            {
-                GameObject networkedGameObject = networkIdManager.GetGameObjectByNetworkId(networkId);
-                if (networkedGameObject == null || networkedGameObject.activeInHierarchy == false)
-                {
-                    // This object no longer exists in the scene
-                    Debug.LogError("Attempted to restore state to a GameObject that no longer exists");
-                    // TODO: this seems like it'll lead to some bugs later with objects that disappeared recently
-                    continue;
-                }
-
-                rigidBodyState.ApplyState(networkedGameObject.GetComponentInChildren<Rigidbody>());
-            }
-        }
-
         private void SimulateUntilEndOfFrame(int targetTick)
         {
             VerboseLog("Running frames from (end of)" + realGameTick + " to (end of)" + targetTick);
 
-            gameTick = realGameTick;
+            GameTick = realGameTick;
 
-            while (gameTick < targetTick)
+            while (GameTick < targetTick)
             {
-                gameTick++;
+                GameTick++;
 
-                VerboseLog("Simulating for tick " + gameTick);
-                stateBuffer[gameTick] = RunSingleGameFrame(gameTick, inputsBuffer.GetInputsForTick(gameTick), gameEventsBuffer[gameTick]);
+                VerboseLog("Simulating for tick " + GameTick);
+                stateBuffer[GameTick] = RunSingleGameFrame(GameTick, inputsBuffer.GetInputsForTick(GameTick), gameEventsBuffer[GameTick]);
             }
 
-            realGameTick = gameTick;
+            realGameTick = GameTick;
         }
 
         private void RewindTimeUntilEndOfFrame(int targetTick)
@@ -856,33 +801,33 @@ namespace NSM
             VerboseLog("Rewinding time until " + targetTick);
             // For each frame moving backward (using gameTick as our iterator)
             isReplaying = true;
-            gameTick = realGameTick;
-            while( gameTick > targetTick )
+            GameTick = realGameTick;
+            while( GameTick > targetTick )
             {
                 // We can skip restoring gamestate at all whenever there are no events inside of a frame to roll back
-                if(gameEventsBuffer[gameTick].Count == 0)
+                if(gameEventsBuffer[GameTick].Count == 0)
                 {
-                    gameTick--;
+                    GameTick--;
                     continue;
                 }
 
-                VerboseLog("Undoing events at tick " + gameTick + " (setting state to the moment before the events were originally run)");
+                VerboseLog("Undoing events at tick " + GameTick + " (setting state to the moment before the events were originally run)");
 
                 // Apply the frame state just prior to gameTick
-                int prevTick = Math.Max(0, gameTick - 1);
+                int prevTick = Math.Max(0, GameTick - 1);
                 StateFrameDTO previousFrameState = stateBuffer[prevTick];
                 Dictionary<byte, IPlayerInput> previousFrameInputs = inputsBuffer.GetInputsForTick(prevTick);
 
                 ApplyInputs(previousFrameInputs);
-                ApplyPhysicsState(previousFrameState.PhysicsState);
+                PhysicsManager.ApplyPhysicsState(previousFrameState.PhysicsState, networkIdManager);
                 ApplyState(previousFrameState.GameState);
 
-                ResetRandom(gameTick);
+                Random.ResetRandom(GameTick);
 
                 // Rewind any events present in gameTick
-                RollbackEvents(gameEventsBuffer[gameTick], stateBuffer[gameTick].GameState);
+                RollbackEvents(gameEventsBuffer[GameTick], stateBuffer[GameTick].GameState);
 
-                gameTick--;
+                GameTick--;
             }
 
             // We may escape the loop without doing any events (and therefore never applying state), so apply the state for the end of targetTick
@@ -892,7 +837,7 @@ namespace NSM
             Dictionary<byte, IPlayerInput> inputsFromFrameToRestore = inputsBuffer.GetInputsForTick(targetTick);
 
             ApplyInputs(inputsFromFrameToRestore);
-            ApplyPhysicsState(frameToRestore.PhysicsState);
+            PhysicsManager.ApplyPhysicsState(frameToRestore.PhysicsState, networkIdManager);
             ApplyState(frameToRestore.GameState);
 
             realGameTick = targetTick;
@@ -901,23 +846,17 @@ namespace NSM
             VerboseLog("Done rewinding");
         }
 
-        private void ResetRandom(int tick)
-        {
-            UnityEngine.Random.InitState(randomSeedBase + tick);
-            _random = new(randomSeedBase + tick);
-        }
-
         private StateFrameDTO RunSingleGameFrame(int tick, Dictionary<byte, IPlayerInput> playerInputs, HashSet<IGameEvent> events)
         {
             VerboseLog("Running single frame for tick " + tick);
-            gameTick = tick;
+            GameTick = tick;
 
-            ResetRandom(tick);
+            Random.ResetRandom(tick);
 
             // Simulate the frame
             ApplyEvents(events);
             ApplyInputs(playerInputs);
-            Physics.SyncTransforms();
+            PhysicsManager.SyncTransforms();
             PrePhysicsFrameUpdate();
             SimulatePhysics();
             PostPhysicsFrameUpdate();
@@ -945,7 +884,7 @@ namespace NSM
             {
                 throw new Exception("Gamestate serialization to bytes failed");
             }
-            newFrame.PhysicsState.TakeSnapshot(GetNetworkedRigidbodies());
+            newFrame.PhysicsState.TakeSnapshot(PhysicsManager.GetNetworkedRigidbodies(networkIdManager));
 
             return newFrame;
         }
@@ -953,23 +892,7 @@ namespace NSM
         private void SimulatePhysics()
         {
             VerboseLog("Simulating physics for frame");
-            Physics.Simulate(Time.fixedDeltaTime);
-        }
-
-        private List<Rigidbody> GetNetworkedRigidbodies()
-        {
-            List<Rigidbody> rigidbodies = new();
-            foreach (GameObject gameObject in networkIdManager.GetAllNetworkIdGameObjects())
-            {
-                if (!gameObject.TryGetComponent(out Rigidbody rigidbody))
-                {
-                    continue;
-                }
-
-                rigidbodies.Add(rigidbody);
-            }
-
-            return rigidbodies;
+            PhysicsManager.SimulatePhysics(Time.fixedDeltaTime);
         }
 
         private int GetEstimatedLag()
@@ -1001,7 +924,7 @@ namespace NSM
 
             // Start a new frame
             realGameTick++;
-            gameTick = realGameTick;
+            GameTick = realGameTick;
             VerboseLog("---- NEW FRAME ----");
 
             if (IsHost)
@@ -1035,15 +958,15 @@ namespace NSM
             string log = "";
 
 
-            if (realGameTick != gameTick)
+            if (realGameTick != GameTick)
             {
                 log += "** ";
             }
 
             log += realGameTick + "";
-            if(realGameTick != gameTick)
+            if(realGameTick != GameTick)
             {
-                log += " (" + gameTick + ")";
+                log += " (" + GameTick + ")";
             }
             log += ": ";
             if (isReplaying)
