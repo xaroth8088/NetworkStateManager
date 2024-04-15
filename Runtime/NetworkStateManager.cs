@@ -382,7 +382,7 @@ namespace NSM
             // Ensure clients are starting from the same view of the world
             // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
             VerboseLog("Sending initial state");
-            StartGameClientRpc(gameStateManager.stateBuffer[0], randomSeedBase);
+            StartGameClientRpc(gameStateManager.GetStateFrame(0), randomSeedBase);
         }
 
         private void Awake()
@@ -401,7 +401,7 @@ namespace NSM
             gameStateManager.RunFixedUpdate();
 
             // Send inputs for the frame
-            Dictionary<byte, IPlayerInput> inputsToSend = gameStateManager.inputsBuffer.GetMinimalInputsDiff(realGameTick);
+            Dictionary<byte, IPlayerInput> inputsToSend = gameStateManager.GetMinimalInputsDiffForCurrentFrame();
             if( inputsToSend.Count > 0)
             {
                 PlayerInputsDTO playerInputsDTO = new()
@@ -422,7 +422,7 @@ namespace NSM
                 // frame delta normally.
                 int requestedGameTick = realGameTick - (realGameTick % sendStateDeltaEveryNFrames);
                 
-                ProcessFullStateUpdateClientRpc(gameStateManager.stateBuffer[requestedGameTick], gameStateManager.gameEventsBuffer, realGameTick, RpcTarget.NotServer);
+                ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), gameStateManager.gameEventsBuffer, realGameTick, RpcTarget.NotServer);
             }
             else if (realGameTick % sendStateDeltaEveryNFrames == 0)
             {
@@ -430,7 +430,7 @@ namespace NSM
 
                 // TODO: there's an opportunity to be slightly more aggressive by skipping sending anything if the entire
                 //       state frame is exactly the same (except for the realGameTick, of course).
-                StateFrameDeltaDTO delta = new(gameStateManager.stateBuffer[realGameTick - sendStateDeltaEveryNFrames], gameStateManager.stateBuffer[realGameTick]);
+                StateFrameDeltaDTO delta = new(gameStateManager.GetStateFrame(realGameTick - sendStateDeltaEveryNFrames), gameStateManager.GetStateFrame(realGameTick));
 
                 // TODO: send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
                 ProcessStateDeltaUpdateClientRpc(delta, gameStateManager.gameEventsBuffer, realGameTick);
@@ -472,7 +472,7 @@ namespace NSM
             VerboseLog($"Full frame requested for {requestedGameTick}");
 
             // Send this back to only the client that requested it
-            ProcessFullStateUpdateClientRpc(gameStateManager.stateBuffer[requestedGameTick], gameStateManager.gameEventsBuffer, realGameTick, RpcTarget.Single(rpcParams.Receive.SenderClientId, RpcTargetUse.Temp));
+            ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), gameStateManager.gameEventsBuffer, realGameTick, RpcTarget.Single(rpcParams.Receive.SenderClientId, RpcTargetUse.Temp));
         }
 
         #endregion Server-side only code
@@ -490,7 +490,7 @@ namespace NSM
             gameStateManager.RunFixedUpdate();
 
             // Send our local inputs to the server, if they changed from the previous frame
-            Dictionary<byte, IPlayerInput> inputsToSend = gameStateManager.inputsBuffer.GetMinimalInputsDiff(realGameTick);
+            Dictionary<byte, IPlayerInput> inputsToSend = gameStateManager.GetMinimalInputsDiffForCurrentFrame();
 
             if (inputsToSend.Count > 0)
             {

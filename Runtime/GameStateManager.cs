@@ -6,9 +6,9 @@ namespace NSM
 {
     public class GameStateManager
     {
-        internal StateBuffer stateBuffer = new();   // TODO: change this to private, and also realGameTick, if we can
-        internal GameEventsBuffer gameEventsBuffer = new(); // TODO: change this to private
-        internal InputsBuffer inputsBuffer = new(); // TODO: change this to private
+        private StateBuffer stateBuffer = new();
+        internal GameEventsBuffer gameEventsBuffer = new();
+        private readonly InputsBuffer inputsBuffer = new();
         internal int GameTick { get; private set; } = 0;  // The apparent game time, as seen during rollback or simulations
         internal int realGameTick { get; private set; } = 0;   // The actual game time (may get synchronized with the server sometimes)
         internal RandomManager Random { get; private set; }
@@ -16,8 +16,7 @@ namespace NSM
         public bool isReplaying = false;
         public NetworkIdManager NetworkIdManager { get; private set; }
 
-        // From this class's perspective, NetworkStateManager is the gateway to the game's code, and to Unity more broadly
-        private readonly NetworkStateManager networkStateManager;
+        private readonly NetworkStateManager networkStateManager;   // From this class's perspective, NetworkStateManager is the gateway to the game's code, and to Unity more broadly
 
         public GameStateManager(NetworkStateManager _networkStateManager, UnityEngine.SceneManagement.Scene scene)
         {
@@ -333,6 +332,16 @@ namespace NSM
             serverGameState.authoritative = true;
 
             SyncToServerState(serverGameState, newGameEventsBuffer, serverTick, estimatedLag);
+        }
+
+        internal Dictionary<byte, IPlayerInput> GetMinimalInputsDiffForCurrentFrame()
+        {
+            return inputsBuffer.GetMinimalInputsDiff(realGameTick);
+        }
+
+        internal StateFrameDTO GetStateFrame(int tick)
+        {
+            return stateBuffer[tick];
         }
     }
 }
