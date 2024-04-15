@@ -373,16 +373,31 @@ namespace NSM
 
         public int GetRandomNext()
         {
+            if(_random == null)
+            {
+                throw new Exception("GetRandomNext() was called before StartNetworkStateManager(), which is not allowed");
+            }
+
             return _random.Next();
         }
 
         public float GetRandomRange(float minInclusive, float maxInclusive)
         {
+            if (_random == null)
+            {
+                throw new Exception("GetRandomRange() was called before StartNetworkStateManager(), which is not allowed");
+            }
+
             return (float)((_random.NextDouble() * (maxInclusive - minInclusive)) + minInclusive);
         }
 
         public int GetRandomRange(int minInclusive, int maxExclusive)
         {
+            if (_random == null)
+            {
+                throw new Exception("GetRandomRange() was called before StartNetworkStateManager(), which is not allowed");
+            }
+
             return _random.Next(minInclusive, maxExclusive);
         }
 
