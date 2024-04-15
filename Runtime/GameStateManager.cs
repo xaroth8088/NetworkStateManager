@@ -4,31 +4,42 @@ using UnityEngine;
 
 namespace NSM
 {
-/// <summary>
+    /// <summary>
     /// Manages the state of the game, including networking states, input buffering, and state synchronization.
     /// </summary>
-    public class GameStateManager
+    internal class GameStateManager
     {
-        public bool isReplaying = false;
-        internal GameEventsBuffer gameEventsBuffer = new();
+        internal bool isReplaying = false;
+        internal IGameEventsBuffer gameEventsBuffer;
         internal int lastAuthoritativeTick = 0;
-        private readonly InputsBuffer inputsBuffer = new();
-        private readonly NetworkStateManager networkStateManager;
-        private readonly StateBuffer stateBuffer = new();
+        private readonly IInputsBuffer inputsBuffer;
+        private readonly IInternalNetworkStateManager networkStateManager;
+        private readonly IStateBuffer stateBuffer;
 
         /// <summary>
         /// Initializes the GameStateManager with its parent NetworkStateManager and the scene for setting up network IDs
         /// </summary>
         /// <param name="_networkStateManager">From this class's perspective, NetworkStateManager is the gateway to the game's code, and to Unity more broadly</param>
         /// <param name="scene">Scene to set up initial network IDs.</param>
-        public GameStateManager(NetworkStateManager _networkStateManager, UnityEngine.SceneManagement.Scene scene)
+        internal GameStateManager(
+            IInternalNetworkStateManager _networkStateManager,
+            IGameEventsBuffer _gameEventsBuffer,
+            IInputsBuffer _inputsBuffer,
+            IStateBuffer _stateBuffer,
+            INetworkIdManager _networkIdManager,
+            UnityEngine.SceneManagement.Scene scene
+        )
         {
-            networkStateManager = _networkStateManager;
-            NetworkIdManager = new(networkStateManager);
+            networkStateManager = _networkStateManager ?? throw new ArgumentNullException(nameof(_networkStateManager));
+            gameEventsBuffer = _gameEventsBuffer ?? throw new ArgumentNullException(nameof(_gameEventsBuffer));
+            inputsBuffer = _inputsBuffer ?? throw new ArgumentNullException(nameof(_inputsBuffer));
+            stateBuffer = _stateBuffer ?? throw new ArgumentNullException(nameof(_stateBuffer));
+            NetworkIdManager = _networkIdManager ?? throw new ArgumentNullException(nameof(_networkIdManager));
+
             NetworkIdManager.SetupInitialNetworkIds(scene);
         }
 
-        public NetworkIdManager NetworkIdManager { get; private set; }
+        internal INetworkIdManager NetworkIdManager { get; private set; }
         internal int GameTick { get; private set; } = 0;  // The apparent game time, as seen during rollback or simulations
         internal RandomManager Random { get; private set; }
         internal int RealGameTick { get; private set; } = 0;   // The actual game time (may get synchronized with the server sometimes)
@@ -291,7 +302,7 @@ namespace NSM
         /// <param name="newGameEventsBuffer">The authoritative set of game events</param>
         /// <param name="serverTick">What time is it on the server at time of sending?</param>
         /// <param name="estimatedLag">How long do we think it took to get from the server to us?</param>
-        internal void SyncToServerState(StateFrameDTO serverState, GameEventsBuffer newGameEventsBuffer, int serverTick, int estimatedLag)
+        internal void SyncToServerState(StateFrameDTO serverState, IGameEventsBuffer newGameEventsBuffer, int serverTick, int estimatedLag)
         {
             // NOTE: when we get here, we'll be at the _end_ of frame realGameTick, and when we leave we'll be at the end of (serverTick + lag)
 
@@ -428,7 +439,7 @@ namespace NSM
         /// </summary>
         /// <param name="targetTick">The target game tick to reach.</param>
         /// <param name="newGameEventsBuffer">The updated authoritative list of future and past game events</param>
-        private void TimeTravelToEndOf(int targetTick, GameEventsBuffer newGameEventsBuffer)
+        private void TimeTravelToEndOf(int targetTick, IGameEventsBuffer newGameEventsBuffer)
         {
             networkStateManager.VerboseLog("Time traveling from end of " + RealGameTick + " until end of " + targetTick);
 

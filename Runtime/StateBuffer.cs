@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace NSM
 {
-    public class StateBuffer
+    public class StateBuffer : IStateBuffer
     {
         private readonly Dictionary<int, StateFrameDTO> _stateBuffer;
 

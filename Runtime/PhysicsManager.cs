@@ -17,7 +17,7 @@ namespace NSM
             Physics.Simulate(deltaTime);
         }
 
-        public static void ApplyPhysicsState(PhysicsStateDTO physicsState, NetworkIdManager networkIdManager)
+        public static void ApplyPhysicsState(PhysicsStateDTO physicsState, INetworkIdManager networkIdManager)
         {
             // TODO: VerboseLog("Applying physics state");
 
@@ -37,7 +37,7 @@ namespace NSM
             }
         }
 
-        public static List<Rigidbody> GetNetworkedRigidbodies(NetworkIdManager networkIdManager)
+        public static List<Rigidbody> GetNetworkedRigidbodies(INetworkIdManager networkIdManager)
         {
             List<Rigidbody> rigidbodies = new();
             foreach (GameObject gameObject in networkIdManager.GetAllNetworkIdGameObjects())

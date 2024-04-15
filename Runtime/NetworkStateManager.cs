@@ -7,7 +7,7 @@ using Debug = UnityEngine.Debug;
 
 namespace NSM
 {
-    public class NetworkStateManager : NetworkBehaviour
+    public class NetworkStateManager : NetworkBehaviour, IInternalNetworkStateManager
     {
         // TODO: specify whether you want a ring buffer or a complete buffer
         // TODO: flags for toggling which transform and rigidbody state needs to be sync'd, or what's safe to skip
@@ -46,7 +46,7 @@ namespace NSM
         [SerializeField]
         private bool isRunning = false;
 
-        public NetworkIdManager NetworkIdManager { get => gameStateManager.NetworkIdManager; }
+        public NetworkIdManager NetworkIdManager { get => (NetworkIdManager)gameStateManager.NetworkIdManager; }
 
         [SerializeField]
         private GameStateManager gameStateManager;
@@ -228,76 +228,6 @@ namespace NSM
         /// </summary>
         public event OnPrePhysicsFrameUpdateDelegateHandler OnPrePhysicsFrameUpdate;
 
-        internal void ApplyEvents(HashSet<IGameEvent> events)
-        {
-            if (events.Count == 0)
-            {
-                return;
-            }
-
-            VerboseLog($"Applying {events.Count} events");
-            OnApplyEvents?.Invoke(events);
-        }
-
-        internal void RollbackEvents(HashSet<IGameEvent> events, IGameState stateAfterEvent)
-        {
-            if (events.Count == 0)
-            {
-                return;
-            }
-
-            VerboseLog($"Rolling back {events.Count} events");
-            OnRollbackEvents?.Invoke(events, stateAfterEvent);
-        }
-
-        internal void ApplyInputs(Dictionary<byte, IPlayerInput> playerInputs)
-        {
-            if (playerInputs.Count == 0)
-            {
-                return;
-            }
-
-            VerboseLog($"Applying {playerInputs.Count} player inputs");
-            OnApplyInputs?.Invoke(playerInputs);
-        }
-
-        internal void ApplyState(IGameState gameState)
-        {
-            if (gameState == null)
-            {
-                return;
-            }
-
-            VerboseLog("Applying game state");
-            PhysicsManager.SyncTransforms();
-            OnApplyState?.Invoke(gameState);
-            PhysicsManager.SyncTransforms();
-        }
-
-        internal void GetGameState(ref IGameState gameState)
-        {
-            VerboseLog("Capturing game state");
-            OnGetGameState?.Invoke(ref gameState);
-        }
-
-        internal void GetInputs(ref Dictionary<byte, IPlayerInput> inputs)
-        {
-            VerboseLog("Capturing player inputs");
-            OnGetInputs?.Invoke(ref inputs);
-        }
-
-        internal void PostPhysicsFrameUpdate()
-        {
-            VerboseLog("Running post-physics frame update");
-            OnPostPhysicsFrameUpdate?.Invoke();
-        }
-
-        internal void PrePhysicsFrameUpdate()
-        {
-            VerboseLog("Running pre-physics frame update");
-            OnPrePhysicsFrameUpdate?.Invoke();
-        }
-
         #endregion Lifecycle event delegates and wrappers
 
         #region Public Interface
@@ -310,7 +240,7 @@ namespace NSM
         /// <param name="eventTick">The game tick when the event should fire.  Leave empty to fire on the next game tick.</param>
         public void ScheduleGameEvent(IGameEvent gameEvent, int eventTick = -1)
         {
-            if(!IsHost)
+            if (!IsHost)
             {
                 // Events need to be server-authoritative in all cases, to prevent problems with the client erroneously scheduling them
                 // based on incorrect predictions
@@ -320,7 +250,7 @@ namespace NSM
             gameStateManager.ScheduleGameEvent(gameEvent, eventTick);
 
             // Let everyone know that an event is happening
-            SyncGameEventsToClientsClientRpc(GameTick, gameStateManager.gameEventsBuffer);
+            SyncGameEventsToClientsClientRpc(GameTick, (GameEventsBuffer)gameStateManager.gameEventsBuffer);
         }
 
         /// <summary>
@@ -362,7 +292,14 @@ namespace NSM
 
             VerboseLog("Setting up network ids for scene objects that need them");
 
-            gameStateManager = new(this, gameObject.scene);
+            gameStateManager = new(
+                this,
+                new GameEventsBuffer(),
+                new InputsBuffer(),
+                new StateBuffer(),
+                new NetworkIdManager(this),
+                gameObject.scene
+            );
 
             isRunning = false;
 
@@ -403,7 +340,7 @@ namespace NSM
 
             // Send inputs for the frame
             Dictionary<byte, IPlayerInput> inputsToSend = gameStateManager.GetMinimalInputsDiffForCurrentFrame();
-            if( inputsToSend.Count > 0)
+            if (inputsToSend.Count > 0)
             {
                 PlayerInputsDTO playerInputsDTO = new()
                 {
@@ -422,8 +359,8 @@ namespace NSM
                 // To avoid problems later with applying diffs, go back to the last time we would've sent out a
                 // frame delta normally.
                 int requestedGameTick = realGameTick - (realGameTick % sendStateDeltaEveryNFrames);
-                
-                ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), gameStateManager.gameEventsBuffer, realGameTick, RpcTarget.NotServer);
+
+                ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), (GameEventsBuffer)gameStateManager.gameEventsBuffer, realGameTick, RpcTarget.NotServer);
             }
             else if (realGameTick % sendStateDeltaEveryNFrames == 0)
             {
@@ -434,7 +371,7 @@ namespace NSM
                 StateFrameDeltaDTO delta = new(gameStateManager.GetStateFrame(realGameTick - sendStateDeltaEveryNFrames), gameStateManager.GetStateFrame(realGameTick));
 
                 // TODO: send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
-                ProcessStateDeltaUpdateClientRpc(delta, gameStateManager.gameEventsBuffer, realGameTick);
+                ProcessStateDeltaUpdateClientRpc(delta, (GameEventsBuffer)gameStateManager.gameEventsBuffer, realGameTick);
             }
         }
 
@@ -473,7 +410,7 @@ namespace NSM
             VerboseLog($"Full frame requested for {requestedGameTick}");
 
             // Send this back to only the client that requested it
-            ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), gameStateManager.gameEventsBuffer, realGameTick, RpcTarget.Single(rpcParams.Receive.SenderClientId, RpcTargetUse.Temp));
+            ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), (GameEventsBuffer)gameStateManager.gameEventsBuffer, realGameTick, RpcTarget.Single(rpcParams.Receive.SenderClientId, RpcTargetUse.Temp));
         }
 
         #endregion Server-side only code
@@ -545,7 +482,7 @@ namespace NSM
                 return;
             }
 
-            if( serverTimeTick < gameStateManager.lastAuthoritativeTick )
+            if (serverTimeTick < gameStateManager.lastAuthoritativeTick)
             {
                 // We'll already have the most up-to-date events reflected from whatever sent us the last authoritative
                 // data, and we don't want to worry about accidentally mangling the server state during replay.
@@ -584,7 +521,7 @@ namespace NSM
             {
                 gameStateManager.ProcessStateDeltaReceived(serverGameStateDelta, newGameEventsBuffer, serverTick, GetEstimatedLag(), sendStateDeltaEveryNFrames);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 VerboseLog($"Something went wrong when reconstituting game state from diff: {e.Message}");
                 RequestFullStateUpdateServerRpc();
@@ -631,6 +568,79 @@ namespace NSM
         }
 
         #endregion Client-side only code
+
+        #region Internal interface
+        public void ApplyEvents(HashSet<IGameEvent> events)
+        {
+            if (events.Count == 0)
+            {
+                return;
+            }
+
+            VerboseLog($"Applying {events.Count} events");
+            OnApplyEvents?.Invoke(events);
+        }
+
+        public void RollbackEvents(HashSet<IGameEvent> events, IGameState stateAfterEvent)
+        {
+            if (events.Count == 0)
+            {
+                return;
+            }
+
+            VerboseLog($"Rolling back {events.Count} events");
+            OnRollbackEvents?.Invoke(events, stateAfterEvent);
+        }
+
+        public void ApplyInputs(Dictionary<byte, IPlayerInput> playerInputs)
+        {
+            if (playerInputs.Count == 0)
+            {
+                return;
+            }
+
+            VerboseLog($"Applying {playerInputs.Count} player inputs");
+            OnApplyInputs?.Invoke(playerInputs);
+        }
+
+        public void ApplyState(IGameState gameState)
+        {
+            if (gameState == null)
+            {
+                return;
+            }
+
+            VerboseLog("Applying game state");
+            PhysicsManager.SyncTransforms();
+            OnApplyState?.Invoke(gameState);
+            PhysicsManager.SyncTransforms();
+        }
+
+        public void GetGameState(ref IGameState gameState)
+        {
+            VerboseLog("Capturing game state");
+            OnGetGameState?.Invoke(ref gameState);
+        }
+
+        public void GetInputs(ref Dictionary<byte, IPlayerInput> inputs)
+        {
+            VerboseLog("Capturing player inputs");
+            OnGetInputs?.Invoke(ref inputs);
+        }
+
+        public void PostPhysicsFrameUpdate()
+        {
+            VerboseLog("Running post-physics frame update");
+            OnPostPhysicsFrameUpdate?.Invoke();
+        }
+
+        public void PrePhysicsFrameUpdate()
+        {
+            VerboseLog("Running pre-physics frame update");
+            OnPrePhysicsFrameUpdate?.Invoke();
+        }
+
+        #endregion Internal interface
 
         private void FixedUpdate()
         {
@@ -679,7 +689,7 @@ namespace NSM
             }
 
             log += realGameTick + "";
-            if(realGameTick != GameTick)
+            if (realGameTick != GameTick)
             {
                 log += " (" + GameTick + ")";
             }

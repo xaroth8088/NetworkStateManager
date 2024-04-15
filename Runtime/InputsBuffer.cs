@@ -1,9 +1,8 @@
-using System;
 using System.Collections.Generic;
 
 namespace NSM
 {
-    public class InputsBuffer
+    internal class InputsBuffer : IInputsBuffer
     {
         private struct InputWrapper
         {
@@ -32,7 +31,7 @@ namespace NSM
             Dictionary<byte, InputWrapper> inputWrappers = this[tick];
 
             Dictionary<byte, IPlayerInput> playerInputs = new();
-            foreach((byte playerId, InputWrapper inputWrapper) in inputWrappers)
+            foreach ((byte playerId, InputWrapper inputWrapper) in inputWrappers)
             {
                 playerInputs[playerId] = inputWrapper.input;
             }
@@ -89,9 +88,9 @@ namespace NSM
             HashSet<byte> playerIds = new(inputWrappersThisFrame.Keys);
             playerIds.UnionWith(inputWrappersPreviousFrame.Keys);
 
-            foreach(byte playerId in playerIds)
+            foreach (byte playerId in playerIds)
             {
-                if(!inputWrappersThisFrame.TryGetValue(playerId, out InputWrapper thisFrameInput ))
+                if (!inputWrappersThisFrame.TryGetValue(playerId, out InputWrapper thisFrameInput))
                 {
                     thisFrameInput = new()
                     {
@@ -107,13 +106,13 @@ namespace NSM
                     };
                 }
 
-                if( thisFrameInput.localInput == false && previousFrameInput.localInput == false)
+                if (thisFrameInput.localInput == false && previousFrameInput.localInput == false)
                 {
                     // This playerId isn't local, so we shouldn't send the inputs
                     continue;
                 }
 
-                if(thisFrameInput.input.Equals(previousFrameInput.input))
+                if (thisFrameInput.input.Equals(previousFrameInput.input))
                 {
                     // Both are the same (and could therefore be predicted), so don't include this playerId in the diff to send
                     continue;
@@ -125,9 +124,10 @@ namespace NSM
             return playerInputs;
         }
 
-        internal void SetPlayerInputsAtTick(PlayerInputsDTO playerInputs, int clientTick)
+        #region Internal interface
+        public void SetPlayerInputsAtTick(PlayerInputsDTO playerInputs, int clientTick)
         {
-            foreach((byte playerId, IPlayerInput playerInput) in playerInputs.PlayerInputs)
+            foreach ((byte playerId, IPlayerInput playerInput) in playerInputs.PlayerInputs)
             {
                 // If we have a locally authoritative input for this player, skip them
                 if (this[clientTick].TryGetValue(playerId, out InputWrapper inputWrapper) && inputWrapper.localInput == true)
@@ -143,5 +143,6 @@ namespace NSM
                 };
             }
         }
+        #endregion Internal interface
     }
 }

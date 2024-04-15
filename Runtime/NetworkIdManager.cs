@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 
 namespace NSM
 {
-    public class NetworkIdManager
+    public class NetworkIdManager : INetworkIdManager
     {
         private GameObject[] networkIdGameObjectCache = new GameObject[256];
         private bool[] reservedNetworkIds = new bool[256];
