@@ -233,42 +233,34 @@ namespace NSM
 
         private void ApplyEvents(HashSet<IGameEvent> events)
         {
-            int count = events.Count;
-
-            if (count == 0)
+            if (events.Count == 0)
             {
                 return;
             }
 
-            VerboseLog("Applying " + count + " events");
-
+            VerboseLog($"Applying {events.Count} events");
             OnApplyEvents?.Invoke(events);
         }
 
         private void RollbackEvents(HashSet<IGameEvent> events, IGameState stateAfterEvent)
         {
-            int count = events.Count;
-
-            if (count == 0)
+            if (events.Count == 0)
             {
                 return;
             }
 
-            VerboseLog("Rolling back " + events.Count + " events");
+            VerboseLog($"Rolling back {events.Count} events");
             OnRollbackEvents?.Invoke(events, stateAfterEvent);
         }
 
         private void ApplyInputs(Dictionary<byte, IPlayerInput> playerInputs)
         {
-            int count = playerInputs.Count;
-
-            if (count == 0)
+            if (playerInputs.Count == 0)
             {
                 return;
             }
 
-            VerboseLog("Applying " + count + " player inputs");
-
+            VerboseLog($"Applying {playerInputs.Count} player inputs");
             OnApplyInputs?.Invoke(playerInputs);
         }
 
