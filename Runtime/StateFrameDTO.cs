@@ -37,6 +37,12 @@ namespace NSM
                     Debug.LogError("Tried to write game state to an authoritative frame");
                 }
                 _gameStateBytes = (byte[])value.GetBinaryRepresentation().Clone();
+
+                // Did something fail during serialization?
+                if (_gameStateBytes == null)
+                {
+                    throw new Exception("Gamestate serialization to bytes failed");
+                }
             }
         }
 
