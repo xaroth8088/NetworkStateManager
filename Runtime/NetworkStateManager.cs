@@ -41,7 +41,7 @@ namespace NSM
         [SerializeField]
         private int realGameTick { get => gameStateManager.RealGameTick; }   // This is the internal game tick, which keeps track of "now"
         public int GameTick { get => gameStateManager.GameTick; }    // Users of the library will get the tick associated with whatever frame is currently being processed, which might include frames that are being replayed
-        public bool isReplaying { get => gameStateManager.isReplaying; }
+        public bool isReplaying { get => gameStateManager.IsReplaying; }
 
         [SerializeField]
         private bool isRunning = false;
@@ -250,7 +250,7 @@ namespace NSM
             gameStateManager.ScheduleGameEvent(gameEvent, eventTick);
 
             // Let everyone know that an event is happening
-            SyncGameEventsToClientsClientRpc(GameTick, (GameEventsBuffer)gameStateManager.gameEventsBuffer);
+            SyncGameEventsToClientsClientRpc(GameTick, (GameEventsBuffer)gameStateManager.GameEventsBuffer);
         }
 
         /// <summary>
@@ -360,7 +360,7 @@ namespace NSM
                 // frame delta normally.
                 int requestedGameTick = realGameTick - (realGameTick % sendStateDeltaEveryNFrames);
 
-                ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), (GameEventsBuffer)gameStateManager.gameEventsBuffer, realGameTick, RpcTarget.NotServer);
+                ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), (GameEventsBuffer)gameStateManager.GameEventsBuffer, realGameTick, RpcTarget.NotServer);
             }
             else if (realGameTick % sendStateDeltaEveryNFrames == 0)
             {
@@ -371,7 +371,7 @@ namespace NSM
                 StateFrameDeltaDTO delta = new(gameStateManager.GetStateFrame(realGameTick - sendStateDeltaEveryNFrames), gameStateManager.GetStateFrame(realGameTick));
 
                 // TODO: send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
-                ProcessStateDeltaUpdateClientRpc(delta, (GameEventsBuffer)gameStateManager.gameEventsBuffer, realGameTick);
+                ProcessStateDeltaUpdateClientRpc(delta, (GameEventsBuffer)gameStateManager.GameEventsBuffer, realGameTick);
             }
         }
 
@@ -410,7 +410,7 @@ namespace NSM
             VerboseLog($"Full frame requested for {requestedGameTick}");
 
             // Send this back to only the client that requested it
-            ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), (GameEventsBuffer)gameStateManager.gameEventsBuffer, realGameTick, RpcTarget.Single(rpcParams.Receive.SenderClientId, RpcTargetUse.Temp));
+            ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), (GameEventsBuffer)gameStateManager.GameEventsBuffer, realGameTick, RpcTarget.Single(rpcParams.Receive.SenderClientId, RpcTargetUse.Temp));
         }
 
         #endregion Server-side only code
@@ -419,9 +419,9 @@ namespace NSM
 
         private void ClientFixedUpdate()
         {
-            if (realGameTick > gameStateManager.lastAuthoritativeTick + maxFramesWithoutHearingFromServer)
+            if (realGameTick > gameStateManager.LastAuthoritativeTick + maxFramesWithoutHearingFromServer)
             {
-                Debug.LogWarning($"Haven't heard from the server since {gameStateManager.lastAuthoritativeTick}");
+                Debug.LogWarning($"Haven't heard from the server since {gameStateManager.LastAuthoritativeTick}");
                 // TODO: figure out what we want to do here, since we don't want to DoS the server just because we haven't heard from it in a while
             }
 
@@ -464,7 +464,7 @@ namespace NSM
             }
 
             // If this happened before our last authoritative tick, we can safely ignore it
-            if (clientTimeTick < gameStateManager.lastAuthoritativeTick || serverTick < gameStateManager.lastAuthoritativeTick)
+            if (clientTimeTick < gameStateManager.LastAuthoritativeTick || serverTick < gameStateManager.LastAuthoritativeTick)
             {
                 VerboseLog("Client inputs arrived from before our last authoritative tick, so ignoring");
                 return;
@@ -482,7 +482,7 @@ namespace NSM
                 return;
             }
 
-            if (serverTimeTick < gameStateManager.lastAuthoritativeTick)
+            if (serverTimeTick < gameStateManager.LastAuthoritativeTick)
             {
                 // We'll already have the most up-to-date events reflected from whatever sent us the last authoritative
                 // data, and we don't want to worry about accidentally mangling the server state during replay.
