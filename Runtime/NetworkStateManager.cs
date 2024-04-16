@@ -9,19 +9,6 @@ namespace NSM
 {
     public class NetworkStateManager : NetworkBehaviour, IInternalNetworkStateManager
     {
-        // TODO: specify whether you want a ring buffer or a complete buffer
-        // TODO: flags for toggling which transform and rigidbody state needs to be sync'd, or what's safe to skip
-        // TODO: a variety of bandwidth-saving options, including things like crunching down doubles to floats, or floats to bytes, etc.
-        // TODO: the ability to arbitrarily play back a section of history
-        // TODO: the ability to spread out the catch-up frames when replaying, so that the client doesn't need to stop completely to
-        //       replay to present
-        // TODO: some sort of configurable amount of events into the past that we'll hang onto (for clients to be able to undo during
-        //       replay) so that we're not trying to sync the entire history of all events each time
-        // TODO: the server can maybe calculate a diff for the events buffer whenever something happens to make it change, and only send
-        //       over those (instead of the whole history each time).  This would need to be aware of state replays, though, so that it
-        //       doesn't send a bunch of "add this event, no just kidding delete it, ok no really add it." sort of noise.
-        // TODO: some sort of configurable amount of player inputs into the past that we'll hang onto, to conserve runtime memory
-
         #region NetworkStateManager configuration
 
         [Tooltip("1 frame = 20ms, 50 frames = 1s")]
@@ -51,7 +38,6 @@ namespace NSM
         [SerializeField]
         private GameStateManager gameStateManager;
 
-        // TODO: add documentation about the hows and whys on the custom Random handling
         public RandomManager Random { get => gameStateManager.Random; }
 
         #endregion Runtime state
@@ -260,7 +246,6 @@ namespace NSM
         /// <param name="gameEventPredicate">If this function returns true for a given event, that event will be de-scheduled.</param>
         public void RemoveEventAtTick(int eventTick, Predicate<IGameEvent> gameEventPredicate)
         {
-            // TODO: If an event is being de-scheduled during a rollback when processing a client's input data, do the clients need to know about the de-scheduling?
             gameStateManager.RemoveEventAtTick(eventTick, gameEventPredicate);
         }
 
@@ -272,7 +257,6 @@ namespace NSM
         /// <returns>A predicted IPlayerInput</returns>
         public IPlayerInput PredictInputForPlayer(byte playerId)
         {
-            // TODO: calling this function is an awkward thing to ask implementers to do; see if this can be improved
             return gameStateManager.PredictedInputForPlayer(playerId, GameTick);
         }
 
@@ -283,8 +267,6 @@ namespace NSM
         public void StartNetworkStateManager(Type gameStateType, Type playerInputType, Type gameEventType)
         {
             VerboseLog("Network State Manager starting up");
-
-            // TODO: If NetworkManager isn't ready yet, we should throw an error and refuse to start up.
 
             TypeStore.Instance.GameStateType = gameStateType;
             TypeStore.Instance.PlayerInputType = playerInputType;
@@ -318,7 +300,6 @@ namespace NSM
             gameStateManager.CaptureInitialFrame();
 
             // Ensure clients are starting from the same view of the world
-            // TODO: see if there's some way to send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
             VerboseLog("Sending initial state");
             StartGameClientRpc(gameStateManager.GetStateFrame(0), randomSeedBase);
         }
@@ -351,7 +332,6 @@ namespace NSM
             }
 
             // (Maybe) send the new state to the clients for reconciliation
-            // TODO: If we're sending a frame update AND sending inputs, we can consolidate those into a single RPC instead of doing two of them.
             if (realGameTick % sendFullStateEveryNFrames == 0)
             {
                 VerboseLog("Sending full state to clients");
@@ -366,16 +346,12 @@ namespace NSM
             {
                 VerboseLog("Sending delta - base frame comes from tick " + (realGameTick - sendStateDeltaEveryNFrames));
 
-                // TODO: there's an opportunity to be slightly more aggressive by skipping sending anything if the entire
-                //       state frame is exactly the same (except for the realGameTick, of course).
                 StateFrameDeltaDTO delta = new(gameStateManager.GetStateFrame(realGameTick - sendStateDeltaEveryNFrames), gameStateManager.GetStateFrame(realGameTick));
 
-                // TODO: send this to all non-Host clients (instead of _all_ clients), to avoid some server overhead
                 ProcessStateDeltaUpdateClientRpc(delta, (GameEventsBuffer)gameStateManager.GameEventsBuffer, realGameTick);
             }
         }
 
-        // TODO: prevent a client from sending input for a player they shouldn't be sending input for
         // NOTE: Rpc's are processed at the _end_ of each frame
         [Rpc(SendTo.Server, RequireOwnership = false)]
         private void SetPlayerInputsServerRpc(PlayerInputsDTO playerInputs, int clientTimeTick)
@@ -393,8 +369,6 @@ namespace NSM
             gameStateManager.PlayerInputsReceived(playerInputs, clientTimeTick);
 
             // Forward the input to all other non-host clients so they can do the same
-            // TODO: maybe exclude the client that sent this to us, since they've already got it
-            // TODO: maybe gather up all incoming inputs over some span of time and then send them in batches, to reduce RPC calls
             ForwardPlayerInputsClientRpc(playerInputs, clientTimeTick, realGameTick);
         }
 
@@ -422,7 +396,6 @@ namespace NSM
             if (realGameTick > gameStateManager.LastAuthoritativeTick + maxFramesWithoutHearingFromServer)
             {
                 Debug.LogWarning($"Haven't heard from the server since {gameStateManager.LastAuthoritativeTick}");
-                // TODO: figure out what we want to do here, since we don't want to DoS the server just because we haven't heard from it in a while
             }
 
             gameStateManager.RunFixedUpdate();
@@ -449,7 +422,6 @@ namespace NSM
             }
 
             // RPC's can arrive before this component has started, so skip out if it's too early
-            // TODO: is this the right thing to do?  Seems like maybe no?
             VerboseLog("Server RPC arrived before we've started, so skipping");
             return false;
         }
@@ -496,8 +468,6 @@ namespace NSM
         [Rpc(SendTo.NotServer)]
         private void StartGameClientRpc(StateFrameDTO initialStateFrame, int randomSeedBase)
         {
-            // TODO: figure out what to do if the initial game state never arrives
-
             VerboseLog("Initial game state received from server.");
 
             gameStateManager.SetInitialGameState(initialStateFrame, randomSeedBase, GetEstimatedLag());
@@ -666,7 +636,6 @@ namespace NSM
         public void VerboseLog(string message)
         {
 #if UNITY_EDITOR
-            // TODO: abstract this into its own thing, use everywhere
             if (!verboseLogging)
             {
                 return;
