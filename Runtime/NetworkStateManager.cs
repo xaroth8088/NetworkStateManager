@@ -523,7 +523,7 @@ namespace NSM
             }
             catch (Exception e)
             {
-                VerboseLog($"Something went wrong when reconstituting game state from diff: {e.Message}");
+                VerboseLog($"Something went wrong when reconstituting game state from diff, so will request a full update from the server: {e.Message}");
                 RequestFullStateUpdateServerRpc();
             }
         }

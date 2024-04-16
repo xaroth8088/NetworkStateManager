@@ -114,14 +114,13 @@ namespace NSM
             if (serverTick != (LastAuthoritativeTick + sendStateDeltaEveryNFrames))
             {
                 throw new InvalidOperationException(
-                    $"Server snapshot arrived out of order!  Requesting full state refresh.  Server state tick: {serverTick} expected: {LastAuthoritativeTick} + {sendStateDeltaEveryNFrames} = {LastAuthoritativeTick + sendStateDeltaEveryNFrames}"
+                    $"Server snapshot arrived out of order!  Server state tick: {serverTick} expected: {LastAuthoritativeTick} + {sendStateDeltaEveryNFrames} = {LastAuthoritativeTick + sendStateDeltaEveryNFrames}"
                 );
             }
 
             // Reconstitute the state from our delta
             _networkStateManager.VerboseLog($"Applying delta against frame {serverTick - sendStateDeltaEveryNFrames}");
-            StateFrameDTO serverGameState;
-            serverGameState = serverGameStateDelta.ApplyTo(_stateBuffer[serverTick - sendStateDeltaEveryNFrames]);
+            StateFrameDTO serverGameState = serverGameStateDelta.ApplyTo(_stateBuffer[serverTick - sendStateDeltaEveryNFrames]);
             serverGameState.authoritative = true;
 
             SyncToServerState(serverGameState, newGameEventsBuffer, serverTick, estimatedLag);
@@ -132,11 +131,8 @@ namespace NSM
         /// </summary>
         /// <param name="eventTick">The tick at which to remove events.</param>
         /// <param name="gameEventPredicate">A predicate to determine which events to remove.</param>
-        internal void RemoveEventAtTick(int eventTick, Predicate<IGameEvent> gameEventPredicate)
-        {
-            // TODO: since this is only ever happening during a rollback of some sort, do we even need to resend the new events state to the clients?
-            GameEventsBuffer[eventTick].RemoveWhere(gameEventPredicate);
-        }
+        // TODO: since this is only ever happening during a rollback of some sort, do we even need to resend the new events state to the clients?
+        internal void RemoveEventAtTick(int eventTick, Predicate<IGameEvent> gameEventPredicate) => GameEventsBuffer[eventTick].RemoveWhere(gameEventPredicate);
 
         /// <summary>
         /// Initiates a replay process due to new game events
@@ -212,9 +208,7 @@ namespace NSM
             _networkStateManager.PostPhysicsFrameUpdate();
 
             // Capture the state from the scene/game
-            StateFrameDTO newFrame = CaptureStateFrame(tick);
-
-            return newFrame;
+            return CaptureStateFrame(tick);
         }
 
         /// <summary>
@@ -257,10 +251,7 @@ namespace NSM
         /// Sets the base seed for the game's random number generator.
         /// </summary>
         /// <param name="randomSeedBase">The seed value to set.</param>
-        internal void SetRandomBase(int randomSeedBase)
-        {
-            Random = new(randomSeedBase);
-        }
+        internal void SetRandomBase(int randomSeedBase) => Random = new(randomSeedBase);
 
         /// <summary>
         /// Synchronizes the local game state to match a received server state
