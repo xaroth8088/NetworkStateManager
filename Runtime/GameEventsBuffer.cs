@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace NSM
 {
-    public struct GameEventsBuffer : INetworkSerializable
+    public struct GameEventsBuffer : INetworkSerializable, IGameEventsBuffer
     {
         private Dictionary<int, HashSet<IGameEvent>> _upcomingEvents;
 
@@ -16,9 +16,10 @@ namespace NSM
 
         public HashSet<IGameEvent> this[int i]
         {
-            get {
+            get
+            {
                 // TODO: This approach isn't very memory-friendly.  This can improve a lot if/when things are moved to immutable data structures instead.
-                if( UpcomingEvents.TryGetValue(i, out HashSet<IGameEvent> gameEvents))
+                if (UpcomingEvents.TryGetValue(i, out HashSet<IGameEvent> gameEvents))
                 {
                     return gameEvents;
                 }
@@ -27,7 +28,8 @@ namespace NSM
 
                 return UpcomingEvents[i];
             }
-            set {
+            set
+            {
                 UpcomingEvents[i] = value;
             }
         }
@@ -36,7 +38,7 @@ namespace NSM
         {
             // Remove any keys that have empty events lists
             List<int> keys = new(UpcomingEvents.Keys);
-            foreach(int key in keys)
+            foreach (int key in keys)
             {
                 if (UpcomingEvents[key].Count == 0)
                 {
@@ -49,7 +51,7 @@ namespace NSM
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
-            if( serializer.IsReader)
+            if (serializer.IsReader)
             {
                 // Clean up before receiving
                 UpcomingEvents.Clear();
@@ -70,7 +72,7 @@ namespace NSM
                     serializer.SerializeValue(ref eventCount);
 
                     // Deserialize each event
-                    for( int j = 0; j < eventCount; j++)
+                    for (int j = 0; j < eventCount; j++)
                     {
                         GameEventDTO gameEventDTO = new();
                         serializer.SerializeValue(ref gameEventDTO);
@@ -91,7 +93,7 @@ namespace NSM
                 serializer.SerializeValue(ref keyCount);
 
                 // For each key
-                foreach(int key in UpcomingEvents.Keys)
+                foreach (int key in UpcomingEvents.Keys)
                 {
                     int _key = key;
 
@@ -103,7 +105,7 @@ namespace NSM
                     serializer.SerializeValue(ref eventCount);
 
                     // Serialize each event
-                    foreach(IGameEvent gameEvent in UpcomingEvents[key])
+                    foreach (IGameEvent gameEvent in UpcomingEvents[key])
                     {
                         GameEventDTO gameEventDTO = new()
                         {

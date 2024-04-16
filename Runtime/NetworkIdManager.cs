@@ -1,17 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace NSM
 {
-    public class NetworkIdManager
+    public class NetworkIdManager : INetworkIdManager
     {
         private GameObject[] networkIdGameObjectCache = new GameObject[256];
         private bool[] reservedNetworkIds = new bool[256];
-        private NetworkStateManager _networkStateManager;
+        private readonly NetworkStateManager _networkStateManager;
 
         public NetworkIdManager(NetworkStateManager networkStateManager)
         {
@@ -41,7 +40,7 @@ namespace NSM
 
             _networkStateManager.VerboseLog("Registering network ID " + networkId + " to " + gameObject.name);
 
-            if (!gameObject.TryGetComponent<NetworkId>(out NetworkId networkIdComponent))
+            if (!gameObject.TryGetComponent(out NetworkId networkIdComponent))
             {
                 networkIdComponent = gameObject.AddComponent<NetworkId>();
             }
@@ -86,7 +85,7 @@ namespace NSM
             {
                 _networkStateManager.VerboseLog("A game object was found with this network ID, so resetting its network ID to 0");
 
-                if (networkIdGameObjectCache[networkId].TryGetComponent<NetworkId>(out NetworkId networkIdComponent))
+                if (networkIdGameObjectCache[networkId].TryGetComponent(out NetworkId networkIdComponent))
                 {
                     networkIdComponent.networkId = 0;
                 }
