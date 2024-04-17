@@ -328,7 +328,7 @@ namespace NSM
                     PlayerInputs = inputsToSend
                 };
 
-                ForwardPlayerInputsClientRpc(playerInputsDTO, realGameTick, realGameTick);
+                ForwardPlayerInputsClientRpc(playerInputsDTO, realGameTick, realGameTick, RpcTarget.NotServer);
             }
 
             // (Maybe) send the new state to the clients for reconciliation
@@ -354,7 +354,7 @@ namespace NSM
 
         // NOTE: Rpc's are processed at the _end_ of each frame
         [Rpc(SendTo.Server, RequireOwnership = false)]
-        private void SetPlayerInputsServerRpc(PlayerInputsDTO playerInputs, int clientTimeTick)
+        private void SetPlayerInputsServerRpc(PlayerInputsDTO playerInputs, int clientTimeTick, RpcParams rpcParams = default)
         {
             if (!IsReadyForRpcs())
             {
@@ -369,7 +369,11 @@ namespace NSM
             gameStateManager.PlayerInputsReceived(playerInputs, clientTimeTick);
 
             // Forward the input to all other non-host clients so they can do the same
-            ForwardPlayerInputsClientRpc(playerInputs, clientTimeTick, realGameTick);
+            ulong[] clientIds = new ulong[2];
+            clientIds[0] = NetworkManager.LocalClientId;    // Don't send to the host
+            clientIds[1] = rpcParams.Receive.SenderClientId;  // Don't send back to the client that sent this to us
+
+            ForwardPlayerInputsClientRpc(playerInputs, clientTimeTick, realGameTick, RpcTarget.Not(clientIds, RpcTargetUse.Temp));
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
@@ -427,8 +431,8 @@ namespace NSM
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
-        [Rpc(SendTo.NotServer)]
-        private void ForwardPlayerInputsClientRpc(PlayerInputsDTO playerInputs, int clientTimeTick, int serverTick)
+        [Rpc(SendTo.SpecifiedInParams)]
+        private void ForwardPlayerInputsClientRpc(PlayerInputsDTO playerInputs, int clientTimeTick, int serverTick, RpcParams _)
         {
             if (!IsReadyForRpcs())
             {

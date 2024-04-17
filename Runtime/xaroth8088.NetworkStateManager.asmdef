@@ -2,6 +2,7 @@
     "name": "xaroth8088.NetworkStateManager",
     "rootNamespace": "NSM",
     "references": [
+        "Unity.Collections",
         "Unity.Netcode.Runtime",
         "MemoryPack"
     ],
