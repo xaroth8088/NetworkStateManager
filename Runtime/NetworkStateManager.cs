@@ -317,8 +317,6 @@ namespace NSM
 
         private void HostFixedUpdate()
         {
-            gameStateManager.RunFixedUpdate();
-
             // Send inputs for the frame
             Dictionary<byte, IPlayerInput> inputsToSend = gameStateManager.GetMinimalInputsDiffForCurrentFrame();
             if (inputsToSend.Count > 0)
@@ -330,6 +328,8 @@ namespace NSM
 
                 ForwardPlayerInputsClientRpc(playerInputsDTO, realGameTick, realGameTick, RpcTarget.NotServer);
             }
+
+            gameStateManager.RunFixedUpdate();
 
             // (Maybe) send the new state to the clients for reconciliation
             if (realGameTick % sendFullStateEveryNFrames == 0)
