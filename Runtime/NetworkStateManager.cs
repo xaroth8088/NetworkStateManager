@@ -326,7 +326,7 @@ namespace NSM
                     PlayerInputs = inputsToSend
                 };
 
-                ForwardPlayerInputsClientRpc(playerInputsDTO, realGameTick, realGameTick, RpcTarget.NotServer);
+                ForwardPlayerInputsClientRpc(playerInputsDTO, realGameTick, realGameTick, RpcTarget.Everyone);
             }
 
             gameStateManager.RunFixedUpdate();
