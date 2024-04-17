@@ -89,7 +89,7 @@ namespace NSM
 
             _inputsBuffer.SetPlayerInputsAtTick(playerInputs, clientTimeTick);
 
-            ReplayDueToInputs(playerInputs, clientTimeTick, RealGameTick, 0);
+//            ReplayDueToInputs(playerInputs, clientTimeTick, RealGameTick, 0);
         }
 
         /// <summary>
