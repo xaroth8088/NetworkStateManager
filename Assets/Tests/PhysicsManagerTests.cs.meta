@@ -1,0 +1,12 @@
+fileFormatVersion: 2
+guid: 7a8b691b0c2767048a17b6390f00b207
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - rigidbodyObjectForSimulatePhysics: {fileID: 2065078630228101390, guid: 7ba314e000c55a8499afcbe800c4a739, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

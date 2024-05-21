@@ -1,0 +1,21 @@
+{
+    "name": "NetworkStateManager.Tests",
+    "rootNamespace": "NSM.Tests",
+    "references": [
+        "GUID:dcb16b71183df824dac4b3b965ed6e3e",
+        "GUID:e0cd26848372d4e5c891c569017e11f1",
+        "GUID:1491147abca9d7d4bb7105af628b223e",
+        "GUID:756335c0388f7114790e504ed368ae1d",
+        "GUID:9a88817da2cdeb94388ab1c4165583ac",
+        "GUID:27619889b8ba8c24980f49ee34dbb44a"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
