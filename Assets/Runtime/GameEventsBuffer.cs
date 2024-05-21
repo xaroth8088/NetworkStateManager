@@ -1,7 +1,5 @@
-using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
-using UnityEngine;
 
 namespace NSM
 {
@@ -32,21 +30,6 @@ namespace NSM
             {
                 UpcomingEvents[i] = value;
             }
-        }
-
-        private void Vacuum()
-        {
-            // Remove any keys that have empty events lists
-            List<int> keys = new(UpcomingEvents.Keys);
-            foreach (int key in keys)
-            {
-                if (UpcomingEvents[key].Count == 0)
-                {
-                    UpcomingEvents.Remove(key);
-                }
-            }
-
-            // TODO: trim any events older than some threshold, so that we're not always sending everything
         }
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
@@ -115,6 +98,21 @@ namespace NSM
                     }
                 }
             }
+        }
+
+        private void Vacuum()
+        {
+            // Remove any keys that have empty events lists
+            List<int> keys = new(UpcomingEvents.Keys);
+            foreach (int key in keys)
+            {
+                if (UpcomingEvents[key].Count == 0)
+                {
+                    UpcomingEvents.Remove(key);
+                }
+            }
+
+            // TODO: trim any events older than some threshold, so that we're not always sending everything
         }
     }
 }
