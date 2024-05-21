@@ -1,8 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
 using System.IO.Compression;
 using System.IO;
-using UnityEngine;
 
 namespace NSM
 {
@@ -11,7 +8,7 @@ namespace NSM
         public static byte[] CompressBytes(byte[] input)
         {
             MemoryStream outputStream = new();
-            using (BrotliStream compressionStream = new(outputStream, System.IO.Compression.CompressionLevel.Optimal))
+            using (BrotliStream compressionStream = new(outputStream, CompressionLevel.Optimal))
             {
                 compressionStream.Write(input, 0, input.Length);
             }
@@ -28,6 +25,5 @@ namespace NSM
             }
             return outputStream.ToArray();
         }
-
     }
 }
