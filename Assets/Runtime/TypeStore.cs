@@ -86,13 +86,19 @@ namespace NSM
             }
         }
 
-        private static readonly Lazy<TypeStore> lazy = new(() => new TypeStore());
+        private static Lazy<TypeStore> lazy = new(() => new TypeStore());
 
         public static TypeStore Instance
         { get { return lazy.Value; } }
 
         private TypeStore()
         {
+        }
+
+        internal void ResetTypeStore()
+        {
+            // Used in testing
+            lazy = new(() => new TypeStore());
         }
     }
 }
