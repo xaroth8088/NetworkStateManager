@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using NSubstitute;
 using NUnit.Framework;
-using Unity.Netcode;
 using UnityEngine.SceneManagement;
 using System.Linq;
 
@@ -177,45 +176,6 @@ namespace NSM.Tests
             _stateBuffer = Substitute.For<IStateBuffer>();
             _networkIdManager = Substitute.For<INetworkIdManager>();
             _scene = new Scene();
-        }
-
-        private struct TestGameEventDTO : IGameEvent
-        {
-            public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
-            {
-                throw new NotImplementedException();
-            }
-        }
-
-        private struct TestGameStateDTO : IGameState
-        {
-            public byte testValue;
-
-            public byte[] GetBinaryRepresentation()
-            {
-                byte[] retval = new byte[1];
-                retval[0] = testValue;
-
-                return retval;
-            }
-
-            public void RestoreFromBinaryRepresentation(byte[] bytes)
-            {
-                testValue = bytes[0];
-            }
-        }
-
-        private struct TestPlayerInputDTO : IPlayerInput
-        {
-            public bool Equals(IPlayerInput other)
-            {
-                throw new NotImplementedException();
-            }
-
-            public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
-            {
-                throw new NotImplementedException();
-            }
         }
     }
 }
