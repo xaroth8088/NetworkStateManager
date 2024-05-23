@@ -115,33 +115,30 @@ namespace NSM
             // In theory, the client and server should agree on the objects in the hierarchy at this point in time, so it should
             // be ok to use as a deterministic ordering mechanism.
 
-            // TODO: [bug] if a game object is at the root level, it won't be found by this and won't get a network id
-
             Reset();
-            List<GameObject> gameObjects = scene.GetRootGameObjects().ToList();
-            gameObjects.Sort((a, b) => a.transform.GetSiblingIndex() - b.transform.GetSiblingIndex());
+
+            List<GameObject> gameObjects = UnityEngine.Object.FindObjectsByType<NetworkId>(FindObjectsSortMode.None)
+                .Select(networkId => networkId.gameObject)
+                .ToList();
+
+            gameObjects.Sort((a, b) => string.Compare(GetHierarchyPath(a), GetHierarchyPath(b), StringComparison.Ordinal));
+
             foreach (GameObject gameObject in gameObjects)
             {
-                SetupNetworkIdsForChildren(gameObject.transform);
+                RegisterGameObject(gameObject);
             }
         }
 
-        private void SetupNetworkIdsForChildren(Transform node)
+        private string GetHierarchyPath(GameObject obj)
         {
-            for (int i = 0; i < node.childCount; i++)
+            string path = obj.transform.GetSiblingIndex().ToString();
+            Transform current = obj.transform;
+            while (current.parent != null)
             {
-                Transform child = node.GetChild(i);
-                if (child.gameObject.TryGetComponent(out NetworkId _))
-                {
-                    RegisterGameObject(child.gameObject);
-                }
-
-                if (child.childCount > 0)
-                {
-                    SetupNetworkIdsForChildren(child);
-                }
+                current = current.parent;
+                path = current.GetSiblingIndex().ToString() + "/" + path;
             }
+            return path;
         }
-
     }
 }
