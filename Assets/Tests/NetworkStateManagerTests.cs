@@ -15,9 +15,7 @@ namespace NSM.Tests
         private NetworkStateManager _networkStateManager;
         private GameStateManager _gameStateManagerMock;
 
-        [SetUp]
-        public void SetUp()
-        {
+        private void InitializeNetworkStateManager(bool isHost) {
             // Create a new GameObject
             var gameObject = new GameObject();
 
@@ -30,7 +28,7 @@ namespace NSM.Tests
             _networkStateManager = gameObject.AddComponent<NetworkStateManager>();
 
             // Mock IsHost
-            IsHostProperty.SetValue(_networkStateManager, true);
+            IsHostProperty.SetValue(_networkStateManager, isHost);
 
             // Mock the GameStateManager
             _gameStateManagerMock = Substitute.For<GameStateManager>(
@@ -47,6 +45,16 @@ namespace NSM.Tests
             field.SetValue(_networkStateManager, _gameStateManagerMock);
         }
 
+        [SetUp]
+        public void SetUp()
+        {
+            InitializeNetworkStateManager(true);
+
+            TypeStore.Instance.GameEventType = typeof(TestGameEventDTO);
+            TypeStore.Instance.GameStateType = typeof(TestGameStateDTO);
+            TypeStore.Instance.PlayerInputType = typeof(TestPlayerInputDTO);
+        }
+
         [Test]
         public void ScheduleGameEvent_IsHost_CallsGameStateManager()
         {
@@ -61,7 +69,8 @@ namespace NSM.Tests
         [Test]
         public void ScheduleGameEvent_IsNotHost_DoesNotCallGameStateManager()
         {
-            _networkStateManager.IsHost.Returns(false);
+            InitializeNetworkStateManager(false);
+
             var gameEventMock = Substitute.For<IGameEvent>();
             int eventTick = 10;
 
@@ -121,9 +130,26 @@ namespace NSM.Tests
         }
 
         [Test]
-        public void RollbackEvents_RaisesOnRollbackEvents()
+        public void RollbackEvents_DoesNotRaiseOnRollbackEventsWhenNoEvents()
         {
             var events = new HashSet<IGameEvent>();
+            var gameStateMock = Substitute.For<IGameState>();
+            var onRollbackEventsMock = Substitute.For<NetworkStateManager.RollbackEventsDelegateHandler>();
+
+            _networkStateManager.OnRollbackEvents += onRollbackEventsMock;
+
+            _networkStateManager.RollbackEvents(events, gameStateMock);
+
+            onRollbackEventsMock.DidNotReceive().Invoke(events, gameStateMock);
+        }
+
+        [Test]
+        public void RollbackEvents_RaisesOnRollbackEvents()
+        {
+            var events = new HashSet<IGameEvent>
+            {
+                new TestGameEventDTO()
+            };
             var gameStateMock = Substitute.For<IGameState>();
             var onRollbackEventsMock = Substitute.For<NetworkStateManager.RollbackEventsDelegateHandler>();
 
