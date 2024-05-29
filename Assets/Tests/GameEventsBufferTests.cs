@@ -27,8 +27,8 @@ namespace NSM.Tests
         {
             var eventSet = new HashSet<IGameEvent>
             {
-                new MockGameEvent(),
-                new MockGameEvent()
+                new TestGameEventDTO(),
+                new TestGameEventDTO()
             };
 
             _buffer[1] = eventSet;
@@ -44,8 +44,8 @@ namespace NSM.Tests
         {
             var eventSet = new HashSet<IGameEvent>
             {
-                new MockGameEvent(),
-                new MockGameEvent()
+                new TestGameEventDTO(),
+                new TestGameEventDTO()
             };
 
             _buffer[2] = eventSet;
@@ -60,7 +60,7 @@ namespace NSM.Tests
         public void Vacuum_RemovesEmptyEventLists()
         {
             _buffer[3] = new HashSet<IGameEvent>();
-            _buffer[4] = new HashSet<IGameEvent> { new MockGameEvent() };
+            _buffer[4] = new HashSet<IGameEvent> { new TestGameEventDTO() };
 
             _buffer.InvokePrivateMethod("Vacuum");
 
@@ -71,20 +71,11 @@ namespace NSM.Tests
         [Test]
         public void Vacuum_DoesNotRemoveNonEmptyEventLists()
         {
-            _buffer[5] = new HashSet<IGameEvent> { new MockGameEvent() };
+            _buffer[5] = new HashSet<IGameEvent> { new TestGameEventDTO() };
 
             _buffer.InvokePrivateMethod("Vacuum");
 
             Assert.IsTrue(_buffer.ContainsKey(5));
-        }
-    }
-
-    // Helper classes for testing
-    public class MockGameEvent : IGameEvent
-    {
-        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
-        {
-            throw new System.NotImplementedException();
         }
     }
 
