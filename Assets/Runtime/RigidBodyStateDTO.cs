@@ -28,13 +28,21 @@ namespace NSM
             }
             catch
             {
-                Debug.LogError("Found a rigidbody that doesn't have a NetworkId: " + rigidbody.gameObject);
+                Debug.LogError($"Found a rigidbody that doesn't have a NetworkId: {rigidbody.gameObject}");
                 networkId = 0;
             }
         }
 
         public void ApplyState(Rigidbody rigidbody)
         {
+            rigidbody.gameObject.transform.SetPositionAndRotation(position, rotation);
+
+            if (rigidbody.isKinematic == false)
+            {
+                rigidbody.linearVelocity = velocity;
+                rigidbody.angularVelocity = angularVelocity;
+            }
+
             if (isSleeping)
             {
                 rigidbody.Sleep();
@@ -42,14 +50,6 @@ namespace NSM
             else
             {
                 rigidbody.WakeUp();
-            }
-
-            rigidbody.gameObject.transform.SetPositionAndRotation(position, rotation);
-
-            if (rigidbody.isKinematic == false)
-            {
-                rigidbody.linearVelocity = velocity;
-                rigidbody.angularVelocity = angularVelocity;
             }
         }
     }
