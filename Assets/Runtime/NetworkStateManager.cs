@@ -26,9 +26,9 @@ namespace NSM
 
         [Header("Runtime state: Time")]
         [SerializeField]
-        private int realGameTick { get => gameStateManager.RealGameTick; }   // This is the internal game tick, which keeps track of "now"
-        public int GameTick { get => gameStateManager.GameTick; }    // Users of the library will get the tick associated with whatever frame is currently being processed, which might include frames that are being replayed
-        public bool isReplaying { get => gameStateManager.IsReplaying; }
+        private int realGameTick { get => gameStateManager?.RealGameTick ?? -1; }   // This is the internal game tick, which keeps track of "now"
+        public int GameTick { get => gameStateManager?.GameTick ?? -1; }    // Users of the library will get the tick associated with whatever frame is currently being processed, which might include frames that are being replayed
+        public bool isReplaying { get => gameStateManager?.IsReplaying ?? false; }
 
         [SerializeField]
         private bool isRunning = false;
