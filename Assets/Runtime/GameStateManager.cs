@@ -268,8 +268,6 @@ namespace NSM
                 return;
             }
 
-            // TODO: if the server's frame is exactly the same as our frame in that spot, we may not need to do any rollback simulation at all,
-            //       and can maybe just adjust to the server lag instead (or even do nothing if it's within some tolerance)
             _networkStateManager.VerboseLog($"Resync with server.  Server sent state from the end of tick {serverState.gameTick} at server tick {serverTick}");
 
             TimeTravelToEndOf(serverState.gameTick - 1, newGameEventsBuffer);
