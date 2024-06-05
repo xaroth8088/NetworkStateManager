@@ -167,6 +167,92 @@ namespace NSM.Tests
             _inputsBuffer.Received(1).SetPlayerInputsAtTick(playerInputs, 5);
         }
 
+        [Test]
+        public void Client_SyncToServerState_FastForward_NoNewEvents()
+        {
+            // Client has state A, then receives a server state from the future
+            // It should:
+            //  * move time to the server's time
+            //  * apply the new state to the scene
+            //  * move time to account for lag estimate
+            // Assert:
+            //  * has applied existing events in the buffer both before and after the server's time (but after the client's initial time)
+            //  * realGameTick matches server time + lag
+            //  * current frame's state matches server's state, were server state also advanced to lag time
+            Assert.IsFalse(true);
+        }
+
+        [Test]
+        public void Client_SyncToServerState_FastForward_NewEvents()
+        {
+            // Client has state A, then receives a server state from the future
+            // It should:
+            //  * move time to the server's time
+            //  * apply the new state to the scene
+            //  * move time to account for lag estimate
+            // Assert:
+            //  * has NOT applied existing events in the buffer both before and after the server's time (but after the client's initial time)
+            //    * the test should give a wholly different events buffer, so that we can test for this
+            //  * has applied new events in the buffer both before and after the server's time (but after the client's initial time)
+            //  * realGameTick matches server time + lag
+            //  * current frame's state matches server's state, were server state also advanced to lag time
+            Assert.IsFalse(true);
+        }
+
+        [Test]
+        public void Client_SyncToServerState_SameTime_NoNewEvents()
+        {
+            // Client has state A, then receives a server state with the same tick as the client
+            // It should:
+            //  * apply the new state to the scene
+            //  * move time to account for lag estimate
+            // Assert:
+            //  * has applied new events in the buffer during the lag window
+            //  * realGameTick matches server time + lag
+            //  * current frame's state matches server's state, were server state also advanced to lag time
+            Assert.IsFalse(true);
+        }
+
+        [Test]
+        public void Client_SyncToServerState_SameTime_NewEvents()
+        {
+            // Client has state A, then receives a server state with the same tick as the client
+            // It should:
+            //  * apply the new state to the scene
+            //  * move time to account for lag estimate
+            // Assert:
+            //  * has NOT applied existing events in the buffer after the client's initial time
+            //    * the test should give a wholly different events buffer, so that we can test for this
+            //  * has applied new events in the buffer during the lag window
+            //  * realGameTick matches server time + lag
+            //  * current frame's state matches server's state, were server state also advanced to lag time
+            Assert.IsFalse(true);
+        }
+
+        [Test]
+        public void Client_SyncToServerState_Past_BeforeLastAuthoritative_NoNewEvents()
+        {
+            Assert.IsFalse(true);
+        }
+
+        [Test]
+        public void Client_SyncToServerState_Past_BeforeLastAuthoritative_NewEvents()
+        {
+            Assert.IsFalse(true);
+        }
+
+        [Test]
+        public void Client_SyncToServerState_Past_AfterLastAuthoritative_NoNewEvents()
+        {
+            Assert.IsFalse(true);
+        }
+
+        [Test]
+        public void Client_SyncToServerState_Past_AfterLastAuthoritative_NewEvents()
+        {
+            Assert.IsFalse(true);
+        }
+
         [SetUp]
         public void SetUp()
         {

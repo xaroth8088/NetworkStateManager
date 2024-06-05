@@ -218,7 +218,6 @@ namespace NSM.Tests
         {
             networkStateManager.StartNetworkStateManager(typeof(IntegrationTestGameStateDTO), typeof(IntegrationTestPlayerInputDTO), typeof(IntegrationTestGameEventDTO));
 
-            float originalY0 = player0GO.transform.position.y;
             float originalY1 = player1GO.transform.position.y;
 
             // Run a frame
@@ -234,7 +233,6 @@ namespace NSM.Tests
         {
             networkStateManager.StartNetworkStateManager(typeof(IntegrationTestGameStateDTO), typeof(IntegrationTestPlayerInputDTO), typeof(IntegrationTestGameEventDTO));
 
-            float originalY0 = player0GO.transform.position.y;
             float originalY1 = player1GO.transform.position.y;
 
             // Run 20 frames
