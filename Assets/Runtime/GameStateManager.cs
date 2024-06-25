@@ -199,9 +199,12 @@ namespace NSM
 
             Random.ResetRandom(tick);
 
+            _networkStateManager.VerboseLog($"We have {events.Count} events (GSM step 1)");
             _networkStateManager.ApplyEvents(events);
+            _networkStateManager.VerboseLog($"We have {events.Count} events (GSM step 2)");
 
             _networkStateManager.ApplyInputs(playerInputs);
+            _networkStateManager.VerboseLog($"We have {events.Count} events (GSM step 3)");
 
             switch (frameRunMode)
             {
@@ -215,9 +218,13 @@ namespace NSM
                     // Capture the state from the scene and game logic, then return that frame
                     return CaptureStateFrame(tick);
                 case FrameRunMode.ApplyExistingFrame:
+                    _networkStateManager.VerboseLog($"We have {events.Count} events (GSM step 4)");
                     StateFrameDTO frameToApply = _stateBuffer[tick];
+                    _networkStateManager.VerboseLog($"We have {events.Count} events (GSM step 5)");
                     PhysicsManager.ApplyPhysicsState(frameToApply.PhysicsState, NetworkIdManager);
+                    _networkStateManager.VerboseLog($"We have {events.Count} events (GSM step 6)");
                     _networkStateManager.ApplyState(frameToApply.GameState);
+                    _networkStateManager.VerboseLog($"We have {events.Count} events (GSM step 7)");
                     return frameToApply;
             }
 
@@ -350,20 +357,23 @@ namespace NSM
                 _networkStateManager.VerboseLog($"Undoing events at tick {GameTick} (setting state to the moment before the events were originally run)");
 
                 // Apply the frame state just prior to gameTick
-                _networkStateManager.VerboseLog($"We have {GameEventsBuffer[GameTick]} events (step 1)");
+                _networkStateManager.VerboseLog($"We have {GameEventsBuffer[GameTick].Count} events (step 1)");
                 int prevTick = Math.Max(0, GameTick - 1);
                 RunSingleGameFrame(prevTick, FrameRunMode.ApplyExistingFrame);
 
-                _networkStateManager.VerboseLog($"We have {GameEventsBuffer[GameTick]} events (step 2)");
+                // RunSingleGameFrame sets GameTick to prevTick here, so we need to move that back again before proceeding
+                GameTick++;
+
+                _networkStateManager.VerboseLog($"We have {GameEventsBuffer[GameTick].Count} events (step 2)");
 
                 // Rewind any events present in gameTick
                 Random.ResetRandom(GameTick);
 
-                _networkStateManager.VerboseLog($"We have {GameEventsBuffer[GameTick]} events (step 3)");
+                _networkStateManager.VerboseLog($"We have {GameEventsBuffer[GameTick].Count} events (step 3)");
 
                 _networkStateManager.RollbackEvents(GameEventsBuffer[GameTick], _stateBuffer[GameTick].GameState);
 
-                _networkStateManager.VerboseLog($"We have {GameEventsBuffer[GameTick]} events (step 4)");
+                _networkStateManager.VerboseLog($"We have {GameEventsBuffer[GameTick].Count} events (step 4)");
 
                 GameTick--;
             }
