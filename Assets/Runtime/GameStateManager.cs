@@ -179,34 +179,48 @@ namespace NSM
             _inputsBuffer.SetLocalInputs(localInputs, RealGameTick);
 
             // Actually simulate the frame
-            _stateBuffer[RealGameTick] = RunSingleGameFrame(RealGameTick);
+            _stateBuffer[RealGameTick] = RunSingleGameFrame(RealGameTick, FrameRunMode.RunAndCaptureFrame);
         }
 
         /// <summary>
         /// Runs a single game frame, applying inputs and events, and capturing the resulting game state.
         /// </summary>
         /// <param name="tick">The tick at which the game frame should be simulated.  This may not be the same as realGameTick if we're currently replaying.</param>
+        /// <param name="frameRunMode">Should we run a frame's simulation, or just apply the state from an existing frame in the buffer?</param>
         /// <returns>A DTO representing the state after the game frame has been run.</returns>
-        internal StateFrameDTO RunSingleGameFrame(int tick)
+        internal StateFrameDTO RunSingleGameFrame(int tick, FrameRunMode frameRunMode)
         {
             Dictionary<byte, IPlayerInput> playerInputs = _inputsBuffer.GetInputsForTick(tick);
             HashSet<IGameEvent> events = GameEventsBuffer[tick];
 
-            _networkStateManager.VerboseLog($"Running single frame for tick {tick}");
+            _networkStateManager.VerboseLog($"Running single frame for tick {tick} in mode {frameRunMode}");
             GameTick = tick;
 
             Random.ResetRandom(tick);
 
-            // Simulate the frame
             _networkStateManager.ApplyEvents(events);
-            _networkStateManager.ApplyInputs(playerInputs);
-            PhysicsManager.SyncTransforms();
-            _networkStateManager.PrePhysicsFrameUpdate();
-            PhysicsManager.SimulatePhysics(Time.fixedDeltaTime);
-            _networkStateManager.PostPhysicsFrameUpdate();
 
-            // Capture the state from the scene/game
-            return CaptureStateFrame(tick);
+            _networkStateManager.ApplyInputs(playerInputs);
+
+            switch (frameRunMode)
+            {
+                case FrameRunMode.RunAndCaptureFrame:
+                    // Run the physics and game logic simulation
+                    PhysicsManager.SyncTransforms();
+                    _networkStateManager.PrePhysicsFrameUpdate();
+                    PhysicsManager.SimulatePhysics(Time.fixedDeltaTime);
+                    _networkStateManager.PostPhysicsFrameUpdate();
+
+                    // Capture the state from the scene and game logic, then return that frame
+                    return CaptureStateFrame(tick);
+                case FrameRunMode.ApplyExistingFrame:
+                    StateFrameDTO frameToApply = _stateBuffer[tick];
+                    PhysicsManager.ApplyPhysicsState(frameToApply.PhysicsState, NetworkIdManager);
+                    _networkStateManager.ApplyState(frameToApply.GameState);
+                    return frameToApply;
+            }
+
+            throw new InvalidOperationException($"Unknown mode {frameRunMode}");
         }
 
         /// <summary>
@@ -271,7 +285,12 @@ namespace NSM
             _networkStateManager.VerboseLog($"Resync with server.  Server sent state from the end of tick {serverState.gameTick} at server tick {serverTick}");
 
             TimeTravelToEndOf(serverState.gameTick - 1, newGameEventsBuffer);
-            SimulateAuthoritativeFrame(serverState);
+
+            serverState.authoritative = true;
+            _stateBuffer[serverTick] = serverState;
+            RunSingleGameFrame(serverState.gameTick, FrameRunMode.ApplyExistingFrame);
+            RealGameTick = serverTick;
+
             TimeTravelToEndOf(serverTick + estimatedLag, newGameEventsBuffer);
 
             // Set our last authoritative tick
@@ -331,16 +350,10 @@ namespace NSM
 
                 // Apply the frame state just prior to gameTick
                 int prevTick = Math.Max(0, GameTick - 1);
-                StateFrameDTO previousFrameState = _stateBuffer[prevTick];
-                Dictionary<byte, IPlayerInput> previousFrameInputs = _inputsBuffer.GetInputsForTick(prevTick);
-
-                _networkStateManager.ApplyInputs(previousFrameInputs);
-                PhysicsManager.ApplyPhysicsState(previousFrameState.PhysicsState, NetworkIdManager);
-                _networkStateManager.ApplyState(previousFrameState.GameState);
-
-                Random.ResetRandom(GameTick);
+                RunSingleGameFrame(prevTick, FrameRunMode.ApplyExistingFrame);
 
                 // Rewind any events present in gameTick
+                Random.ResetRandom(GameTick);
                 _networkStateManager.RollbackEvents(GameEventsBuffer[GameTick], _stateBuffer[GameTick].GameState);
 
                 GameTick--;
@@ -349,40 +362,12 @@ namespace NSM
             // We may escape the loop without doing any events (and therefore never applying state), so apply the state for the end of targetTick
             // TODO: minor optimization: detect when this happens, and skip applying state here
             _networkStateManager.VerboseLog("Applying final state from tick " + targetTick);
-            StateFrameDTO frameToRestore = _stateBuffer[targetTick];
-            Dictionary<byte, IPlayerInput> inputsFromFrameToRestore = _inputsBuffer.GetInputsForTick(targetTick);
-
-            _networkStateManager.ApplyInputs(inputsFromFrameToRestore);
-            PhysicsManager.ApplyPhysicsState(frameToRestore.PhysicsState, NetworkIdManager);
-            _networkStateManager.ApplyState(frameToRestore.GameState);
+            RunSingleGameFrame(targetTick, FrameRunMode.ApplyExistingFrame);
 
             RealGameTick = targetTick;
             IsReplaying = false;
 
             _networkStateManager.VerboseLog("Done rewinding");
-        }
-
-        /// <summary>
-        /// Simulates the game state for an authoritative server frame. This includes applying the game state, physics state, and any necessary inputs and events.
-        /// </summary>
-        /// <param name="serverFrame">The state frame to populate with state data.</param>
-        private void SimulateAuthoritativeFrame(StateFrameDTO serverFrame)
-        {
-            _networkStateManager.VerboseLog("SimulateAuthoritativeFrame");
-            int serverTick = serverFrame.gameTick;
-            GameTick = serverTick;
-            Random.ResetRandom(GameTick);
-
-            _networkStateManager.ApplyEvents(GameEventsBuffer[serverTick]);
-            _networkStateManager.ApplyInputs(_inputsBuffer.GetInputsForTick(serverTick));
-            PhysicsManager.ApplyPhysicsState(serverFrame.PhysicsState, NetworkIdManager);
-            _networkStateManager.ApplyState(serverFrame.GameState);
-
-            serverFrame.authoritative = true;
-
-            _stateBuffer[serverTick] = serverFrame;
-
-            RealGameTick = serverTick;
         }
 
         /// <summary>
@@ -401,7 +386,7 @@ namespace NSM
                 GameTick++;
 
                 _networkStateManager.VerboseLog("Simulating for tick " + GameTick);
-                _stateBuffer[GameTick] = RunSingleGameFrame(GameTick);
+                _stateBuffer[GameTick] = RunSingleGameFrame(GameTick, FrameRunMode.RunAndCaptureFrame);
             }
 
             RealGameTick = GameTick;
@@ -441,5 +426,11 @@ namespace NSM
                 return;
             }
         }
+    }
+
+    internal enum FrameRunMode
+    {
+        RunAndCaptureFrame = 0,
+        ApplyExistingFrame = 1
     }
 }

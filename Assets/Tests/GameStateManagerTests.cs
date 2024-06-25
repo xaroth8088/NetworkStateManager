@@ -179,7 +179,70 @@ namespace NSM.Tests
             //  * has applied existing events in the buffer both before and after the server's time (but after the client's initial time)
             //  * realGameTick matches server time + lag
             //  * current frame's state matches server's state, were server state also advanced to lag time
-            Assert.IsFalse(true);
+
+            var _gameStateManager = new GameStateManager(
+                _networkStateManager,
+                _gameEventsBuffer,
+                _inputsBuffer,
+                _stateBuffer,
+                _networkIdManager,
+                _scene
+            );
+            _gameStateManager.SetRandomBase(123);
+
+            // Arrange
+            var initialTick = 5;
+            var serverTick = 10;
+            var estimatedLag = 2;
+
+            // Initial frame
+            var initialState = new StateFrameDTO
+            {
+                gameTick = 0,
+                PhysicsState = new PhysicsStateDTO
+                {
+                    RigidBodyStates = new()
+                },
+                GameState = new TestGameStateDTO
+                {
+                    testValue = 123,
+                }
+            };
+            _stateBuffer[initialTick].Returns(initialState);
+            _inputsBuffer.GetInputsForTick(initialTick).Returns(new Dictionary<byte, IPlayerInput>());
+
+            // Server's frame
+            var serverState = new StateFrameDTO {
+                gameTick = initialTick,
+                PhysicsState = new PhysicsStateDTO {
+                    RigidBodyStates = new()
+                },
+                GameState = new TestGameStateDTO
+                {
+                    testValue = 45,
+                }
+            };
+            _stateBuffer[serverTick].Returns(serverState);
+
+            var newGameEventsBuffer = Substitute.For<IGameEventsBuffer>();
+
+            _inputsBuffer.GetInputsForTick(serverTick + estimatedLag).Returns(new Dictionary<byte, IPlayerInput>());
+
+            // Act
+            _gameStateManager.SyncToServerState(serverState, newGameEventsBuffer, serverTick, estimatedLag);
+
+            // Assert
+            // Ensure that the state has been updated correctly
+            Assert.AreEqual(serverTick + estimatedLag, _gameStateManager.RealGameTick);
+            _stateBuffer.Received()[serverTick] = serverState;
+
+            // Validate events have been applied before and after the server's time
+            _networkStateManager.Received().ApplyEvents(Arg.Any<HashSet<IGameEvent>>());
+            _networkStateManager.Received().ApplyInputs(Arg.Any<Dictionary<byte, IPlayerInput>>());
+
+            // Check that the state of the current frame matches the server's state advanced to lag time
+            var currentFrameState = _stateBuffer[serverTick + estimatedLag];
+            Assert.AreEqual(serverState, currentFrameState);  // TODO: this needs to take into account what happens during the simulation time on those lag frames
         }
 
         [Test]
@@ -262,6 +325,10 @@ namespace NSM.Tests
             _stateBuffer = Substitute.For<IStateBuffer>();
             _networkIdManager = Substitute.For<INetworkIdManager>();
             _scene = new Scene();
+
+            TypeStore.Instance.GameStateType = typeof(TestGameStateDTO);
+            TypeStore.Instance.GameEventType = typeof(TestGameEventDTO);
+            TypeStore.Instance.PlayerInputType = typeof(TestPlayerInputDTO);
         }
     }
 }
