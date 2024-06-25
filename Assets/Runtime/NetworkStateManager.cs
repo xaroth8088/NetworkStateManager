@@ -536,7 +536,7 @@ namespace NSM
                 throw new Exception("Client is somehow ahead of server, which Unity's library shouldn't ever permit to happen.");
             }
 
-            VerboseLog("Client is about " + framesOfLag + " frames ahead of the server");
+            VerboseLog($"Client is about {framesOfLag} frames behind the server");
 
             return framesOfLag;
         }
@@ -622,9 +622,6 @@ namespace NSM
             {
                 return;
             }
-
-            // Start a new frame
-            VerboseLog("---- NEW FRAME ----");
 
             if (IsHost)
             {

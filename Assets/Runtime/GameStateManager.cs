@@ -51,6 +51,7 @@ namespace NSM
         {
             RealGameTick++;
             GameTick = RealGameTick;
+            _networkStateManager.VerboseLog("---- NEW FRAME ----");
         }
 
         /// <summary>
@@ -349,12 +350,20 @@ namespace NSM
                 _networkStateManager.VerboseLog($"Undoing events at tick {GameTick} (setting state to the moment before the events were originally run)");
 
                 // Apply the frame state just prior to gameTick
+                _networkStateManager.VerboseLog($"We have {GameEventsBuffer[GameTick]} events (step 1)");
                 int prevTick = Math.Max(0, GameTick - 1);
                 RunSingleGameFrame(prevTick, FrameRunMode.ApplyExistingFrame);
 
+                _networkStateManager.VerboseLog($"We have {GameEventsBuffer[GameTick]} events (step 2)");
+
                 // Rewind any events present in gameTick
                 Random.ResetRandom(GameTick);
+
+                _networkStateManager.VerboseLog($"We have {GameEventsBuffer[GameTick]} events (step 3)");
+
                 _networkStateManager.RollbackEvents(GameEventsBuffer[GameTick], _stateBuffer[GameTick].GameState);
+
+                _networkStateManager.VerboseLog($"We have {GameEventsBuffer[GameTick]} events (step 4)");
 
                 GameTick--;
             }
