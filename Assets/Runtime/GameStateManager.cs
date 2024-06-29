@@ -184,6 +184,67 @@ namespace NSM
         }
 
         /// <summary>
+        /// This function runs a frame backwards (so to speak), completely undoing the most recent frame
+        /// NOTE: GameTick will also be decremented
+        /// </summary>
+        /// <param name="tick">The tick for the frame we want to undo</param>
+        internal void UndoLastFrame()
+        {
+            // TODO: There's an optimization to be had here (and which was in the previous version)
+            //       Basically, this is only used when time-traveling backwards, and the point of it
+            //       is to undo side-effects that happen during events.  As such, if there's no events
+            //       to undo AND we still have more frames to go, we can skip restoring the state here.
+            //
+            //       We can probably turn this on its head and just use a list of frames with events
+            //       to drive the undoing, with a final state setting after all events have been undone.
+
+            if (GameTick == 0)
+            {
+                // If we're already at the beginning of time, we don't need to do anything at all.
+                _networkStateManager.VerboseLog("Skipping rewind because we're already at frame 0");
+                return;
+            }
+
+            _networkStateManager.VerboseLog($"Rewinding frame {GameTick}");
+
+            /*
+             * Here's a visualization of the normal frame flow, with notes on what this function is doing:
+             * 
+             * Frame at time 'GameTick - 1'
+             * [RESET RANDOM]
+             * [EVENTS]
+             * [INPUTS]
+             * [SIMULATION]
+             * [STORE STATE]
+             * <----  State will be here when this function is done, except the RNG won't be in the exact same state.
+             *        This is so we don't have to also undo 'GameTick - 1's events, reset the RNG, and then re-run that entire frame.
+             *        The alternative, of course, is to store/restore the state of the RNG at the end of each frame,
+             *        but this would needlessly eat up a lot of network bandwidth when sending frames over the wire.
+             * [GAMETICK++]
+             * Frame at time 'GameTick'
+             * [RESET RANDOM]
+             * [EVENTS]
+             * [INPUTS]
+             * [SIMULATION]
+             * [STORE STATE]
+             * <----  State is here when this function starts
+             */
+            int tickToRestore = GameTick - 1;
+            int tickToRollBack = GameTick;
+
+            StateFrameDTO frameToApply = _stateBuffer[tickToRestore];
+            PhysicsManager.ApplyPhysicsState(frameToApply.PhysicsState, NetworkIdManager);
+            _networkStateManager.ApplyState(frameToApply.GameState);
+
+            // Reset the RNG as a courtesy to games that need to know what the state of the RNG *would've* been when the frame ran its events
+            Random.ResetRandom(tickToRollBack);
+            _networkStateManager.RollbackEvents(GameEventsBuffer[tickToRollBack], _stateBuffer[tickToRollBack].GameState);
+
+            // Set the clock
+            GameTick = tickToRestore;
+        }
+
+        /// <summary>
         /// Runs a single game frame, applying inputs and events, and capturing the resulting game state.
         /// </summary>
         /// <param name="tick">The tick at which the game frame should be simulated.  This may not be the same as realGameTick if we're currently replaying.</param>
@@ -334,40 +395,44 @@ namespace NSM
                 targetTick = 0;
             }
 
-            _networkStateManager.VerboseLog($"Rewinding time until {targetTick}");
-            // For each frame moving backward (using gameTick as our iterator)
+            if (targetTick == GameTick)
+            {
+                _networkStateManager.VerboseLog("Asked to rewind to the frame we're already at, so skipping rewind.");
+                return;
+            }
+
+            if (targetTick > GameTick)
+            {
+                throw new Exception($"Asked to rewind to future tick at {targetTick}");
+            }
+
+            _networkStateManager.VerboseLog($"Rewinding time until (end of) {targetTick}");
+
+            // Undo frames until we get where we're going
+            // The only reason we're doing the frame rewinding at all instead of just setting the state to the right place in the 
+            // history is that there may have been game events with side-effects not captured in the game state that need to be
+            // undone.  Think "animations", "creating new game objects", etc.
+            // As such, we can skip undoing any frame that doesn't have any events in it.
+            // At the end, we reset state to the end of targetTick (without re-running the events present in targetTick).
             IsReplaying = true;
             GameTick = RealGameTick;
+
             while (GameTick > targetTick)
             {
-                // We can skip restoring gamestate at all whenever there are no events inside of a frame to roll back
-                if (GameEventsBuffer[GameTick].Count == 0)
+                _networkStateManager.VerboseLog($"Checking tick {GameTick} to see if we should undo events in that frame");
+
+                // Undo the frame if there are events OR it's the last tick before we stop rewinding.
+                // Always undo the last frame, even if it doesn't have events.  This ensures we set the state correctly without re-running events.
+                if (GameEventsBuffer[GameTick].Count > 0 || GameTick == (targetTick + 1))
                 {
-                    GameTick--;
+                    _networkStateManager.VerboseLog($"Undoing with event count {GameEventsBuffer[GameTick].Count} and lastFrame: {GameTick == (targetTick + 1)}");
+                    UndoLastFrame();    // NOTE: this also decrements GameTick
                     continue;
                 }
 
-                _networkStateManager.VerboseLog($"Undoing events at tick {GameTick} (setting state to the moment before the events were originally run)");
-
-                // Apply the frame state just prior to gameTick
-                int prevTick = Math.Max(0, GameTick - 1);
-                RunSingleGameFrame(prevTick, FrameRunMode.ApplyExistingFrame);
-
-                // RunSingleGameFrame sets GameTick to prevTick here, so we need to move that back again before proceeding
-                GameTick++;
-
-                // Rewind any events present in gameTick
-                Random.ResetRandom(GameTick);
-
-                _networkStateManager.RollbackEvents(GameEventsBuffer[GameTick], _stateBuffer[GameTick].GameState);
-
+                // If there are no events this frame, we can skip doing anything at all (unless it's the last frame, which we always undo)
                 GameTick--;
             }
-
-            // We may escape the loop without doing any events (and therefore never applying state), so apply the state for the end of targetTick
-            // TODO: minor optimization: detect when this happens, and skip applying state here
-            _networkStateManager.VerboseLog("Applying final state from tick " + targetTick);
-            RunSingleGameFrame(targetTick, FrameRunMode.ApplyExistingFrame);
 
             RealGameTick = targetTick;
             IsReplaying = false;
@@ -382,7 +447,7 @@ namespace NSM
         /// <param name="targetTick">The tick to simulate up to.</param>
         private void SimulateUntilEndOfFrame(int targetTick)
         {
-            _networkStateManager.VerboseLog("Running frames from (end of)" + RealGameTick + " to (end of)" + targetTick);
+            _networkStateManager.VerboseLog($"Running frames from (end of) {RealGameTick} to (end of) {targetTick}");
 
             GameTick = RealGameTick;
 

@@ -127,6 +127,7 @@ namespace NSM
         /// for a strict rewinding of time).  This way, your rollback handler has access to the
         /// state that originally triggered the event.  The GameState from after the event fires is
         /// passed in as a parameter to your callback just in case, though.
+        /// NOTE: The RNG's state will be what it was just before the events were originally run.
         /// See also: <br/>
         /// <seealso cref="RollbackEventsDelegateHandler"/> and
         /// <seealso cref="StateFrameDTO"/>

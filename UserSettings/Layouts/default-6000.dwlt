@@ -19,7 +19,7 @@ MonoBehaviour:
     width: 1706.6666
     height: 869.7778
   m_ShowMode: 4
-  m_Title: Test Runner
+  m_Title: Project
   m_RootView: {fileID: 2}
   m_MinSize: {x: 875, y: 300}
   m_MaxSize: {x: 10000, y: 10000}
@@ -119,7 +119,7 @@ MonoBehaviour:
   m_MinSize: {x: 300, y: 100}
   m_MaxSize: {x: 24288, y: 16192}
   vertical: 0
-  controlID: 36
+  controlID: 166
   draggingID: 0
 --- !u!114 &6
 MonoBehaviour:
@@ -145,7 +145,7 @@ MonoBehaviour:
   m_MinSize: {x: 200, y: 100}
   m_MaxSize: {x: 16192, y: 16192}
   vertical: 1
-  controlID: 37
+  controlID: 167
   draggingID: 0
 --- !u!114 &7
 MonoBehaviour:
@@ -167,7 +167,7 @@ MonoBehaviour:
     x: 0
     y: 0
     width: 1261.3334
-    height: 576
+    height: 472.8889
   m_MinSize: {x: 200, y: 50}
   m_MaxSize: {x: 16192, y: 8096}
   vertical: 0
@@ -191,7 +191,7 @@ MonoBehaviour:
     x: 0
     y: 0
     width: 385.77777
-    height: 576
+    height: 472.8889
   m_MinSize: {x: 201, y: 226}
   m_MaxSize: {x: 4001, y: 4026}
   m_ActualView: {fileID: 14}
@@ -217,7 +217,7 @@ MonoBehaviour:
     x: 385.77777
     y: 0
     width: 875.5556
-    height: 576
+    height: 472.8889
   m_MinSize: {x: 52, y: 76}
   m_MaxSize: {x: 4002, y: 4026}
   m_ActualView: {fileID: 12}
@@ -242,9 +242,9 @@ MonoBehaviour:
   m_Position:
     serializedVersion: 2
     x: 0
-    y: 576
+    y: 472.8889
     width: 1261.3334
-    height: 237.77777
+    height: 340.8889
   m_MinSize: {x: 231, y: 276}
   m_MaxSize: {x: 10001, y: 10026}
   m_ActualView: {fileID: 16}
@@ -306,7 +306,7 @@ MonoBehaviour:
     x: 386.77777
     y: 24
     width: 873.5556
-    height: 550
+    height: 446.8889
   m_SerializedDataModeController:
     m_DataMode: 0
     m_PreferredDataMode: 0
@@ -319,12 +319,12 @@ MonoBehaviour:
     m_ContainerData: []
     m_OverlaysVisible: 1
   m_Spl:
-    ID: 127
+    ID: 112
     splitterInitialOffset: 420
     currentActiveSplitter: -1
     realSizes:
-    - 370
-    - 248
+    - 225.77777
+    - 151.11111
     relativeSizes:
     - 0.59870553
     - 0.40129447
@@ -334,7 +334,7 @@ MonoBehaviour:
     maxSizes:
     - 0
     - 0
-    lastTotalSize: 618
+    lastTotalSize: 376.8889
     splitSize: 6
     xOffset: 0
     m_Version: 1
@@ -398,11 +398,11 @@ MonoBehaviour:
     m_SelectedOption: 0
   - m_Window: {fileID: 12}
     m_NewResultList:
-    - id: 1129
+    - id: 1000
       uniqueId: '[NetworkStateManager Test Harness][suite]'
       name: NetworkStateManager Test Harness
       fullName: NetworkStateManager Test Harness
-      resultStatus: 1
+      resultStatus: 2
       duration: 0
       messages: 
       output: 
@@ -414,11 +414,27 @@ MonoBehaviour:
       categories: []
       parentId: 
       parentUniqueId: 
-    - id: 1121
+    - id: 1129
       uniqueId: '[NetworkStateManager.Tests.dll][suite]'
       name: NetworkStateManager.Tests.dll
-      fullName: /Users/xaroth/Documents/github/NetworkStateManager/Library/ScriptAssemblies/NetworkStateManager.Tests.dll
-      resultStatus: 1
+      fullName: C:/Users/Xaroth/Documents/GitHub/NetworkStateManager/Library/ScriptAssemblies/NetworkStateManager.Tests.dll
+      resultStatus: 2
+      duration: 0
+      messages: 
+      output: 
+      stacktrace: 
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 1
+      categories: []
+      parentId: 1000
+      parentUniqueId: '[NetworkStateManager Test Harness][suite]'
+    - id: 1130
+      uniqueId: 'NetworkStateManager.Tests.dll/[NSM][suite]'
+      name: NSM
+      fullName: NSM
+      resultStatus: 2
       duration: 0
       messages: 
       output: 
@@ -429,28 +445,12 @@ MonoBehaviour:
       isSuite: 1
       categories: []
       parentId: 1129
-      parentUniqueId: '[NetworkStateManager Test Harness][suite]'
-    - id: 1122
-      uniqueId: 'NetworkStateManager.Tests.dll/[NSM][suite]'
-      name: NSM
-      fullName: NSM
-      resultStatus: 1
-      duration: 0
-      messages: 
-      output: 
-      stacktrace: 
-      notRunnable: 0
-      ignoredOrSkipped: 0
-      description: 
-      isSuite: 1
-      categories: []
-      parentId: 1121
       parentUniqueId: '[NetworkStateManager.Tests.dll][suite]'
-    - id: 1123
+    - id: 1131
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
       name: Tests
       fullName: NSM.Tests
-      resultStatus: 1
+      resultStatus: 2
       duration: 0
       messages: 
       output: 
@@ -460,7 +460,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1122
+      parentId: 1130
       parentUniqueId: 'NetworkStateManager.Tests.dll/[NSM][suite]'
     - id: 1001
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.CompressionTests][suite]'
@@ -476,14 +476,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1004
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/CompressionTests/[NetworkStateManager.Tests][NSM.Tests.CompressionTests.CompressAndDecompress_ValidInput_ReturnsOriginalInput]'
       name: CompressAndDecompress_ValidInput_ReturnsOriginalInput
       fullName: NSM.Tests.CompressionTests.CompressAndDecompress_ValidInput_ReturnsOriginalInput
       resultStatus: 1
-      duration: 0.014755
+      duration: 0.0167792
       messages: 
       output: 
       stacktrace: 
@@ -500,7 +500,7 @@ MonoBehaviour:
       name: CompressBytes_ValidInput_ReturnsCompressedBytes
       fullName: NSM.Tests.CompressionTests.CompressBytes_ValidInput_ReturnsCompressedBytes
       resultStatus: 1
-      duration: 0.0025947
+      duration: 0.0040401
       messages: 
       output: 
       stacktrace: 
@@ -517,7 +517,7 @@ MonoBehaviour:
       name: DecompressBytes_InvalidCompressedInput_ThrowsInvalidDataException
       fullName: NSM.Tests.CompressionTests.DecompressBytes_InvalidCompressedInput_ThrowsInvalidDataException
       resultStatus: 1
-      duration: 0.0004807
+      duration: 0.0008071
       messages: 
       output: 
       stacktrace: 
@@ -534,7 +534,7 @@ MonoBehaviour:
       name: DecompressBytes_ValidCompressedInput_ReturnsOriginalBytes
       fullName: NSM.Tests.CompressionTests.DecompressBytes_ValidCompressedInput_ReturnsOriginalBytes
       resultStatus: 1
-      duration: 0.0003339
+      duration: 0.0004836
       messages: 
       output: 
       stacktrace: 
@@ -560,14 +560,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1007
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameEventsBufferTests/[NetworkStateManager.Tests][NSM.Tests.GameEventsBufferTests.Indexer_Get_ReturnsEmptyHashSetWhenNoEvents]'
       name: Indexer_Get_ReturnsEmptyHashSetWhenNoEvents
       fullName: NSM.Tests.GameEventsBufferTests.Indexer_Get_ReturnsEmptyHashSetWhenNoEvents
       resultStatus: 1
-      duration: 0.0013629
+      duration: 0.0022839
       messages: 
       output: 
       stacktrace: 
@@ -584,7 +584,7 @@ MonoBehaviour:
       name: Indexer_Get_ReturnsStoredEvents
       fullName: NSM.Tests.GameEventsBufferTests.Indexer_Get_ReturnsStoredEvents
       resultStatus: 1
-      duration: 0.0006635
+      duration: 0.0011232
       messages: 
       output: 
       stacktrace: 
@@ -601,7 +601,7 @@ MonoBehaviour:
       name: Indexer_Set_StoresEvents
       fullName: NSM.Tests.GameEventsBufferTests.Indexer_Set_StoresEvents
       resultStatus: 1
-      duration: 0.0001343
+      duration: 0.0002137
       messages: 
       output: 
       stacktrace: 
@@ -618,7 +618,7 @@ MonoBehaviour:
       name: Vacuum_DoesNotRemoveNonEmptyEventLists
       fullName: NSM.Tests.GameEventsBufferTests.Vacuum_DoesNotRemoveNonEmptyEventLists
       resultStatus: 1
-      duration: 0.0005624
+      duration: 0.0009553
       messages: 
       output: 
       stacktrace: 
@@ -635,7 +635,7 @@ MonoBehaviour:
       name: Vacuum_RemovesEmptyEventLists
       fullName: NSM.Tests.GameEventsBufferTests.Vacuum_RemovesEmptyEventLists
       resultStatus: 1
-      duration: 0.000313
+      duration: 0.0005236
       messages: 
       output: 
       stacktrace: 
@@ -651,7 +651,7 @@ MonoBehaviour:
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests][suite]'
       name: GameStateManagerTests
       fullName: NSM.Tests.GameStateManagerTests
-      resultStatus: 1
+      resultStatus: 2
       duration: 0
       messages: 
       output: 
@@ -661,14 +661,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1016
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests.AdvanceTime_IncrementsTicksCorrectly]'
       name: AdvanceTime_IncrementsTicksCorrectly
       fullName: NSM.Tests.GameStateManagerTests.AdvanceTime_IncrementsTicksCorrectly
       resultStatus: 1
-      duration: 0.0570419
+      duration: 0.0866707
       messages: 
       output: 
       stacktrace: 
@@ -685,7 +685,7 @@ MonoBehaviour:
       name: CaptureInitialFrame_CapturesCorrectState
       fullName: NSM.Tests.GameStateManagerTests.CaptureInitialFrame_CapturesCorrectState
       resultStatus: 1
-      duration: 0.0211673
+      duration: 0.0367303
       messages: 
       output: 
       stacktrace: 
@@ -701,14 +701,229 @@ MonoBehaviour:
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests.CaptureInitialFrame_FailFrameCaptureWithoutTypeStoreInit]'
       name: CaptureInitialFrame_FailFrameCaptureWithoutTypeStoreInit
       fullName: NSM.Tests.GameStateManagerTests.CaptureInitialFrame_FailFrameCaptureWithoutTypeStoreInit
-      resultStatus: 1
-      duration: 0.0003244
-      messages: 
+      resultStatus: 2
+      duration: 0.0019264
+      messages: "  Expected: <System.ArgumentNullException>\r\n  But was:  null\r\n"
       output: 
-      stacktrace: 
+      stacktrace: 'at NSM.Tests.GameStateManagerTests.CaptureInitialFrame_FailFrameCaptureWithoutTypeStoreInit
+        () [0x00049] in C:\Users\Xaroth\Documents\GitHub\NetworkStateManager\Assets\Tests\GameStateManagerTests.cs:86
+
+'
       notRunnable: 0
       ignoredOrSkipped: 0
       description: Fails if TypeStore hasn't been initialized correctly
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests][suite]'
+    - id: 1022
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests.Client_SyncToServerState_FastForward_NewEvents]'
+      name: Client_SyncToServerState_FastForward_NewEvents
+      fullName: NSM.Tests.GameStateManagerTests.Client_SyncToServerState_FastForward_NewEvents
+      resultStatus: 2
+      duration: 0.000363
+      messages: "  Expected: False\r\n  But was:  True\r\n"
+      output: 
+      stacktrace: 'at NSM.Tests.GameStateManagerTests.Client_SyncToServerState_FastForward_NewEvents
+        () [0x00000] in C:\Users\Xaroth\Documents\GitHub\NetworkStateManager\Assets\Tests\GameStateManagerTests.cs:262
+
+'
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests][suite]'
+    - id: 1021
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests.Client_SyncToServerState_FastForward_NoNewEvents]'
+      name: Client_SyncToServerState_FastForward_NoNewEvents
+      fullName: NSM.Tests.GameStateManagerTests.Client_SyncToServerState_FastForward_NoNewEvents
+      resultStatus: 2
+      duration: 0.0167693
+      messages: "NSubstitute.Exceptions.ReceivedCallsException : Expected to receive
+        a call matching:\n\tthis[10] = NSM.StateFrameDTO\r\nActually received no
+        matching calls.\r\nReceived 7 non-matching calls (non-matching arguments
+        indicated with '*' characters):\r\n\tthis[*1*] = *NSM.StateFrameDTO*\n\tthis[*2*]
+        = *NSM.StateFrameDTO*\n\tthis[*3*] = *NSM.StateFrameDTO*\n\tthis[*4*] = *NSM.StateFrameDTO*\n\tthis[10]
+        = *NSM.StateFrameDTO*\n\tthis[*11*] = *NSM.StateFrameDTO*\n\tthis[*12*] =
+        *NSM.StateFrameDTO*\n"
+      output: 'Physics.Simulate(...) was called but simulation mode is not set to
+        Script. You should set simulation mode to Script first before calling this
+        function therefore the simulation was not run.
+
+        Physics.Simulate(...)
+        was called but simulation mode is not set to Script. You should set simulation
+        mode to Script first before calling this function therefore the simulation
+        was not run.
+
+        Physics.Simulate(...) was called but simulation mode
+        is not set to Script. You should set simulation mode to Script first before
+        calling this function therefore the simulation was not run.
+
+        Physics.Simulate(...)
+        was called but simulation mode is not set to Script. You should set simulation
+        mode to Script first before calling this function therefore the simulation
+        was not run.
+
+        Physics.Simulate(...) was called but simulation mode
+        is not set to Script. You should set simulation mode to Script first before
+        calling this function therefore the simulation was not run.
+
+        Physics.Simulate(...)
+        was called but simulation mode is not set to Script. You should set simulation
+        mode to Script first before calling this function therefore the simulation
+        was not run.
+
+'
+      stacktrace: "  at NSubstitute.Core.ReceivedCallsExceptionThrower.Throw (NSubstitute.Core.ICallSpecification
+        callSpecification, System.Collections.Generic.IEnumerable`1[T] matchingCalls,
+        System.Collections.Generic.IEnumerable`1[T] nonMatchingCalls, NSubstitute.ReceivedExtensions.Quantity
+        requiredQuantity) [0x00045] in .\\Library\\PackageCache\\net.tnrd.nsubstitute\\Runtime\\Core\\ReceivedCallsExceptionThrower.cs:24
+        \r\n  at NSubstitute.Routing.Handlers.CheckReceivedCallsHandler.Handle (NSubstitute.Core.ICall
+        call) [0x00078] in .\\Library\\PackageCache\\net.tnrd.nsubstitute\\Runtime\\Routing\\Handlers\\CheckReceivedCallsHandler.cs:35
+        \r\n  at NSubstitute.Routing.Route.Handle (NSubstitute.Core.ICall call) [0x00004]
+        in .\\Library\\PackageCache\\net.tnrd.nsubstitute\\Runtime\\Routing\\Route.cs:24
+        \r\n  at NSubstitute.Core.CallRouter.Route (NSubstitute.Core.ICall call)
+        [0x0003b] in .\\Library\\PackageCache\\net.tnrd.nsubstitute\\Runtime\\Core\\CallRouter.cs:69
+        \r\n  at NSubstitute.Proxies.CastleDynamicProxy.CastleForwardingInterceptor.Intercept
+        (Castle.DynamicProxy.IInvocation invocation) [0x00015] in .\\Library\\PackageCache\\net.tnrd.nsubstitute\\Runtime\\Proxies\\CastleDynamicProxy\\CastleForwardingInterceptor.cs:25
+        \r\n  at Castle.DynamicProxy.AbstractInvocation.Proceed () [0x00050] in <9235d74b28b04b988087a27cd3a7c4fc>:0
+        \r\n  at NSubstitute.Proxies.CastleDynamicProxy.ProxyIdInterceptor.Intercept
+        (Castle.DynamicProxy.IInvocation invocation) [0x0002e] in .\\Library\\PackageCache\\net.tnrd.nsubstitute\\Runtime\\Proxies\\CastleDynamicProxy\\ProxyIdInterceptor.cs:27
+        \r\n  at Castle.DynamicProxy.AbstractInvocation.Proceed () [0x00050] in <9235d74b28b04b988087a27cd3a7c4fc>:0
+        \r\n  at Castle.Proxies.ObjectProxy_3.set_Item (System.Int32 i, NSM.StateFrameDTO
+        value) [0x00039] in <734ebe8cb17c407eab98d0e05e6e5e3d>:0 \r\n  at NSM.Tests.GameStateManagerTests.Client_SyncToServerState_FastForward_NoNewEvents
+        () [0x00175] in C:\\Users\\Xaroth\\Documents\\GitHub\\NetworkStateManager\\Assets\\Tests\\GameStateManagerTests.cs:237
+        \r\n  at (wrapper managed-to-native) System.Reflection.RuntimeMethodInfo.InternalInvoke(System.Reflection.RuntimeMethodInfo,object,object[],System.Exception&)\r\n 
+        at System.Reflection.RuntimeMethodInfo.Invoke (System.Object obj, System.Reflection.BindingFlags
+        invokeAttr, System.Reflection.Binder binder, System.Object[] parameters,
+        System.Globalization.CultureInfo culture) [0x0006a] in <21f453231f9b419fb92653c858b2eaf6>:0 "
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests][suite]'
+    - id: 1028
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests.Client_SyncToServerState_Past_AfterLastAuthoritative_NewEvents]'
+      name: Client_SyncToServerState_Past_AfterLastAuthoritative_NewEvents
+      fullName: NSM.Tests.GameStateManagerTests.Client_SyncToServerState_Past_AfterLastAuthoritative_NewEvents
+      resultStatus: 2
+      duration: 0.0002785
+      messages: "  Expected: False\r\n  But was:  True\r\n"
+      output: 
+      stacktrace: 'at NSM.Tests.GameStateManagerTests.Client_SyncToServerState_Past_AfterLastAuthoritative_NewEvents
+        () [0x00000] in C:\Users\Xaroth\Documents\GitHub\NetworkStateManager\Assets\Tests\GameStateManagerTests.cs:316
+
+'
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests][suite]'
+    - id: 1027
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests.Client_SyncToServerState_Past_AfterLastAuthoritative_NoNewEvents]'
+      name: Client_SyncToServerState_Past_AfterLastAuthoritative_NoNewEvents
+      fullName: NSM.Tests.GameStateManagerTests.Client_SyncToServerState_Past_AfterLastAuthoritative_NoNewEvents
+      resultStatus: 2
+      duration: 0.0002354
+      messages: "  Expected: False\r\n  But was:  True\r\n"
+      output: 
+      stacktrace: 'at NSM.Tests.GameStateManagerTests.Client_SyncToServerState_Past_AfterLastAuthoritative_NoNewEvents
+        () [0x00000] in C:\Users\Xaroth\Documents\GitHub\NetworkStateManager\Assets\Tests\GameStateManagerTests.cs:310
+
+'
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests][suite]'
+    - id: 1026
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests.Client_SyncToServerState_Past_BeforeLastAuthoritative_NewEvents]'
+      name: Client_SyncToServerState_Past_BeforeLastAuthoritative_NewEvents
+      fullName: NSM.Tests.GameStateManagerTests.Client_SyncToServerState_Past_BeforeLastAuthoritative_NewEvents
+      resultStatus: 2
+      duration: 0.0002297
+      messages: "  Expected: False\r\n  But was:  True\r\n"
+      output: 
+      stacktrace: 'at NSM.Tests.GameStateManagerTests.Client_SyncToServerState_Past_BeforeLastAuthoritative_NewEvents
+        () [0x00000] in C:\Users\Xaroth\Documents\GitHub\NetworkStateManager\Assets\Tests\GameStateManagerTests.cs:304
+
+'
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests][suite]'
+    - id: 1025
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests.Client_SyncToServerState_Past_BeforeLastAuthoritative_NoNewEvents]'
+      name: Client_SyncToServerState_Past_BeforeLastAuthoritative_NoNewEvents
+      fullName: NSM.Tests.GameStateManagerTests.Client_SyncToServerState_Past_BeforeLastAuthoritative_NoNewEvents
+      resultStatus: 2
+      duration: 0.0002277
+      messages: "  Expected: False\r\n  But was:  True\r\n"
+      output: 
+      stacktrace: 'at NSM.Tests.GameStateManagerTests.Client_SyncToServerState_Past_BeforeLastAuthoritative_NoNewEvents
+        () [0x00000] in C:\Users\Xaroth\Documents\GitHub\NetworkStateManager\Assets\Tests\GameStateManagerTests.cs:298
+
+'
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests][suite]'
+    - id: 1024
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests.Client_SyncToServerState_SameTime_NewEvents]'
+      name: Client_SyncToServerState_SameTime_NewEvents
+      fullName: NSM.Tests.GameStateManagerTests.Client_SyncToServerState_SameTime_NewEvents
+      resultStatus: 2
+      duration: 0.0002263
+      messages: "  Expected: False\r\n  But was:  True\r\n"
+      output: 
+      stacktrace: 'at NSM.Tests.GameStateManagerTests.Client_SyncToServerState_SameTime_NewEvents
+        () [0x00000] in C:\Users\Xaroth\Documents\GitHub\NetworkStateManager\Assets\Tests\GameStateManagerTests.cs:292
+
+'
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests][suite]'
+    - id: 1023
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests.Client_SyncToServerState_SameTime_NoNewEvents]'
+      name: Client_SyncToServerState_SameTime_NoNewEvents
+      fullName: NSM.Tests.GameStateManagerTests.Client_SyncToServerState_SameTime_NoNewEvents
+      resultStatus: 2
+      duration: 0.0002212
+      messages: "  Expected: False\r\n  But was:  True\r\n"
+      output: 
+      stacktrace: 'at NSM.Tests.GameStateManagerTests.Client_SyncToServerState_SameTime_NoNewEvents
+        () [0x00000] in C:\Users\Xaroth\Documents\GitHub\NetworkStateManager\Assets\Tests\GameStateManagerTests.cs:276
+
+'
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
       isSuite: 0
       categories:
       - Uncategorized
@@ -719,7 +934,7 @@ MonoBehaviour:
       name: Constructor_InitializesCorrectly
       fullName: NSM.Tests.GameStateManagerTests.Constructor_InitializesCorrectly
       resultStatus: 1
-      duration: 0.0002576
+      duration: 0.0004424
       messages: 
       output: 
       stacktrace: 
@@ -736,7 +951,7 @@ MonoBehaviour:
       name: Constructor_ThrowsException_WhenGameEventsBufferIsNull
       fullName: NSM.Tests.GameStateManagerTests.Constructor_ThrowsException_WhenGameEventsBufferIsNull
       resultStatus: 1
-      duration: 0.0001756
+      duration: 0.0003356
       messages: 
       output: 
       stacktrace: 
@@ -753,7 +968,7 @@ MonoBehaviour:
       name: Constructor_ThrowsException_WhenNetworkStateManagerIsNull
       fullName: NSM.Tests.GameStateManagerTests.Constructor_ThrowsException_WhenNetworkStateManagerIsNull
       resultStatus: 1
-      duration: 0.0001745
+      duration: 0.0002405
       messages: 
       output: 
       stacktrace: 
@@ -770,7 +985,7 @@ MonoBehaviour:
       name: GetMinimalInputsDiffForCurrentFrame_CallsInputsBufferCorrectly
       fullName: NSM.Tests.GameStateManagerTests.GetMinimalInputsDiffForCurrentFrame_CallsInputsBufferCorrectly
       resultStatus: 1
-      duration: 0.0018192
+      duration: 0.0011779
       messages: 
       output: 
       stacktrace: 
@@ -787,7 +1002,7 @@ MonoBehaviour:
       name: PlayerInputsReceived_SetsInputsCorrectly
       fullName: NSM.Tests.GameStateManagerTests.PlayerInputsReceived_SetsInputsCorrectly
       resultStatus: 1
-      duration: 0.0018027
+      duration: 0.0007503
       messages: 
       output: 'Client inputs are coming from server''s future.  Server time: 0 Client
         time: 5
@@ -802,7 +1017,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1012
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests][suite]'
-    - id: 1021
+    - id: 1029
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.InputsBufferTests][suite]'
       name: InputsBufferTests
       fullName: NSM.Tests.InputsBufferTests
@@ -816,14 +1031,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1022
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/InputsBufferTests/[NetworkStateManager.Tests][NSM.Tests.InputsBufferTests.GetInputsForTick_ReturnsExpectedInputs]'
       name: GetInputsForTick_ReturnsExpectedInputs
       fullName: NSM.Tests.InputsBufferTests.GetInputsForTick_ReturnsExpectedInputs
       resultStatus: 1
-      duration: 0.0028664
+      duration: 0.0046763
       messages: 
       output: 
       stacktrace: 
@@ -840,7 +1055,7 @@ MonoBehaviour:
       name: GetMinimalInputsDiff_ReturnsChangedInputs
       fullName: NSM.Tests.InputsBufferTests.GetMinimalInputsDiff_ReturnsChangedInputs
       resultStatus: 1
-      duration: 0.001187
+      duration: 0.0019522
       messages: 
       output: 
       stacktrace: 
@@ -857,7 +1072,7 @@ MonoBehaviour:
       name: PredictInput_NoAuthoritativeInput_ReturnsBlankInput
       fullName: NSM.Tests.InputsBufferTests.PredictInput_NoAuthoritativeInput_ReturnsBlankInput
       resultStatus: 1
-      duration: 0.0008084
+      duration: 0.0012391
       messages: 
       output: 
       stacktrace: 
@@ -874,7 +1089,7 @@ MonoBehaviour:
       name: PredictInput_ReturnsLastAuthoritativeInput
       fullName: NSM.Tests.InputsBufferTests.PredictInput_ReturnsLastAuthoritativeInput
       resultStatus: 1
-      duration: 0.0001057
+      duration: 0.0001755
       messages: 
       output: 
       stacktrace: 
@@ -891,7 +1106,7 @@ MonoBehaviour:
       name: SetLocalInputs_SetsInputsCorrectly
       fullName: NSM.Tests.InputsBufferTests.SetLocalInputs_SetsInputsCorrectly
       resultStatus: 1
-      duration: 0.0001263
+      duration: 0.0002018
       messages: 
       output: 
       stacktrace: 
@@ -908,7 +1123,7 @@ MonoBehaviour:
       name: SetPlayerInputsAtTick_SetsInputsCorrectly
       fullName: NSM.Tests.InputsBufferTests.SetPlayerInputsAtTick_SetsInputsCorrectly
       resultStatus: 1
-      duration: 0.0002641
+      duration: 0.0004051
       messages: 
       output: 
       stacktrace: 
@@ -920,7 +1135,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1021
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.InputsBufferTests][suite]'
-    - id: 1028
+    - id: 1036
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.IntegrationTests][suite]'
       name: IntegrationTests
       fullName: NSM.Tests.IntegrationTests
@@ -934,14 +1149,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1029
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/IntegrationTests/[NetworkStateManager.Tests][NSM.Tests.IntegrationTests.SingleFrameExecutes]'
       name: SingleFrameExecutes
       fullName: NSM.Tests.IntegrationTests.SingleFrameExecutes
       resultStatus: 1
-      duration: 0.1617396
+      duration: 0.202918
       messages: 
       output: '-1: StartNetworkStateManager < MoveNext < MoveNext: Network State
         Manager starting up
@@ -978,22 +1193,23 @@ MonoBehaviour:
         True
 
         1: RunSingleGameFrame < RunFixedUpdate < HostFixedUpdate: Running
-        single frame for tick 1
+        single frame for tick 1 in mode RunAndCaptureFrame
 
-        1: ApplyInputs < RunSingleGameFrame < RunFixedUpdate:
-        Applying 2 player inputs
-
-        1: PrePhysicsFrameUpdate < RunSingleGameFrame
-        < RunFixedUpdate: Running pre-physics frame update
-
-        1: PostPhysicsFrameUpdate
-        < RunSingleGameFrame < RunFixedUpdate: Running post-physics frame update
+        1: ApplyInputs
+        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         1:
-        GetGameState < CaptureStateFrame < RunSingleGameFrame: Capturing game state
+        PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
+        frame update
 
-        1:
-        FixedUpdate: ---- END FRAME ----
+        1: PostPhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate:
+        Running post-physics frame update
+
+        1: GetGameState < CaptureStateFrame
+        < RunSingleGameFrame: Capturing game state
+
+        1: FixedUpdate: ----
+        END FRAME ----
 
 '
       stacktrace: 
@@ -1010,7 +1226,7 @@ MonoBehaviour:
       name: TwentyFramesExecute
       fullName: NSM.Tests.IntegrationTests.TwentyFramesExecute
       resultStatus: 1
-      duration: 0.4032622
+      duration: 0.4505474
       messages: 
       output: '-1: StartNetworkStateManager < MoveNext < MoveNext: Network State
         Manager starting up
@@ -1047,36 +1263,37 @@ MonoBehaviour:
         True
 
         1: RunSingleGameFrame < RunFixedUpdate < HostFixedUpdate: Running
-        single frame for tick 1
+        single frame for tick 1 in mode RunAndCaptureFrame
 
-        1: ApplyInputs < RunSingleGameFrame < RunFixedUpdate:
-        Applying 2 player inputs
-
-        1: PrePhysicsFrameUpdate < RunSingleGameFrame
-        < RunFixedUpdate: Running pre-physics frame update
-
-        1: PostPhysicsFrameUpdate
-        < RunSingleGameFrame < RunFixedUpdate: Running post-physics frame update
+        1: ApplyInputs
+        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         1:
-        GetGameState < CaptureStateFrame < RunSingleGameFrame: Capturing game state
+        PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
+        frame update
 
-        1:
-        FixedUpdate: ---- END FRAME ----
+        1: PostPhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate:
+        Running post-physics frame update
 
-        1: FixedUpdate: ---- NEW FRAME
-        ----
+        1: GetGameState < CaptureStateFrame
+        < RunSingleGameFrame: Capturing game state
 
-        2: GetInputs < RunFixedUpdate < HostFixedUpdate: Capturing
-        player inputs
+        1: FixedUpdate: ----
+        END FRAME ----
 
-        p0 jump: True p1 jump: False
+        1: FixedUpdate: ---- NEW FRAME ----
 
-        2: RunSingleGameFrame
-        < RunFixedUpdate < HostFixedUpdate: Running single frame for tick 2
+        2: GetInputs
+        < RunFixedUpdate < HostFixedUpdate: Capturing player inputs
 
-        2:
-        ApplyInputs < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
+        p0 jump:
+        True p1 jump: False
+
+        2: RunSingleGameFrame < RunFixedUpdate < HostFixedUpdate:
+        Running single frame for tick 2 in mode RunAndCaptureFrame
+
+        2: ApplyInputs
+        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         2:
         PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
@@ -1100,90 +1317,91 @@ MonoBehaviour:
         False p1 jump: True
 
         3: RunSingleGameFrame < RunFixedUpdate < HostFixedUpdate:
-        Running single frame for tick 3
+        Running single frame for tick 3 in mode RunAndCaptureFrame
 
-        3: ApplyInputs < RunSingleGameFrame
-        < RunFixedUpdate: Applying 2 player inputs
-
-        3: PrePhysicsFrameUpdate
-        < RunSingleGameFrame < RunFixedUpdate: Running pre-physics frame update
+        3: ApplyInputs
+        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         3:
-        PostPhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running post-physics
+        PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
         frame update
 
-        3: GetGameState < CaptureStateFrame < RunSingleGameFrame:
-        Capturing game state
+        3: PostPhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate:
+        Running post-physics frame update
 
-        3: FixedUpdate: ---- END FRAME ----
+        3: GetGameState < CaptureStateFrame
+        < RunSingleGameFrame: Capturing game state
 
-        3:
-        FixedUpdate: ---- NEW FRAME ----
+        3: FixedUpdate: ----
+        END FRAME ----
 
-        4: GetInputs < RunFixedUpdate <
-        HostFixedUpdate: Capturing player inputs
+        3: FixedUpdate: ---- NEW FRAME ----
 
-        p0 jump: True p1 jump:
-        False
+        4: GetInputs
+        < RunFixedUpdate < HostFixedUpdate: Capturing player inputs
+
+        p0 jump:
+        True p1 jump: False
 
         4: RunSingleGameFrame < RunFixedUpdate < HostFixedUpdate:
-        Running single frame for tick 4
+        Running single frame for tick 4 in mode RunAndCaptureFrame
 
-        4: ApplyInputs < RunSingleGameFrame
-        < RunFixedUpdate: Applying 2 player inputs
-
-        4: PrePhysicsFrameUpdate
-        < RunSingleGameFrame < RunFixedUpdate: Running pre-physics frame update
+        4: ApplyInputs
+        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         4:
-        PostPhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running post-physics
+        PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
         frame update
 
-        4: GetGameState < CaptureStateFrame < RunSingleGameFrame:
-        Capturing game state
+        4: PostPhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate:
+        Running post-physics frame update
 
-        4: FixedUpdate: ---- END FRAME ----
+        4: GetGameState < CaptureStateFrame
+        < RunSingleGameFrame: Capturing game state
 
-        4:
-        FixedUpdate: ---- NEW FRAME ----
+        4: FixedUpdate: ----
+        END FRAME ----
 
-        5: GetInputs < RunFixedUpdate <
-        HostFixedUpdate: Capturing player inputs
+        4: FixedUpdate: ---- NEW FRAME ----
 
-        p0 jump: False p1 jump:
-        True
+        5: GetInputs
+        < RunFixedUpdate < HostFixedUpdate: Capturing player inputs
 
-        5: RunSingleGameFrame < RunFixedUpdate < HostFixedUpdate: Running
-        single frame for tick 5
+        p0 jump:
+        False p1 jump: True
 
-        5: ApplyInputs < RunSingleGameFrame < RunFixedUpdate:
-        Applying 2 player inputs
+        5: RunSingleGameFrame < RunFixedUpdate < HostFixedUpdate:
+        Running single frame for tick 5 in mode RunAndCaptureFrame
 
-        5: PrePhysicsFrameUpdate < RunSingleGameFrame
-        < RunFixedUpdate: Running pre-physics frame update
-
-        5: PostPhysicsFrameUpdate
-        < RunSingleGameFrame < RunFixedUpdate: Running post-physics frame update
+        5: ApplyInputs
+        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         5:
-        GetGameState < CaptureStateFrame < RunSingleGameFrame: Capturing game state
+        PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
+        frame update
 
-        5:
-        FixedUpdate: ---- END FRAME ----
+        5: PostPhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate:
+        Running post-physics frame update
 
-        5: FixedUpdate: ---- NEW FRAME
-        ----
+        5: GetGameState < CaptureStateFrame
+        < RunSingleGameFrame: Capturing game state
 
-        6: GetInputs < RunFixedUpdate < HostFixedUpdate: Capturing
-        player inputs
+        5: FixedUpdate: ----
+        END FRAME ----
 
-        p0 jump: True p1 jump: False
+        5: FixedUpdate: ---- NEW FRAME ----
 
-        6: RunSingleGameFrame
-        < RunFixedUpdate < HostFixedUpdate: Running single frame for tick 6
+        6: GetInputs
+        < RunFixedUpdate < HostFixedUpdate: Capturing player inputs
 
-        6:
-        ApplyInputs < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
+        p0 jump:
+        True p1 jump: False
+
+        6: RunSingleGameFrame < RunFixedUpdate < HostFixedUpdate:
+        Running single frame for tick 6 in mode RunAndCaptureFrame
+
+        6: ApplyInputs
+        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         6:
         PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
@@ -1207,87 +1425,88 @@ MonoBehaviour:
         False p1 jump: True
 
         7: RunSingleGameFrame < RunFixedUpdate < HostFixedUpdate:
-        Running single frame for tick 7
+        Running single frame for tick 7 in mode RunAndCaptureFrame
 
-        7: ApplyInputs < RunSingleGameFrame
-        < RunFixedUpdate: Applying 2 player inputs
-
-        7: PrePhysicsFrameUpdate
-        < RunSingleGameFrame < RunFixedUpdate: Running pre-physics frame update
+        7: ApplyInputs
+        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         7:
-        PostPhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running post-physics
+        PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
         frame update
 
-        7: GetGameState < CaptureStateFrame < RunSingleGameFrame:
-        Capturing game state
+        7: PostPhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate:
+        Running post-physics frame update
 
-        7: FixedUpdate: ---- END FRAME ----
+        7: GetGameState < CaptureStateFrame
+        < RunSingleGameFrame: Capturing game state
 
-        7:
-        FixedUpdate: ---- NEW FRAME ----
+        7: FixedUpdate: ----
+        END FRAME ----
 
-        8: GetInputs < RunFixedUpdate <
-        HostFixedUpdate: Capturing player inputs
+        7: FixedUpdate: ---- NEW FRAME ----
 
-        p0 jump: True p1 jump:
-        False
+        8: GetInputs
+        < RunFixedUpdate < HostFixedUpdate: Capturing player inputs
+
+        p0 jump:
+        True p1 jump: False
 
         8: RunSingleGameFrame < RunFixedUpdate < HostFixedUpdate:
-        Running single frame for tick 8
+        Running single frame for tick 8 in mode RunAndCaptureFrame
 
-        8: ApplyInputs < RunSingleGameFrame
-        < RunFixedUpdate: Applying 2 player inputs
-
-        8: PrePhysicsFrameUpdate
-        < RunSingleGameFrame < RunFixedUpdate: Running pre-physics frame update
+        8: ApplyInputs
+        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         8:
-        PostPhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running post-physics
+        PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
         frame update
 
-        8: GetGameState < CaptureStateFrame < RunSingleGameFrame:
-        Capturing game state
+        8: PostPhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate:
+        Running post-physics frame update
 
-        8: FixedUpdate: ---- END FRAME ----
+        8: GetGameState < CaptureStateFrame
+        < RunSingleGameFrame: Capturing game state
 
-        8:
-        FixedUpdate: ---- NEW FRAME ----
+        8: FixedUpdate: ----
+        END FRAME ----
 
-        9: GetInputs < RunFixedUpdate <
-        HostFixedUpdate: Capturing player inputs
+        8: FixedUpdate: ---- NEW FRAME ----
 
-        p0 jump: False p1 jump:
-        True
+        9: GetInputs
+        < RunFixedUpdate < HostFixedUpdate: Capturing player inputs
 
-        9: RunSingleGameFrame < RunFixedUpdate < HostFixedUpdate: Running
-        single frame for tick 9
+        p0 jump:
+        False p1 jump: True
 
-        9: ApplyInputs < RunSingleGameFrame < RunFixedUpdate:
-        Applying 2 player inputs
+        9: RunSingleGameFrame < RunFixedUpdate < HostFixedUpdate:
+        Running single frame for tick 9 in mode RunAndCaptureFrame
 
-        9: PrePhysicsFrameUpdate < RunSingleGameFrame
-        < RunFixedUpdate: Running pre-physics frame update
-
-        9: PostPhysicsFrameUpdate
-        < RunSingleGameFrame < RunFixedUpdate: Running post-physics frame update
+        9: ApplyInputs
+        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         9:
-        GetGameState < CaptureStateFrame < RunSingleGameFrame: Capturing game state
+        PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
+        frame update
 
-        9:
-        FixedUpdate: ---- END FRAME ----
+        9: PostPhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate:
+        Running post-physics frame update
 
-        9: FixedUpdate: ---- NEW FRAME
-        ----
+        9: GetGameState < CaptureStateFrame
+        < RunSingleGameFrame: Capturing game state
 
-        10: GetInputs < RunFixedUpdate < HostFixedUpdate: Capturing
-        player inputs
+        9: FixedUpdate: ----
+        END FRAME ----
 
-        p0 jump: True p1 jump: False
+        9: FixedUpdate: ---- NEW FRAME ----
 
-        10: RunSingleGameFrame
-        < RunFixedUpdate < HostFixedUpdate: Running single frame for tick 10
+        10:
+        GetInputs < RunFixedUpdate < HostFixedUpdate: Capturing player inputs
+
+        p0
+        jump: True p1 jump: False
+
+        10: RunSingleGameFrame < RunFixedUpdate
+        < HostFixedUpdate: Running single frame for tick 10 in mode RunAndCaptureFrame
 
         10:
         ApplyInputs < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
@@ -1317,10 +1536,10 @@ MonoBehaviour:
         jump: False p1 jump: True
 
         11: RunSingleGameFrame < RunFixedUpdate
-        < HostFixedUpdate: Running single frame for tick 11
+        < HostFixedUpdate: Running single frame for tick 11 in mode RunAndCaptureFrame
 
-        11: ApplyInputs
-        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
+        11:
+        ApplyInputs < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         11:
         PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
@@ -1344,10 +1563,10 @@ MonoBehaviour:
         jump: True p1 jump: False
 
         12: RunSingleGameFrame < RunFixedUpdate
-        < HostFixedUpdate: Running single frame for tick 12
+        < HostFixedUpdate: Running single frame for tick 12 in mode RunAndCaptureFrame
 
-        12: ApplyInputs
-        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
+        12:
+        ApplyInputs < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         12:
         PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
@@ -1371,10 +1590,10 @@ MonoBehaviour:
         jump: False p1 jump: True
 
         13: RunSingleGameFrame < RunFixedUpdate
-        < HostFixedUpdate: Running single frame for tick 13
+        < HostFixedUpdate: Running single frame for tick 13 in mode RunAndCaptureFrame
 
-        13: ApplyInputs
-        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
+        13:
+        ApplyInputs < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         13:
         PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
@@ -1398,10 +1617,10 @@ MonoBehaviour:
         jump: True p1 jump: False
 
         14: RunSingleGameFrame < RunFixedUpdate
-        < HostFixedUpdate: Running single frame for tick 14
+        < HostFixedUpdate: Running single frame for tick 14 in mode RunAndCaptureFrame
 
-        14: ApplyInputs
-        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
+        14:
+        ApplyInputs < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         14:
         PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
@@ -1425,10 +1644,10 @@ MonoBehaviour:
         jump: False p1 jump: True
 
         15: RunSingleGameFrame < RunFixedUpdate
-        < HostFixedUpdate: Running single frame for tick 15
+        < HostFixedUpdate: Running single frame for tick 15 in mode RunAndCaptureFrame
 
-        15: ApplyInputs
-        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
+        15:
+        ApplyInputs < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         15:
         PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
@@ -1452,10 +1671,10 @@ MonoBehaviour:
         jump: True p1 jump: False
 
         16: RunSingleGameFrame < RunFixedUpdate
-        < HostFixedUpdate: Running single frame for tick 16
+        < HostFixedUpdate: Running single frame for tick 16 in mode RunAndCaptureFrame
 
-        16: ApplyInputs
-        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
+        16:
+        ApplyInputs < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         16:
         PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
@@ -1479,10 +1698,10 @@ MonoBehaviour:
         jump: False p1 jump: True
 
         17: RunSingleGameFrame < RunFixedUpdate
-        < HostFixedUpdate: Running single frame for tick 17
+        < HostFixedUpdate: Running single frame for tick 17 in mode RunAndCaptureFrame
 
-        17: ApplyInputs
-        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
+        17:
+        ApplyInputs < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         17:
         PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
@@ -1506,10 +1725,10 @@ MonoBehaviour:
         jump: True p1 jump: False
 
         18: RunSingleGameFrame < RunFixedUpdate
-        < HostFixedUpdate: Running single frame for tick 18
+        < HostFixedUpdate: Running single frame for tick 18 in mode RunAndCaptureFrame
 
-        18: ApplyInputs
-        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
+        18:
+        ApplyInputs < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         18:
         PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
@@ -1533,10 +1752,10 @@ MonoBehaviour:
         jump: False p1 jump: True
 
         19: RunSingleGameFrame < RunFixedUpdate
-        < HostFixedUpdate: Running single frame for tick 19
+        < HostFixedUpdate: Running single frame for tick 19 in mode RunAndCaptureFrame
 
-        19: ApplyInputs
-        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
+        19:
+        ApplyInputs < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         19:
         PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
@@ -1560,10 +1779,10 @@ MonoBehaviour:
         jump: True p1 jump: False
 
         20: RunSingleGameFrame < RunFixedUpdate
-        < HostFixedUpdate: Running single frame for tick 20
+        < HostFixedUpdate: Running single frame for tick 20 in mode RunAndCaptureFrame
 
-        20: ApplyInputs
-        < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
+        20:
+        ApplyInputs < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
 
         20:
         PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
@@ -1591,7 +1810,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1028
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.IntegrationTests][suite]'
-    - id: 1031
+    - id: 1039
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.NetworkIdManagerTests][suite]'
       name: NetworkIdManagerTests
       fullName: NSM.Tests.NetworkIdManagerTests
@@ -1605,14 +1824,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1033
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/NetworkIdManagerTests/[NetworkStateManager.Tests][NSM.Tests.NetworkIdManagerTests.GetAllNetworkIdGameObjects_ShouldReturnAllRegisteredGameObjects]'
       name: GetAllNetworkIdGameObjects_ShouldReturnAllRegisteredGameObjects
       fullName: NSM.Tests.NetworkIdManagerTests.GetAllNetworkIdGameObjects_ShouldReturnAllRegisteredGameObjects
       resultStatus: 1
-      duration: 0.0055715
+      duration: 0.0065145
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -1634,7 +1853,7 @@ MonoBehaviour:
       name: RegisterGameObject_ShouldAssignNetworkIdAndCacheGameObject
       fullName: NSM.Tests.NetworkIdManagerTests.RegisterGameObject_ShouldAssignNetworkIdAndCacheGameObject
       resultStatus: 1
-      duration: 0.0005342
+      duration: 0.0007017
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -1656,7 +1875,7 @@ MonoBehaviour:
       name: ReleaseNetworkId_ShouldReleaseReservedId
       fullName: NSM.Tests.NetworkIdManagerTests.ReleaseNetworkId_ShouldReleaseReservedId
       resultStatus: 1
-      duration: 0.0005443
+      duration: 0.0007507
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -1678,7 +1897,7 @@ MonoBehaviour:
       name: ReserveNetworkId_ShouldReturnUniqueId
       fullName: NSM.Tests.NetworkIdManagerTests.ReserveNetworkId_ShouldReturnUniqueId
       resultStatus: 1
-      duration: 0.0004246
+      duration: 0.00057
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -1700,7 +1919,7 @@ MonoBehaviour:
       name: Reset_ShouldResetNetworkIdCaches
       fullName: NSM.Tests.NetworkIdManagerTests.Reset_ShouldResetNetworkIdCaches
       resultStatus: 1
-      duration: 0.0008282
+      duration: 0.0011134
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -1722,7 +1941,7 @@ MonoBehaviour:
       name: SetupInitialNetworkIds_ShouldResetAndSetupNetworkIds
       fullName: NSM.Tests.NetworkIdManagerTests.SetupInitialNetworkIds_ShouldResetAndSetupNetworkIds
       resultStatus: 1
-      duration: 0.0091131
+      duration: 0.0103012
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -1744,7 +1963,7 @@ MonoBehaviour:
       name: SetupInitialNetworkIds_ShouldResetAndSetupNetworkIdsIncludingRootObjects
       fullName: NSM.Tests.NetworkIdManagerTests.SetupInitialNetworkIds_ShouldResetAndSetupNetworkIdsIncludingRootObjects
       resultStatus: 1
-      duration: 0.0062729
+      duration: 0.0059299
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -1761,7 +1980,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1028
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.NetworkIdManagerTests][suite]'
-    - id: 1039
+    - id: 1047
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.NetworkIdTests][suite]'
       name: NetworkIdTests
       fullName: NSM.Tests.NetworkIdTests
@@ -1775,14 +1994,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1038
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/NetworkIdTests/[NetworkStateManager.Tests][NSM.Tests.NetworkIdTests.CanSetNetworkId]'
       name: CanSetNetworkId
       fullName: NSM.Tests.NetworkIdTests.CanSetNetworkId
       resultStatus: 1
-      duration: 0.0002285
+      duration: 0.0002958
       messages: 
       output: 
       stacktrace: 
@@ -1799,7 +2018,7 @@ MonoBehaviour:
       name: DefaultNetworkIdIsZero
       fullName: NSM.Tests.NetworkIdTests.DefaultNetworkIdIsZero
       resultStatus: 1
-      duration: 0.0000955
+      duration: 0.000147
       messages: 
       output: 
       stacktrace: 
@@ -1811,7 +2030,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1036
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.NetworkIdTests][suite]'
-    - id: 1042
+    - id: 1050
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.NetworkStateManagerTests][suite]'
       name: NetworkStateManagerTests
       fullName: NSM.Tests.NetworkStateManagerTests
@@ -1825,14 +2044,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1045
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/NetworkStateManagerTests/[NetworkStateManager.Tests][NSM.Tests.NetworkStateManagerTests.ApplyEvents_DoesNotRaiseOnApplyEventsWithEmptySet]'
       name: ApplyEvents_DoesNotRaiseOnApplyEventsWithEmptySet
       fullName: NSM.Tests.NetworkStateManagerTests.ApplyEvents_DoesNotRaiseOnApplyEventsWithEmptySet
       resultStatus: 1
-      duration: 0.0049369
+      duration: 0.0065155
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -1854,7 +2073,7 @@ MonoBehaviour:
       name: ApplyEvents_RaisesOnApplyEvents
       fullName: NSM.Tests.NetworkStateManagerTests.ApplyEvents_RaisesOnApplyEvents
       resultStatus: 1
-      duration: 0.0013582
+      duration: 0.001692
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -1876,7 +2095,7 @@ MonoBehaviour:
       name: ApplyInputs_DoesNotRaiseOnApplyInputsWithEmptySet
       fullName: NSM.Tests.NetworkStateManagerTests.ApplyInputs_DoesNotRaiseOnApplyInputsWithEmptySet
       resultStatus: 1
-      duration: 0.0009584
+      duration: 0.0012296
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -1898,7 +2117,7 @@ MonoBehaviour:
       name: ApplyInputs_RaisesOnApplyInputs
       fullName: NSM.Tests.NetworkStateManagerTests.ApplyInputs_RaisesOnApplyInputs
       resultStatus: 1
-      duration: 0.0005058
+      duration: 0.0007095
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -1920,7 +2139,7 @@ MonoBehaviour:
       name: ApplyState_RaisesOnApplyState
       fullName: NSM.Tests.NetworkStateManagerTests.ApplyState_RaisesOnApplyState
       resultStatus: 1
-      duration: 0.0012361
+      duration: 0.001646
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -1942,7 +2161,7 @@ MonoBehaviour:
       name: GetGameState_RaisesOnGetGameState
       fullName: NSM.Tests.NetworkStateManagerTests.GetGameState_RaisesOnGetGameState
       resultStatus: 1
-      duration: 0.0010333
+      duration: 0.0013308
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -1964,7 +2183,7 @@ MonoBehaviour:
       name: GetInputs_RaisesOnGetInputs
       fullName: NSM.Tests.NetworkStateManagerTests.GetInputs_RaisesOnGetInputs
       resultStatus: 1
-      duration: 0.0009053
+      duration: 0.0014641
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -1986,7 +2205,7 @@ MonoBehaviour:
       name: PostPhysicsFrameUpdate_RaisesOnPostPhysicsFrameUpdate
       fullName: NSM.Tests.NetworkStateManagerTests.PostPhysicsFrameUpdate_RaisesOnPostPhysicsFrameUpdate
       resultStatus: 1
-      duration: 0.0008674
+      duration: 0.0011693
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -2008,7 +2227,7 @@ MonoBehaviour:
       name: PredictInputForPlayer_CallsGameStateManager
       fullName: NSM.Tests.NetworkStateManagerTests.PredictInputForPlayer_CallsGameStateManager
       resultStatus: 1
-      duration: 0.0004886
+      duration: 0.0006811
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -2030,7 +2249,7 @@ MonoBehaviour:
       name: PrePhysicsFrameUpdate_RaisesOnPrePhysicsFrameUpdate
       fullName: NSM.Tests.NetworkStateManagerTests.PrePhysicsFrameUpdate_RaisesOnPrePhysicsFrameUpdate
       resultStatus: 1
-      duration: 0.0008508
+      duration: 0.0011663
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -2052,7 +2271,7 @@ MonoBehaviour:
       name: RemoveEventAtTick_CallsGameStateManager
       fullName: NSM.Tests.NetworkStateManagerTests.RemoveEventAtTick_CallsGameStateManager
       resultStatus: 1
-      duration: 0.0008117
+      duration: 0.0011163
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -2074,7 +2293,7 @@ MonoBehaviour:
       name: RollbackEvents_DoesNotRaiseOnRollbackEventsWhenNoEvents
       fullName: NSM.Tests.NetworkStateManagerTests.RollbackEvents_DoesNotRaiseOnRollbackEventsWhenNoEvents
       resultStatus: 1
-      duration: 0.0009935
+      duration: 0.0014476
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -2096,7 +2315,7 @@ MonoBehaviour:
       name: RollbackEvents_RaisesOnRollbackEvents
       fullName: NSM.Tests.NetworkStateManagerTests.RollbackEvents_RaisesOnRollbackEvents
       resultStatus: 1
-      duration: 0.00052
+      duration: 0.0007108
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -2118,7 +2337,7 @@ MonoBehaviour:
       name: ScheduleGameEvent_IsHost_CallsGameStateManager
       fullName: NSM.Tests.NetworkStateManagerTests.ScheduleGameEvent_IsHost_CallsGameStateManager
       resultStatus: 1
-      duration: 0.0008792
+      duration: 0.0012709
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -2140,7 +2359,7 @@ MonoBehaviour:
       name: ScheduleGameEvent_IsNotHost_DoesNotCallGameStateManager
       fullName: NSM.Tests.NetworkStateManagerTests.ScheduleGameEvent_IsNotHost_DoesNotCallGameStateManager
       resultStatus: 1
-      duration: 0.0008156
+      duration: 0.0010918
       messages: 
       output: 'You are trying to create a MonoBehaviour using the ''new'' keyword. 
         This is not allowed.  MonoBehaviours can only be added using AddComponent().
@@ -2162,7 +2381,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1039
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.NetworkStateManagerTests][suite]'
-    - id: 1058
+    - id: 1066
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PhysicsManagerTests][suite]'
       name: PhysicsManagerTests
       fullName: NSM.Tests.PhysicsManagerTests
@@ -2176,18 +2395,18 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1005
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/PhysicsManagerTests/[NetworkStateManager.Tests][NSM.Tests.PhysicsManagerTests.ApplyPhysicsState_AppliesStateToExistingGameObject]'
       name: ApplyPhysicsState_AppliesStateToExistingGameObject
       fullName: NSM.Tests.PhysicsManagerTests.ApplyPhysicsState_AppliesStateToExistingGameObject
       resultStatus: 1
-      duration: 0.0017027
+      duration: 0.0013637
       messages: 
       output: 
       stacktrace: 'at NSM.Tests.PhysicsManagerTests.ApplyPhysicsState_AppliesStateToExistingGameObject
-        () [0x00056] in /Users/xaroth/Documents/github/NetworkStateManager/Assets/Tests/PhysicsManagerTests.cs:97
+        () [0x00056] in C:\Users\Xaroth\Documents\GitHub\NetworkStateManager\Assets\Tests\PhysicsManagerTests.cs:97
 
 '
       notRunnable: 0
@@ -2203,7 +2422,7 @@ MonoBehaviour:
       name: ApplyPhysicsState_LogsErrorIfGameObjectDoesNotExist
       fullName: NSM.Tests.PhysicsManagerTests.ApplyPhysicsState_LogsErrorIfGameObjectDoesNotExist
       resultStatus: 1
-      duration: 0.0009506
+      duration: 0.0013339
       messages: 
       output: 'Attempted to restore state to a GameObject that no longer exists
 
@@ -2222,7 +2441,7 @@ MonoBehaviour:
       name: GetNetworkedRigidbodies_ReturnsAllRigidbodies
       fullName: NSM.Tests.PhysicsManagerTests.GetNetworkedRigidbodies_ReturnsAllRigidbodies
       resultStatus: 1
-      duration: 0.0004486
+      duration: 0.0007006
       messages: 
       output: 
       stacktrace: 
@@ -2239,7 +2458,7 @@ MonoBehaviour:
       name: InitPhysics_SetsCorrectPhysicsSettings
       fullName: NSM.Tests.PhysicsManagerTests.InitPhysics_SetsCorrectPhysicsSettings
       resultStatus: 1
-      duration: 0.0001162
+      duration: 0.0001704
       messages: 
       output: 
       stacktrace: 
@@ -2256,7 +2475,7 @@ MonoBehaviour:
       name: SimulatePhysics_CallsPhysicsSimulateWithDeltaTime
       fullName: NSM.Tests.PhysicsManagerTests.SimulatePhysics_CallsPhysicsSimulateWithDeltaTime
       resultStatus: 1
-      duration: 0.0006029
+      duration: 0.0009258
       messages: 
       output: 
       stacktrace: 
@@ -2273,11 +2492,11 @@ MonoBehaviour:
       name: SyncTransforms_CallsPhysicsSyncTransforms
       fullName: NSM.Tests.PhysicsManagerTests.SyncTransforms_CallsPhysicsSyncTransforms
       resultStatus: 1
-      duration: 0.0001335
+      duration: 0.0001494
       messages: 
       output: 
       stacktrace: 'at NSM.Tests.PhysicsManagerTests.SyncTransforms_CallsPhysicsSyncTransforms
-        () [0x00005] in /Users/xaroth/Documents/github/NetworkStateManager/Assets/Tests/PhysicsManagerTests.cs:131
+        () [0x00005] in C:\Users\Xaroth\Documents\GitHub\NetworkStateManager\Assets\Tests\PhysicsManagerTests.cs:131
 
 '
       notRunnable: 0
@@ -2288,7 +2507,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1001
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PhysicsManagerTests][suite]'
-    - id: 1065
+    - id: 1073
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PhysicsStateDTOTests][suite]'
       name: PhysicsStateDTOTests
       fullName: NSM.Tests.PhysicsStateDTOTests
@@ -2302,14 +2521,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1065
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/PhysicsStateDTOTests/[NetworkStateManager.Tests][NSM.Tests.PhysicsStateDTOTests.TakeSnapshot_ShouldHandleEmptyList]'
       name: TakeSnapshot_ShouldHandleEmptyList
       fullName: NSM.Tests.PhysicsStateDTOTests.TakeSnapshot_ShouldHandleEmptyList
       resultStatus: 1
-      duration: 0.0001057
+      duration: 0.000154
       messages: 
       output: 
       stacktrace: 
@@ -2326,7 +2545,7 @@ MonoBehaviour:
       name: TakeSnapshot_ShouldNotAddRigidbodyWithoutNetworkId
       fullName: NSM.Tests.PhysicsStateDTOTests.TakeSnapshot_ShouldNotAddRigidbodyWithoutNetworkId
       resultStatus: 1
-      duration: 0.0004341
+      duration: 0.0006679
       messages: 
       output: 
       stacktrace: 
@@ -2343,7 +2562,7 @@ MonoBehaviour:
       name: TakeSnapshot_ShouldPopulateRigidBodyStates_WhenRigidbodyHasNetworkId
       fullName: NSM.Tests.PhysicsStateDTOTests.TakeSnapshot_ShouldPopulateRigidBodyStates_WhenRigidbodyHasNetworkId
       resultStatus: 1
-      duration: 0.0002391
+      duration: 0.0003339
       messages: 
       output: 
       stacktrace: 
@@ -2355,7 +2574,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1062
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PhysicsStateDTOTests][suite]'
-    - id: 1069
+    - id: 1077
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PlayerInputDTOTests][suite]'
       name: PlayerInputDTOTests
       fullName: NSM.Tests.PlayerInputDTOTests
@@ -2369,14 +2588,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1069
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/PlayerInputDTOTests/[NetworkStateManager.Tests][NSM.Tests.PlayerInputDTOTests.PlayerInputDTO_CreatesInstanceWithCorrectType]'
       name: PlayerInputDTO_CreatesInstanceWithCorrectType
       fullName: NSM.Tests.PlayerInputDTOTests.PlayerInputDTO_CreatesInstanceWithCorrectType
       resultStatus: 1
-      duration: 0.0002434
+      duration: 0.0003965
       messages: 
       output: 
       stacktrace: 
@@ -2393,7 +2612,7 @@ MonoBehaviour:
       name: PlayerInputDTO_WithInput_AssignsInputCorrectly
       fullName: NSM.Tests.PlayerInputDTOTests.PlayerInputDTO_WithInput_AssignsInputCorrectly
       resultStatus: 1
-      duration: 0.0000685
+      duration: 0.0001045
       messages: 
       output: 
       stacktrace: 
@@ -2410,7 +2629,7 @@ MonoBehaviour:
       name: PlayerInputDTO_WithoutInput_DoesNotInitializeInput
       fullName: NSM.Tests.PlayerInputDTOTests.PlayerInputDTO_WithoutInput_DoesNotInitializeInput
       resultStatus: 1
-      duration: 0.0000802
+      duration: 0.0001295
       messages: 
       output: 
       stacktrace: 
@@ -2422,7 +2641,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1066
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PlayerInputDTOTests][suite]'
-    - id: 1073
+    - id: 1081
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PlayerInputsDTOTests][suite]'
       name: PlayerInputsDTOTests
       fullName: NSM.Tests.PlayerInputsDTOTests
@@ -2436,14 +2655,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1071
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/PlayerInputsDTOTests/[NetworkStateManager.Tests][NSM.Tests.PlayerInputsDTOTests.PlayerInputs_Get_WhenNotInitialized_ShouldReturnEmptyDictionary]'
       name: PlayerInputs_Get_WhenNotInitialized_ShouldReturnEmptyDictionary
       fullName: NSM.Tests.PlayerInputsDTOTests.PlayerInputs_Get_WhenNotInitialized_ShouldReturnEmptyDictionary
       resultStatus: 1
-      duration: 0.0002227
+      duration: 0.0003014
       messages: 
       output: 
       stacktrace: 
@@ -2460,7 +2679,7 @@ MonoBehaviour:
       name: PlayerInputs_Set_ShouldOverridePreviousDictionary
       fullName: NSM.Tests.PlayerInputsDTOTests.PlayerInputs_Set_ShouldOverridePreviousDictionary
       resultStatus: 1
-      duration: 0.0001468
+      duration: 0.0002094
       messages: 
       output: 
       stacktrace: 
@@ -2477,7 +2696,7 @@ MonoBehaviour:
       name: PlayerInputs_SetAndGet_ShouldReturnSetDictionary
       fullName: NSM.Tests.PlayerInputsDTOTests.PlayerInputs_SetAndGet_ShouldReturnSetDictionary
       resultStatus: 1
-      duration: 0.0000884
+      duration: 0.0001285
       messages: 
       output: 
       stacktrace: 
@@ -2489,7 +2708,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1070
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PlayerInputsDTOTests][suite]'
-    - id: 1077
+    - id: 1085
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.RandomManagerTests][suite]'
       name: RandomManagerTests
       fullName: NSM.Tests.RandomManagerTests
@@ -2503,14 +2722,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1079
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/RandomManagerTests/[NetworkStateManager.Tests][NSM.Tests.RandomManagerTests.GetRandomNext_ShouldReturnRandomNumber]'
       name: GetRandomNext_ShouldReturnRandomNumber
       fullName: NSM.Tests.RandomManagerTests.GetRandomNext_ShouldReturnRandomNumber
       resultStatus: 1
-      duration: 0.000168
+      duration: 0.000233
       messages: 
       output: 
       stacktrace: 
@@ -2527,7 +2746,7 @@ MonoBehaviour:
       name: GetRandomNext_ShouldThrowExceptionIfNotInitialized
       fullName: NSM.Tests.RandomManagerTests.GetRandomNext_ShouldThrowExceptionIfNotInitialized
       resultStatus: 1
-      duration: 0.0001686
+      duration: 0.0003066
       messages: 
       output: 
       stacktrace: 
@@ -2544,7 +2763,7 @@ MonoBehaviour:
       name: GetRandomRange_Float_ShouldReturnRandomNumberInRange
       fullName: NSM.Tests.RandomManagerTests.GetRandomRange_Float_ShouldReturnRandomNumberInRange
       resultStatus: 1
-      duration: 0.0002979
+      duration: 0.0004729
       messages: 
       output: 
       stacktrace: 
@@ -2561,7 +2780,7 @@ MonoBehaviour:
       name: GetRandomRange_Float_ShouldThrowExceptionIfNotInitialized
       fullName: NSM.Tests.RandomManagerTests.GetRandomRange_Float_ShouldThrowExceptionIfNotInitialized
       resultStatus: 1
-      duration: 0.0000932
+      duration: 0.0001608
       messages: 
       output: 
       stacktrace: 
@@ -2578,7 +2797,7 @@ MonoBehaviour:
       name: GetRandomRange_Int_ShouldReturnRandomNumberInRange
       fullName: NSM.Tests.RandomManagerTests.GetRandomRange_Int_ShouldReturnRandomNumberInRange
       resultStatus: 1
-      duration: 0.0001169
+      duration: 0.000162
       messages: 
       output: 
       stacktrace: 
@@ -2595,7 +2814,7 @@ MonoBehaviour:
       name: GetRandomRange_Int_ShouldThrowExceptionIfNotInitialized
       fullName: NSM.Tests.RandomManagerTests.GetRandomRange_Int_ShouldThrowExceptionIfNotInitialized
       resultStatus: 1
-      duration: 0.0000905
+      duration: 0.0001536
       messages: 
       output: 
       stacktrace: 
@@ -2612,7 +2831,7 @@ MonoBehaviour:
       name: RandomNumbers_ShouldBeDeterministic
       fullName: NSM.Tests.RandomManagerTests.RandomNumbers_ShouldBeDeterministic
       resultStatus: 1
-      duration: 0.0001123
+      duration: 0.0001789
       messages: 
       output: 
       stacktrace: 
@@ -2629,7 +2848,7 @@ MonoBehaviour:
       name: RandomRanges_ShouldBeDeterministic
       fullName: NSM.Tests.RandomManagerTests.RandomRanges_ShouldBeDeterministic
       resultStatus: 1
-      duration: 0.0001198
+      duration: 0.0002082
       messages: 
       output: 
       stacktrace: 
@@ -2646,7 +2865,7 @@ MonoBehaviour:
       name: ResetRandom_ShouldInitializeRandom
       fullName: NSM.Tests.RandomManagerTests.ResetRandom_ShouldInitializeRandom
       resultStatus: 1
-      duration: 0.0003925
+      duration: 0.0006077
       messages: 
       output: 
       stacktrace: 
@@ -2658,7 +2877,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1074
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.RandomManagerTests][suite]'
-    - id: 1087
+    - id: 1095
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.RigidBodyStateDTOTests][suite]'
       name: RigidBodyStateDTOTests
       fullName: NSM.Tests.RigidBodyStateDTOTests
@@ -2672,14 +2891,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1089
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/RigidBodyStateDTOTests/[NetworkStateManager.Tests][NSM.Tests.RigidBodyStateDTOTests.ApplyState_SetsRigidbodyPropertiesForNonSleepingBody]'
       name: ApplyState_SetsRigidbodyPropertiesForNonSleepingBody
       fullName: NSM.Tests.RigidBodyStateDTOTests.ApplyState_SetsRigidbodyPropertiesForNonSleepingBody
       resultStatus: 1
-      duration: 0.0006898
+      duration: 0.0009521
       messages: 
       output: 
       stacktrace: 
@@ -2696,7 +2915,7 @@ MonoBehaviour:
       name: ApplyState_SetsRigidbodyPropertiesForSleepingBody
       fullName: NSM.Tests.RigidBodyStateDTOTests.ApplyState_SetsRigidbodyPropertiesForSleepingBody
       resultStatus: 1
-      duration: 0.0003512
+      duration: 0.0005309
       messages: 
       output: 
       stacktrace: 
@@ -2713,7 +2932,7 @@ MonoBehaviour:
       name: ApplyState_WakesUpRigidbodyIfNotSleeping
       fullName: NSM.Tests.RigidBodyStateDTOTests.ApplyState_WakesUpRigidbodyIfNotSleeping
       resultStatus: 1
-      duration: 0.0002677
+      duration: 0.0004363
       messages: 
       output: 
       stacktrace: 
@@ -2730,7 +2949,7 @@ MonoBehaviour:
       name: Constructor_HandlesMissingNetworkIdComponent
       fullName: NSM.Tests.RigidBodyStateDTOTests.Constructor_HandlesMissingNetworkIdComponent
       resultStatus: 1
-      duration: 0.000754
+      duration: 0.0010577
       messages: 
       output: 'Found a rigidbody that doesn''t have a NetworkId: New Game Object
         (UnityEngine.GameObject)
@@ -2750,7 +2969,7 @@ MonoBehaviour:
       name: Constructor_SetsPropertiesFromRigidbody
       fullName: NSM.Tests.RigidBodyStateDTOTests.Constructor_SetsPropertiesFromRigidbody
       resultStatus: 1
-      duration: 0.0002187
+      duration: 0.0003088
       messages: 
       output: 
       stacktrace: 
@@ -2767,7 +2986,7 @@ MonoBehaviour:
       name: Constructor_SetsPropertiesFromSleepingRigidbody
       fullName: NSM.Tests.RigidBodyStateDTOTests.Constructor_SetsPropertiesFromSleepingRigidbody
       resultStatus: 1
-      duration: 0.000208
+      duration: 0.0003098
       messages: 
       output: 
       stacktrace: 
@@ -2779,7 +2998,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1084
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.RigidBodyStateDTOTests][suite]'
-    - id: 1094
+    - id: 1102
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.StateBufferTests][suite]'
       name: StateBufferTests
       fullName: NSM.Tests.StateBufferTests
@@ -2793,14 +3012,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1092
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/StateBufferTests/[NetworkStateManager.Tests][NSM.Tests.StateBufferTests.Indexer_Get_NegativeIndex_LogsWarningAndThrowsKeyNotFoundException]'
       name: Indexer_Get_NegativeIndex_LogsWarningAndThrowsKeyNotFoundException
       fullName: NSM.Tests.StateBufferTests.Indexer_Get_NegativeIndex_LogsWarningAndThrowsKeyNotFoundException
       resultStatus: 1
-      duration: 0.0006001
+      duration: 0.0009147
       messages: 
       output: 'State for a negative game tick was requested to be read.
 
@@ -2819,7 +3038,7 @@ MonoBehaviour:
       name: Indexer_Set_NegativeIndex_LogsWarning
       fullName: NSM.Tests.StateBufferTests.Indexer_Set_NegativeIndex_LogsWarning
       resultStatus: 1
-      duration: 0.0003015
+      duration: 0.0004644
       messages: 
       output: 'State for a negative game tick was requested to be written.
 
@@ -2838,7 +3057,7 @@ MonoBehaviour:
       name: Indexer_Set_OverwriteAuthoritativeFrame_LogsWarning
       fullName: NSM.Tests.StateBufferTests.Indexer_Set_OverwriteAuthoritativeFrame_LogsWarning
       resultStatus: 1
-      duration: 0.0003198
+      duration: 0.0004335
       messages: 
       output: 'Tried to overwrite an authoritative frame at tick 0.  This can happen
         in certain edge-cases, and is probably not a cause for concern.
@@ -2853,7 +3072,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1091
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.StateBufferTests][suite]'
-    - id: 1098
+    - id: 1106
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.StateFrameDeltaDTOTests][suite]'
       name: StateFrameDeltaDTOTests
       fullName: NSM.Tests.StateFrameDeltaDTOTests
@@ -2867,14 +3086,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1099
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/StateFrameDeltaDTOTests/[NetworkStateManager.Tests][NSM.Tests.StateFrameDeltaDTOTests.ApplyTo_InvalidCrc_ThrowsException]'
       name: ApplyTo_InvalidCrc_ThrowsException
       fullName: NSM.Tests.StateFrameDeltaDTOTests.ApplyTo_InvalidCrc_ThrowsException
       resultStatus: 1
-      duration: 0.0034077
+      duration: 0.0044902
       messages: 
       output: 'Incoming game state delta failed CRC check when applied
 
@@ -2893,7 +3112,7 @@ MonoBehaviour:
       name: ApplyTo_ValidBaseState_AppliesPatchCorrectly
       fullName: NSM.Tests.StateFrameDeltaDTOTests.ApplyTo_ValidBaseState_AppliesPatchCorrectly
       resultStatus: 1
-      duration: 0.0004879
+      duration: 0.0004187
       messages: 
       output: 
       stacktrace: 
@@ -2910,7 +3129,7 @@ MonoBehaviour:
       name: Constructor_EmptyState_CreatesEmptyStateDiffBytes
       fullName: NSM.Tests.StateFrameDeltaDTOTests.Constructor_EmptyState_CreatesEmptyStateDiffBytes
       resultStatus: 1
-      duration: 0.0000655
+      duration: 0.0000928
       messages: 
       output: 
       stacktrace: 
@@ -2927,7 +3146,7 @@ MonoBehaviour:
       name: Constructor_WithBaseAndTargetStates_CreatesStateDiffBytes
       fullName: NSM.Tests.StateFrameDeltaDTOTests.Constructor_WithBaseAndTargetStates_CreatesStateDiffBytes
       resultStatus: 1
-      duration: 0.0000968
+      duration: 0.0001388
       messages: 
       output: 
       stacktrace: 
@@ -2939,7 +3158,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1095
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.StateFrameDeltaDTOTests][suite]'
-    - id: 1103
+    - id: 1111
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.StateFrameDTOTests][suite]'
       name: StateFrameDTOTests
       fullName: NSM.Tests.StateFrameDTOTests
@@ -2953,14 +3172,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1103
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/StateFrameDTOTests/[NetworkStateManager.Tests][NSM.Tests.StateFrameDTOTests.Clone_ReturnsCorrectCopy]'
       name: Clone_ReturnsCorrectCopy
       fullName: NSM.Tests.StateFrameDTOTests.Clone_ReturnsCorrectCopy
       resultStatus: 1
-      duration: 0.0002507
+      duration: 0.0002712
       messages: 
       output: 
       stacktrace: 
@@ -2977,7 +3196,7 @@ MonoBehaviour:
       name: GameState_Getter_ReturnsCorrectGameState
       fullName: NSM.Tests.StateFrameDTOTests.GameState_Getter_ReturnsCorrectGameState
       resultStatus: 1
-      duration: 0.000178
+      duration: 0.0002012
       messages: 
       output: 
       stacktrace: 
@@ -2994,7 +3213,7 @@ MonoBehaviour:
       name: GameState_Setter_SetsCorrectly
       fullName: NSM.Tests.StateFrameDTOTests.GameState_Setter_SetsCorrectly
       resultStatus: 1
-      duration: 0.0000995
+      duration: 0.0001447
       messages: 
       output: 
       stacktrace: 
@@ -3011,7 +3230,7 @@ MonoBehaviour:
       name: GameState_Setter_WhenAuthoritative_LogsError
       fullName: NSM.Tests.StateFrameDTOTests.GameState_Setter_WhenAuthoritative_LogsError
       resultStatus: 1
-      duration: 0.0004269
+      duration: 0.0004633
       messages: 
       output: 'Tried to write game state to an authoritative frame
 
@@ -3030,7 +3249,7 @@ MonoBehaviour:
       name: GetBinaryRepresentation_ReturnsNonNullByteArray
       fullName: NSM.Tests.StateFrameDTOTests.GetBinaryRepresentation_ReturnsNonNullByteArray
       resultStatus: 1
-      duration: 0.000095
+      duration: 0.0001298
       messages: 
       output: 
       stacktrace: 
@@ -3047,7 +3266,7 @@ MonoBehaviour:
       name: RestoreFromBinaryRepresentation_SetsPropertiesCorrectly
       fullName: NSM.Tests.StateFrameDTOTests.RestoreFromBinaryRepresentation_SetsPropertiesCorrectly
       resultStatus: 1
-      duration: 0.0001315
+      duration: 0.0001857
       messages: 
       output: 
       stacktrace: 
@@ -3059,7 +3278,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1100
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.StateFrameDTOTests][suite]'
-    - id: 1110
+    - id: 1118
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.TypeStoreTests][suite]'
       name: TypeStoreTests
       fullName: NSM.Tests.TypeStoreTests
@@ -3073,14 +3292,14 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1123
+      parentId: 1131
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1114
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/TypeStoreTests/[NetworkStateManager.Tests][NSM.Tests.TypeStoreTests.CreateBlankGameState_ReturnsInstance]'
       name: CreateBlankGameState_ReturnsInstance
       fullName: NSM.Tests.TypeStoreTests.CreateBlankGameState_ReturnsInstance
       resultStatus: 1
-      duration: 0.0001487
+      duration: 0.0001978
       messages: 
       output: 
       stacktrace: 
@@ -3097,7 +3316,7 @@ MonoBehaviour:
       name: CreateBlankPlayerInput_ReturnsInstance
       fullName: NSM.Tests.TypeStoreTests.CreateBlankPlayerInput_ReturnsInstance
       resultStatus: 1
-      duration: 0.0001068
+      duration: 0.0001492
       messages: 
       output: 
       stacktrace: 
@@ -3114,7 +3333,7 @@ MonoBehaviour:
       name: GameEventType_SetInvalidType_ThrowsException
       fullName: NSM.Tests.TypeStoreTests.GameEventType_SetInvalidType_ThrowsException
       resultStatus: 1
-      duration: 0.0001195
+      duration: 0.0001679
       messages: 
       output: 
       stacktrace: 
@@ -3131,7 +3350,7 @@ MonoBehaviour:
       name: GameEventType_SetValidType_Success
       fullName: NSM.Tests.TypeStoreTests.GameEventType_SetValidType_Success
       resultStatus: 1
-      duration: 0.0000629
+      duration: 0.0000991
       messages: 
       output: 
       stacktrace: 
@@ -3148,7 +3367,7 @@ MonoBehaviour:
       name: GameStateType_SetInvalidType_ThrowsException
       fullName: NSM.Tests.TypeStoreTests.GameStateType_SetInvalidType_ThrowsException
       resultStatus: 1
-      duration: 0.0000915
+      duration: 0.0001588
       messages: 
       output: 
       stacktrace: 
@@ -3165,7 +3384,7 @@ MonoBehaviour:
       name: GameStateType_SetValidType_Success
       fullName: NSM.Tests.TypeStoreTests.GameStateType_SetValidType_Success
       resultStatus: 1
-      duration: 0.0000572
+      duration: 0.0001007
       messages: 
       output: 
       stacktrace: 
@@ -3182,7 +3401,7 @@ MonoBehaviour:
       name: PlayerInputType_SetInvalidType_ThrowsException
       fullName: NSM.Tests.TypeStoreTests.PlayerInputType_SetInvalidType_ThrowsException
       resultStatus: 1
-      duration: 0.0001133
+      duration: 0.0001647
       messages: 
       output: 
       stacktrace: 
@@ -3199,7 +3418,7 @@ MonoBehaviour:
       name: PlayerInputType_SetValidType_Success
       fullName: NSM.Tests.TypeStoreTests.PlayerInputType_SetValidType_Success
       resultStatus: 1
-      duration: 0.0000578
+      duration: 0.0000945
       messages: 
       output: 
       stacktrace: 
@@ -3216,7 +3435,7 @@ MonoBehaviour:
       name: ResetTypeStore_ResetsSingletonInstance
       fullName: NSM.Tests.TypeStoreTests.ResetTypeStore_ResetsSingletonInstance
       resultStatus: 1
-      duration: 0.0001921
+      duration: 0.0002578
       messages: 
       output: 
       stacktrace: 
@@ -3233,7 +3452,7 @@ MonoBehaviour:
       name: SingletonInstance_ReturnsSameInstance
       fullName: NSM.Tests.TypeStoreTests.SingletonInstance_ReturnsSameInstance
       resultStatus: 1
-      duration: 0.0000848
+      duration: 0.0001371
       messages: 
       output: 
       stacktrace: 
@@ -3245,67 +3464,20 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1107
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.TypeStoreTests][suite]'
-    m_ResultText: 'SingleFrameExecutes (0.162s)
+    m_ResultText: "CaptureInitialFrame_FailFrameCaptureWithoutTypeStoreInit (0.002s)\nFails
+      if TypeStore hasn't been initialized correctly\n---\n  Expected: <System.ArgumentNullException>\r\n 
+      But was:  null\r\n\n---\nat NSM.Tests.GameStateManagerTests.CaptureInitialFrame_FailFrameCaptureWithoutTypeStoreInit
+      () [0x00049] in <color=#40a0ff><a href=\"C:\\Users\\Xaroth\\Documents\\GitHub\\NetworkStateManager\\Assets\\Tests\\GameStateManagerTests.cs\"
+      line=\"86\">Assets\\Tests\\GameStateManagerTests.cs:86</a></color>"
+    m_ResultStacktrace: 'at NSM.Tests.GameStateManagerTests.CaptureInitialFrame_FailFrameCaptureWithoutTypeStoreInit
+      () [0x00049] in C:\Users\Xaroth\Documents\GitHub\NetworkStateManager\Assets\Tests\GameStateManagerTests.cs:86
 
-      ---
-
-      -1: StartNetworkStateManager
-      < MoveNext < MoveNext: Network State Manager starting up
-
-      -1: StartNetworkStateManager
-      < MoveNext < MoveNext: Setting up network ids for scene objects that need them
-
-      -1:
-      ReserveNetworkId < RegisterGameObject < SetupInitialNetworkIds: Reserved network
-      ID 1
-
-      -1: RegisterGameObject < SetupInitialNetworkIds < .ctor: Registering
-      network ID 1 to New Game Object
-
-      -1: ReserveNetworkId < RegisterGameObject
-      < SetupInitialNetworkIds: Reserved network ID 2
-
-      -1: RegisterGameObject
-      < SetupInitialNetworkIds < .ctor: Registering network ID 2 to New Game Object
-
-      0:
-      GetGameState < CaptureStateFrame < CaptureInitialFrame: Capturing game state
-
-      0:
-      StartNetworkStateManager < MoveNext < MoveNext: Sending initial state
-
-      0:
-      FixedUpdate: ---- NEW FRAME ----
-
-      1: GetInputs < RunFixedUpdate < HostFixedUpdate:
-      Capturing player inputs
-
-      p0 jump: False p1 jump: True
-
-      1: RunSingleGameFrame
-      < RunFixedUpdate < HostFixedUpdate: Running single frame for tick 1
-
-      1:
-      ApplyInputs < RunSingleGameFrame < RunFixedUpdate: Applying 2 player inputs
-
-      1:
-      PrePhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate: Running pre-physics
-      frame update
-
-      1: PostPhysicsFrameUpdate < RunSingleGameFrame < RunFixedUpdate:
-      Running post-physics frame update
-
-      1: GetGameState < CaptureStateFrame
-      < RunSingleGameFrame: Capturing game state
-
-      1: FixedUpdate: ---- END
-      FRAME ----'
-    m_ResultStacktrace: 
+'
     m_TestListState:
       scrollPos: {x: 0, y: 0}
-      m_SelectedIDs: ab86c78c
-      m_LastClickedID: -1933080917
-      m_ExpandedIDs: d9a9f3b381648bc0d49401e05a22842a6024b36effffff7f
+      m_SelectedIDs: 44277be9
+      m_LastClickedID: -377804988
+      m_ExpandedIDs: d9a9f3b381648bc05a22842a40b638536024b36effffff7f
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -3573,10 +3745,10 @@ MonoBehaviour:
     m_TextWithWhitespace: "Game\u200B"
   m_Pos:
     serializedVersion: 2
-    x: 1277
-    y: 96
-    width: 450
-    height: 980
+    x: 1261.3334
+    y: 78.22222
+    width: 444.33325
+    height: 787.7778
   m_SerializedDataModeController:
     m_DataMode: 0
     m_PreferredDataMode: 0
@@ -3594,7 +3766,7 @@ MonoBehaviour:
   m_ShowGizmos: 0
   m_TargetDisplay: 0
   m_ClearColor: {r: 0, g: 0, b: 0, a: 0}
-  m_TargetSize: {x: 450, y: 281}
+  m_TargetSize: {x: 444.33325, y: 278}
   m_TextureFilterMode: 0
   m_TextureHideFlags: 61
   m_RenderIMGUI: 1
@@ -3609,10 +3781,10 @@ MonoBehaviour:
     m_VRangeLocked: 0
     hZoomLockedByDefault: 0
     vZoomLockedByDefault: 0
-    m_HBaseRangeMin: -100
-    m_HBaseRangeMax: 100
-    m_VBaseRangeMin: -62.444447
-    m_VBaseRangeMax: 62.444447
+    m_HBaseRangeMin: -98.74072
+    m_HBaseRangeMax: 98.74072
+    m_VBaseRangeMin: -61.77778
+    m_VBaseRangeMax: 61.77778
     m_HAllowExceedBaseRangeMin: 1
     m_HAllowExceedBaseRangeMax: 1
     m_VAllowExceedBaseRangeMin: 1
@@ -3630,23 +3802,23 @@ MonoBehaviour:
       serializedVersion: 2
       x: 0
       y: 21
-      width: 450
-      height: 959
+      width: 444.33325
+      height: 766.7778
     m_Scale: {x: 2.25, y: 2.25}
-    m_Translation: {x: 225, y: 479.5}
+    m_Translation: {x: 222.16663, y: 383.3889}
     m_MarginLeft: 0
     m_MarginRight: 0
     m_MarginTop: 0
     m_MarginBottom: 0
     m_LastShownAreaInsideMargins:
       serializedVersion: 2
-      x: -100
-      y: -213.11111
-      width: 200
-      height: 426.22223
+      x: -98.74072
+      y: -170.39507
+      width: 197.48145
+      height: 340.79013
     m_MinimalGUI: 1
   m_defaultScale: 2
-  m_LastWindowPixelSize: {x: 1012.5, y: 2205}
+  m_LastWindowPixelSize: {x: 999.7498, y: 1772.5}
   m_ClearInEditMode: 1
   m_NoCameraWarning: 1
   m_LowResolutionForAspectRatios: 01000000000000000000
@@ -3676,7 +3848,7 @@ MonoBehaviour:
     x: 0
     y: 24
     width: 384.77777
-    height: 550
+    height: 446.8889
   m_SerializedDataModeController:
     m_DataMode: 0
     m_PreferredDataMode: 0
@@ -3693,7 +3865,7 @@ MonoBehaviour:
       scrollPos: {x: 0, y: 0}
       m_SelectedIDs: 
       m_LastClickedID: 0
-      m_ExpandedIDs: bedeffffbcdfffff08e0ffff5ae2ffff80e3ffff
+      m_ExpandedIDs: d2faffff
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -4446,9 +4618,9 @@ MonoBehaviour:
   m_Pos:
     serializedVersion: 2
     x: 0
-    y: 600
+    y: 496.8889
     width: 1260.3334
-    height: 211.77777
+    height: 314.8889
   m_SerializedDataModeController:
     m_DataMode: 0
     m_PreferredDataMode: 0
@@ -4471,7 +4643,7 @@ MonoBehaviour:
     m_SkipHidden: 0
     m_SearchArea: 1
     m_Folders:
-    - Assets
+    - Assets/Runtime
     m_Globs: []
     m_ProductIds: 
     m_AnyWithAssetOrigin: 0
@@ -4481,16 +4653,16 @@ MonoBehaviour:
   m_ViewMode: 1
   m_StartGridSize: 96
   m_LastFolders:
-  - Assets
+  - Assets/Runtime
   m_LastFoldersGridSize: 96
-  m_LastProjectPath: /Users/xaroth/Documents/github/NetworkStateManager
+  m_LastProjectPath: C:\Users\Xaroth\Documents\GitHub\NetworkStateManager
   m_LockTracker:
     m_IsLocked: 0
   m_FolderTreeState:
     scrollPos: {x: 0, y: 79}
-    m_SelectedIDs: 26950000
-    m_LastClickedID: 38182
-    m_ExpandedIDs: 000000009c910000
+    m_SelectedIDs: a4910000
+    m_LastClickedID: 37284
+    m_ExpandedIDs: 0000000008910000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -4519,7 +4691,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 0}
     m_SelectedIDs: 
     m_LastClickedID: 0
-    m_ExpandedIDs: 000000009c910000
+    m_ExpandedIDs: 0000000008910000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -4547,7 +4719,7 @@ MonoBehaviour:
   m_ListAreaState:
     m_SelectedInstanceIDs: 
     m_LastClickedInstanceID: 0
-    m_HadKeyboardFocusLastEvent: 0
+    m_HadKeyboardFocusLastEvent: 1
     m_ExpandedInstanceIDs: c6230000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
@@ -4599,9 +4771,9 @@ MonoBehaviour:
   m_Pos:
     serializedVersion: 2
     x: 0
-    y: 805
-    width: 1276.5
-    height: 271
+    y: 654.2222
+    width: 1260.3334
+    height: 211.77777
   m_SerializedDataModeController:
     m_DataMode: 0
     m_PreferredDataMode: 0
