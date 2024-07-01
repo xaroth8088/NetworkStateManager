@@ -496,6 +496,11 @@ namespace NSM
                 return;
             }
         }
+
+        internal Dictionary<byte, IPlayerInput> GetInputsForTick(int tick)
+        {
+            return _inputsBuffer.GetInputsForTick(tick);
+        }
     }
 
     internal enum FrameRunMode

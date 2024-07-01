@@ -261,6 +261,16 @@ namespace NSM
             return gameStateManager.PredictedInputForPlayer(playerId, GameTick);
         }
 
+        /// <summary>
+        /// Get the player inputs from a given tick.  Useful if you need to detect input sequences, full button presses, etc.
+        /// </summary>
+        /// <param name="tick">Which tick you need data for</param>
+        /// <returns>A Dictionary mapping player id to IPlayerInput</returns>
+        public Dictionary<byte, IPlayerInput> GetInputsForTick(int tick)
+        {
+            return gameStateManager.GetInputsForTick(tick);
+        }
+
         #endregion Public Interface
 
         #region Initialization code
