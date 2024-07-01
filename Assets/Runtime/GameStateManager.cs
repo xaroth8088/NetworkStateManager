@@ -273,12 +273,14 @@ namespace NSM
                     PhysicsManager.SimulatePhysics(Time.fixedDeltaTime);
                     _networkStateManager.PostPhysicsFrameUpdate();
 
+                    _networkStateManager.VerboseLog($"RNG after running frame: {Random.GetRandomNext()}");
                     // Capture the state from the scene and game logic, then return that frame
                     return CaptureStateFrame(tick);
                 case FrameRunMode.ApplyExistingFrame:
                     StateFrameDTO frameToApply = _stateBuffer[tick];
                     PhysicsManager.ApplyPhysicsState(frameToApply.PhysicsState, NetworkIdManager);
                     _networkStateManager.ApplyState(frameToApply.GameState);
+                    _networkStateManager.VerboseLog($"RNG after restoring frame: {Random.GetRandomNext()}");
                     return frameToApply;
             }
 
