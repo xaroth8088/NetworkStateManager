@@ -87,19 +87,15 @@ namespace NSM
                 // TODO: figure out a strategy for inputs that have far-future inputs
                 // TODO: figure out a strategy for detecting cheating that's happening (vs. normal slowdowns)
                 Debug.LogWarning($"Client inputs are coming from server's future.  Server time: {RealGameTick} Client time: {clientTimeTick}");
-            }
-
-            _inputsBuffer.SetPlayerInputsAtTick(playerInputs, clientTimeTick);
-            
-            if (clientTimeTick > RealGameTick) {
-                // Don't replay or adjust our time, because we'll just use the inputs whenever we get to that frame
+                _inputsBuffer.SetPlayerInputsAtTick(playerInputs, clientTimeTick);
                 return;
             }
-
+            
             int now = RealGameTick;
+
             TimeTravelToEndOf(clientTimeTick - 1, GameEventsBuffer);
 
-            _stateBuffer[clientTimeTick] = RunSingleGameFrame(clientTimeTick, FrameRunMode.RunAndCaptureFrame);
+            _inputsBuffer.SetPlayerInputsAtTick(playerInputs, clientTimeTick);
 
             TimeTravelToEndOf(now, GameEventsBuffer);
         }
