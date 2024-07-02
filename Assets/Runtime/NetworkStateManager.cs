@@ -374,7 +374,7 @@ namespace NSM
                 return;
             }
 
-            VerboseLog("Player inputs received at " + clientTimeTick);
+            VerboseLog($"Player inputs received at {clientTimeTick}");
 
             // Set the input in our buffer and replay to include the input
             gameStateManager.PlayerInputsReceived(playerInputs, clientTimeTick);

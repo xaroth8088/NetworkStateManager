@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace NSM
@@ -89,6 +90,18 @@ namespace NSM
             }
 
             _inputsBuffer.SetPlayerInputsAtTick(playerInputs, clientTimeTick);
+            
+            if (clientTimeTick > RealGameTick) {
+                // Don't replay or adjust our time, because we'll just use the inputs whenever we get to that frame
+                return;
+            }
+
+            int now = RealGameTick;
+            TimeTravelToEndOf(clientTimeTick - 1, GameEventsBuffer);
+
+            _stateBuffer[clientTimeTick] = RunSingleGameFrame(clientTimeTick, FrameRunMode.RunAndCaptureFrame);
+
+            TimeTravelToEndOf(now, GameEventsBuffer);
         }
 
         /// <summary>
@@ -378,6 +391,7 @@ namespace NSM
             _networkStateManager.GetGameState(ref newGameState);
             newFrame.GameState = newGameState ?? throw new InvalidOperationException("GetGameState failed to return a valid IGameState object");
             newFrame.PhysicsState.TakeSnapshot(PhysicsManager.GetNetworkedRigidbodies(NetworkIdManager));
+            newFrame.authoritative = NetworkManager.Singleton.IsHost;
 
             return newFrame;
         }
