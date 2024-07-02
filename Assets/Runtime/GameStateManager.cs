@@ -245,15 +245,19 @@ namespace NSM
             int tickToRestore = GameTick - 1;
             int tickToRollBack = GameTick;
 
+            // Put the previous frame's state in place
+            GameTick = tickToRestore;
             StateFrameDTO frameToApply = _stateBuffer[tickToRestore];
             PhysicsManager.ApplyPhysicsState(frameToApply.PhysicsState, NetworkIdManager);
             _networkStateManager.ApplyState(frameToApply.GameState);
 
+            // Roll back the relevant events
+            GameTick = tickToRollBack;
             // Reset the RNG as a courtesy to games that need to know what the state of the RNG *would've* been when the frame ran its events
             Random.ResetRandom(tickToRollBack);
             _networkStateManager.RollbackEvents(GameEventsBuffer[tickToRollBack], _stateBuffer[tickToRollBack].GameState);
 
-            // Set the clock
+            // Set the clock to the end of the previous frame
             GameTick = tickToRestore;
         }
 
@@ -391,7 +395,6 @@ namespace NSM
             _networkStateManager.GetGameState(ref newGameState);
             newFrame.GameState = newGameState ?? throw new InvalidOperationException("GetGameState failed to return a valid IGameState object");
             newFrame.PhysicsState.TakeSnapshot(PhysicsManager.GetNetworkedRigidbodies(NetworkIdManager));
-            newFrame.authoritative = NetworkManager.Singleton.IsHost;
 
             return newFrame;
         }
