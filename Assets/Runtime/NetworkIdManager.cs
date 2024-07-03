@@ -10,9 +10,9 @@ namespace NSM
     {
         private GameObject[] networkIdGameObjectCache = new GameObject[256];
         private bool[] reservedNetworkIds = new bool[256];
-        private readonly NetworkStateManager _networkStateManager;
+        private readonly IInternalNetworkStateManager _networkStateManager;
 
-        public NetworkIdManager(NetworkStateManager networkStateManager)
+        internal NetworkIdManager(IInternalNetworkStateManager networkStateManager)
         {
             _networkStateManager = networkStateManager;
             Reset();
