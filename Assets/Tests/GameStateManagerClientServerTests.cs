@@ -55,11 +55,44 @@ namespace NSM.Tests
             _clientGameStateManager.SetInitialGameState(_serverGameStateManager.GetStateFrame(0), randomBase, lag);
 
             _serverGameStateManager.RunFixedUpdate();
-            _serverGameStateManager.RunFixedUpdate();
-            _serverGameStateManager.RunFixedUpdate();
+            _clientGameStateManager.ReplayDueToInputs(
+                new PlayerInputsDTO()
+                {
+                    PlayerInputs = _serverInputsBuffer.GetInputsForTick(_serverGameStateManager.RealGameTick)
+                },
+                _serverGameStateManager.RealGameTick,
+                _serverGameStateManager.RealGameTick,
+                lag
+            );
 
-            Assert.AreEqual(3, _clientGameStateManager.RealGameTick);
+            _serverGameStateManager.RunFixedUpdate();
+            _clientGameStateManager.ReplayDueToInputs(
+                new PlayerInputsDTO()
+                {
+                    PlayerInputs = _serverInputsBuffer.GetInputsForTick(_serverGameStateManager.RealGameTick)
+                },
+                _serverGameStateManager.RealGameTick,
+                _serverGameStateManager.RealGameTick,
+                lag
+            );
+
+            _serverGameStateManager.RunFixedUpdate();
+            _clientGameStateManager.ReplayDueToInputs(
+                new PlayerInputsDTO()
+                {
+                    PlayerInputs = _serverInputsBuffer.GetInputsForTick(_serverGameStateManager.RealGameTick)
+                },
+                _serverGameStateManager.RealGameTick,
+                _serverGameStateManager.RealGameTick,
+                lag
+            );
+
+            Assert.AreEqual(6, _clientGameStateManager.RealGameTick);   // 6, because of lag compensation
             Assert.AreEqual(3, _serverGameStateManager.RealGameTick);
+            Assert.AreEqual(7, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue);
+            Assert.AreEqual(8, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue);
+            Assert.AreEqual(14, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue);
+            Assert.AreEqual(15, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue);
             Assert.AreEqual(
                 ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue,
                 ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(0).GameState).testValue
@@ -127,9 +160,8 @@ namespace NSM.Tests
             // Mocks
             // Player 0 is on the server, player 1 is on the client
             // Player 0 presses the button on even-numbered ticks, player 1 on the odds
-            Dictionary<byte, IPlayerInput> dummyServerInputDTO = new();
             _serverNetworkStateManager
-                .When(x => x.GetInputs(ref dummyServerInputDTO))
+                .When(x => x.GetInputs(ref Arg.Any<Dictionary<byte, IPlayerInput>>()))
                 .Do(x =>
                 {
                     Dictionary<byte, IPlayerInput> mockServerInput = new()
@@ -142,9 +174,8 @@ namespace NSM.Tests
                     x[0] = mockServerInput;
                 });
 
-            Dictionary<byte, IPlayerInput> dummyClientInputDTO = new();
             _clientNetworkStateManager
-                .When(x => x.GetInputs(ref dummyClientInputDTO))
+                .When(x => x.GetInputs(ref Arg.Any<Dictionary<byte, IPlayerInput>>()))
                 .Do(x =>
                 {
                     Dictionary<byte, IPlayerInput> mockClientInput = new()
