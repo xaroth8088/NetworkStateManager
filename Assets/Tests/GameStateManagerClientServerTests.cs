@@ -295,6 +295,57 @@ namespace NSM.Tests
             );
         }
 
+        [Test]
+        public void AllInputsDelayedOutOfOrderTest()
+        {
+            int lag = 0;
+            int randomBase = 123;
+
+            _serverGameStateManager.SetRandomBase(randomBase);
+            _serverGameStateManager.CaptureInitialFrame();
+            _clientGameStateManager.SetInitialGameState(_serverGameStateManager.GetStateFrame(0), randomBase, lag);
+
+            // Client first, since it'll get caught up to the server's frame at the end of recieving inputs from it
+            RunClientFrame(false);
+            RunServerFrame(false, lag);
+            RunClientFrame(false);
+            RunServerFrame(false, lag);
+            RunClientFrame(false);
+            RunServerFrame(false, lag);
+
+            SendClientInputsToServer(3);
+            SendServerInputsToClient(2, lag);
+            SendServerInputsToClient(0, lag);
+            SendClientInputsToServer(1);
+            SendServerInputsToClient(1, lag);
+            SendClientInputsToServer(0);
+            SendServerInputsToClient(3, lag);   // The last input sent to the client will determine which frame the client's on during assertions
+            SendClientInputsToServer(2);
+
+            Assert.AreEqual(3, _clientGameStateManager.RealGameTick);
+            Assert.AreEqual(3, _serverGameStateManager.RealGameTick);
+            Assert.AreEqual(7, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue);
+            Assert.AreEqual(6, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue);
+            Assert.AreEqual(12, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue);
+            Assert.AreEqual(11, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue);
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(0).GameState).testValue
+            );
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(1).GameState).testValue
+            );
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(2).GameState).testValue
+            );
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(3).GameState).testValue
+            );
+        }
+
         [SetUp]
         public void SetUp()
         {
