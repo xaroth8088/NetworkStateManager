@@ -10,7 +10,6 @@ namespace NSM.Tests
     public class GameStateManagerClientServerTests
     {
         private TestGameStateDTO _clientCurrentGameState;
-        private GameEventsBuffer _clientGameEventsBuffer;
         private GameStateManager _clientGameStateManager;
         private InputsBuffer _clientInputsBuffer;
         private NetworkIdManager _clientNetworkIdManager;
@@ -18,13 +17,13 @@ namespace NSM.Tests
         private Scene _clientScene;
         private StateBuffer _clientStateBuffer;
         private TestGameStateDTO _serverCurrentGameState;
-        private GameEventsBuffer _serverGameEventsBuffer;
         private GameStateManager _serverGameStateManager;
         private InputsBuffer _serverInputsBuffer;
         private NetworkIdManager _serverNetworkIdManager;
         private IInternalNetworkStateManager _serverNetworkStateManager;
         private Scene _serverScene;
         private StateBuffer _serverStateBuffer;
+        private readonly byte EVENT_INCREMENT = 11;
 
         [Test]
         public void BasicSetupTest()
@@ -158,6 +157,16 @@ namespace NSM.Tests
                 },
                 tick
             );
+        }
+
+        /// <summary>
+        /// Simulates the NSM functionality that happens when an event is scheduled on the server.
+        /// This only does the "send to client" bit, so we can have fine-grained control on when
+        /// it arrives at the client.
+        /// </summary>
+        /// <param name="lag"></param>
+        private void SendEventsBufferToClient(int lag) {
+            _clientGameStateManager.ReplayDueToEvents(_serverGameStateManager.RealGameTick, (GameEventsBuffer)_serverGameStateManager.GameEventsBuffer, lag);
         }
 
         [Test]
@@ -346,6 +355,51 @@ namespace NSM.Tests
             );
         }
 
+        [Test]
+        public void GameEventTest()
+        {
+            int lag = 0;
+            int randomBase = 123;
+
+            _serverGameStateManager.SetRandomBase(randomBase);
+            _serverGameStateManager.CaptureInitialFrame();
+            _clientGameStateManager.SetInitialGameState(_serverGameStateManager.GetStateFrame(0), randomBase, lag);
+
+            // Client first, since it'll get caught up to the server's frame at the end of recieving inputs from it
+            RunClientFrame(true);
+            RunServerFrame(true, lag);
+            RunClientFrame(true);
+            RunServerFrame(true, lag);
+            _serverGameStateManager.ScheduleGameEvent(new TestGameEventDTO(), -1);
+            SendEventsBufferToClient(lag);
+            RunClientFrame(true);
+            RunServerFrame(true, lag);
+
+            Assert.AreEqual(3, _clientGameStateManager.RealGameTick);
+            Assert.AreEqual(3, _serverGameStateManager.RealGameTick);
+            Assert.AreEqual(7, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue);
+            Assert.AreEqual(6, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue);
+            Assert.AreEqual(12, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue);
+            Assert.AreEqual(22, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue);
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(0).GameState).testValue
+            );
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(1).GameState).testValue
+            );
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(2).GameState).testValue
+            );
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(3).GameState).testValue
+            );
+        }
+
+
         [SetUp]
         public void SetUp()
         {
@@ -355,14 +409,13 @@ namespace NSM.Tests
 
             // Required objects for GSM
             _clientNetworkStateManager = Substitute.For<IInternalNetworkStateManager>();
-            _clientGameEventsBuffer = new();
             _clientInputsBuffer = new();
             _clientStateBuffer = new();
             _clientNetworkIdManager = new(_clientNetworkStateManager);
             _clientScene = new Scene();
             _clientGameStateManager = new(
                 _clientNetworkStateManager,
-                _clientGameEventsBuffer,
+                new GameEventsBuffer(),
                 _clientInputsBuffer,
                 _clientStateBuffer,
                 _clientNetworkIdManager,
@@ -374,14 +427,13 @@ namespace NSM.Tests
             };
 
             _serverNetworkStateManager = Substitute.For<IInternalNetworkStateManager>();
-            _serverGameEventsBuffer = new();
             _serverInputsBuffer = new();
             _serverStateBuffer = new();
             _serverNetworkIdManager = new(_serverNetworkStateManager);
             _serverScene = new Scene();
             _serverGameStateManager = new(
                 _serverNetworkStateManager,
-                _serverGameEventsBuffer,
+                new GameEventsBuffer(),
                 _serverInputsBuffer,
                 _serverStateBuffer,
                 _serverNetworkIdManager,
@@ -487,11 +539,31 @@ namespace NSM.Tests
                 _clientCurrentGameState.testValue++;
             });
 
+            _serverNetworkStateManager.When(x => x.ApplyEvents(Arg.Any<HashSet<IGameEvent>>())).Do(x => {
+                foreach(IGameEvent e in (HashSet<IGameEvent>)x[0]) {
+                    _serverCurrentGameState.testValue += EVENT_INCREMENT;
+                }
+            });
+            _clientNetworkStateManager.When(x => x.ApplyEvents(Arg.Any<HashSet<IGameEvent>>())).Do(x => {
+                foreach(IGameEvent e in (HashSet<IGameEvent>)x[0]) {
+                    _clientCurrentGameState.testValue += EVENT_INCREMENT;
+                }
+            });
+
+            _serverNetworkStateManager.When(x => x.RollbackEvents(Arg.Any<HashSet<IGameEvent>>(), Arg.Any<IGameState>())).Do(x => {
+                foreach(IGameEvent e in (HashSet<IGameEvent>)x[0]) {
+                    _serverCurrentGameState.testValue -= EVENT_INCREMENT;
+                }
+            });
+            _clientNetworkStateManager.When(x => x.RollbackEvents(Arg.Any<HashSet<IGameEvent>>(), Arg.Any<IGameState>())).Do(x => {
+                foreach(IGameEvent e in (HashSet<IGameEvent>)x[0]) {
+                    _clientCurrentGameState.testValue -= EVENT_INCREMENT;
+                }
+            });
+
             // TODO: mock each of these as appropriate
             // TODO: then, copy/paste for _client*
             /*
-                _serverNetworkStateManager.RollbackEvents();
-                _serverNetworkStateManager.ApplyEvents();
                 _serverNetworkStateManager.PostPhysicsFrameUpdate();
             */
 

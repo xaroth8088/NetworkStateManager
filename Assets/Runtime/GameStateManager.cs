@@ -241,17 +241,19 @@ namespace NSM
             int tickToRestore = GameTick - 1;
             int tickToRollBack = GameTick;
 
+            // Roll back the relevant events
+            GameTick = tickToRollBack;
+            // Reset the RNG as a courtesy to games that need to know what the state of the RNG *would've* been when the frame ran its events
+            // TODO: consider having the random get reset at each phase sub-step (with some offset to the seed to account for this happening),
+            //       so that we can have it set super granularly
+            Random.ResetRandom(tickToRollBack);
+            _networkStateManager.RollbackEvents(GameEventsBuffer[tickToRollBack], _stateBuffer[tickToRollBack].GameState);
+
             // Put the previous frame's state in place
             GameTick = tickToRestore;
             StateFrameDTO frameToApply = _stateBuffer[tickToRestore];
             PhysicsManager.ApplyPhysicsState(frameToApply.PhysicsState, NetworkIdManager);
             _networkStateManager.ApplyState(frameToApply.GameState);
-
-            // Roll back the relevant events
-            GameTick = tickToRollBack;
-            // Reset the RNG as a courtesy to games that need to know what the state of the RNG *would've* been when the frame ran its events
-            Random.ResetRandom(tickToRollBack);
-            _networkStateManager.RollbackEvents(GameEventsBuffer[tickToRollBack], _stateBuffer[tickToRollBack].GameState);
 
             // Set the clock to the end of the previous frame
             GameTick = tickToRestore;

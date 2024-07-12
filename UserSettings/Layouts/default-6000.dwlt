@@ -15,11 +15,11 @@ MonoBehaviour:
   m_PixelRect:
     serializedVersion: 2
     x: 0
-    y: 42.22222
-    width: 1706.6666
-    height: 869.7778
+    y: 66
+    width: 1728
+    height: 1051
   m_ShowMode: 4
-  m_Title: Project
+  m_Title: Test Runner
   m_RootView: {fileID: 2}
   m_MinSize: {x: 875, y: 300}
   m_MaxSize: {x: 10000, y: 10000}
@@ -44,8 +44,8 @@ MonoBehaviour:
     serializedVersion: 2
     x: 0
     y: 0
-    width: 1706.6666
-    height: 869.7778
+    width: 1728
+    height: 1051
   m_MinSize: {x: 875, y: 300}
   m_MaxSize: {x: 10000, y: 10000}
   m_UseTopView: 1
@@ -69,7 +69,7 @@ MonoBehaviour:
     serializedVersion: 2
     x: 0
     y: 0
-    width: 1706.6666
+    width: 1728
     height: 36
   m_MinSize: {x: 0, y: 0}
   m_MaxSize: {x: 0, y: 0}
@@ -90,8 +90,8 @@ MonoBehaviour:
   m_Position:
     serializedVersion: 2
     x: 0
-    y: 849.7778
-    width: 1706.6666
+    y: 1031
+    width: 1728
     height: 20
   m_MinSize: {x: 0, y: 0}
   m_MaxSize: {x: 0, y: 0}
@@ -114,12 +114,12 @@ MonoBehaviour:
     serializedVersion: 2
     x: 0
     y: 36
-    width: 1706.6666
-    height: 813.7778
+    width: 1728
+    height: 995
   m_MinSize: {x: 300, y: 100}
   m_MaxSize: {x: 24288, y: 16192}
   vertical: 0
-  controlID: 166
+  controlID: 36
   draggingID: 0
 --- !u!114 &6
 MonoBehaviour:
@@ -140,12 +140,12 @@ MonoBehaviour:
     serializedVersion: 2
     x: 0
     y: 0
-    width: 1261.3334
-    height: 813.7778
+    width: 1275.5
+    height: 995
   m_MinSize: {x: 200, y: 100}
   m_MaxSize: {x: 16192, y: 16192}
   vertical: 1
-  controlID: 167
+  controlID: 37
   draggingID: 0
 --- !u!114 &7
 MonoBehaviour:
@@ -166,8 +166,8 @@ MonoBehaviour:
     serializedVersion: 2
     x: 0
     y: 0
-    width: 1261.3334
-    height: 472.8889
+    width: 1275.5
+    height: 578
   m_MinSize: {x: 200, y: 50}
   m_MaxSize: {x: 16192, y: 8096}
   vertical: 0
@@ -190,8 +190,8 @@ MonoBehaviour:
     serializedVersion: 2
     x: 0
     y: 0
-    width: 385.77777
-    height: 472.8889
+    width: 389.5
+    height: 578
   m_MinSize: {x: 201, y: 226}
   m_MaxSize: {x: 4001, y: 4026}
   m_ActualView: {fileID: 14}
@@ -214,10 +214,10 @@ MonoBehaviour:
   m_Children: []
   m_Position:
     serializedVersion: 2
-    x: 385.77777
+    x: 389.5
     y: 0
-    width: 875.5556
-    height: 472.8889
+    width: 886
+    height: 578
   m_MinSize: {x: 52, y: 76}
   m_MaxSize: {x: 4002, y: 4026}
   m_ActualView: {fileID: 12}
@@ -242,9 +242,9 @@ MonoBehaviour:
   m_Position:
     serializedVersion: 2
     x: 0
-    y: 472.8889
-    width: 1261.3334
-    height: 340.8889
+    y: 578
+    width: 1275.5
+    height: 417
   m_MinSize: {x: 231, y: 276}
   m_MaxSize: {x: 10001, y: 10026}
   m_ActualView: {fileID: 16}
@@ -269,10 +269,10 @@ MonoBehaviour:
   m_Children: []
   m_Position:
     serializedVersion: 2
-    x: 1261.3334
+    x: 1275.5
     y: 0
-    width: 445.33325
-    height: 813.7778
+    width: 452.5
+    height: 995
   m_MinSize: {x: 276, y: 76}
   m_MaxSize: {x: 4001, y: 4026}
   m_ActualView: {fileID: 19}
@@ -303,10 +303,10 @@ MonoBehaviour:
     m_TextWithWhitespace: "Test Runner\u200B"
   m_Pos:
     serializedVersion: 2
-    x: 386.77777
+    x: 390.5
     y: 24
-    width: 873.5556
-    height: 446.8889
+    width: 884
+    height: 552
   m_SerializedDataModeController:
     m_DataMode: 0
     m_PreferredDataMode: 0
@@ -319,12 +319,12 @@ MonoBehaviour:
     m_ContainerData: []
     m_OverlaysVisible: 1
   m_Spl:
-    ID: 112
+    ID: 130
     splitterInitialOffset: 420
     currentActiveSplitter: -1
     realSizes:
-    - 225.77777
-    - 151.11111
+    - 288.5
+    - 193.5
     relativeSizes:
     - 0.59870553
     - 0.40129447
@@ -334,7 +334,7 @@ MonoBehaviour:
     maxSizes:
     - 0
     - 0
-    lastTotalSize: 376.8889
+    lastTotalSize: 482
     splitSize: 6
     xOffset: 0
     m_Version: 1
@@ -398,7 +398,7 @@ MonoBehaviour:
     m_SelectedOption: 0
   - m_Window: {fileID: 12}
     m_NewResultList:
-    - id: 1000
+    - id: 1145
       uniqueId: '[NetworkStateManager Test Harness][suite]'
       name: NetworkStateManager Test Harness
       fullName: NetworkStateManager Test Harness
@@ -414,10 +414,10 @@ MonoBehaviour:
       categories: []
       parentId: 
       parentUniqueId: 
-    - id: 1129
+    - id: 1137
       uniqueId: '[NetworkStateManager.Tests.dll][suite]'
       name: NetworkStateManager.Tests.dll
-      fullName: C:/Users/Xaroth/Documents/GitHub/NetworkStateManager/Library/ScriptAssemblies/NetworkStateManager.Tests.dll
+      fullName: /Users/xaroth/Documents/github/NetworkStateManager/Library/ScriptAssemblies/NetworkStateManager.Tests.dll
       resultStatus: 2
       duration: 0
       messages: 
@@ -428,9 +428,9 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1000
+      parentId: 1145
       parentUniqueId: '[NetworkStateManager Test Harness][suite]'
-    - id: 1130
+    - id: 1138
       uniqueId: 'NetworkStateManager.Tests.dll/[NSM][suite]'
       name: NSM
       fullName: NSM
@@ -444,9 +444,9 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1129
+      parentId: 1137
       parentUniqueId: '[NetworkStateManager.Tests.dll][suite]'
-    - id: 1131
+    - id: 1139
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
       name: Tests
       fullName: NSM.Tests
@@ -460,7 +460,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1130
+      parentId: 1138
       parentUniqueId: 'NetworkStateManager.Tests.dll/[NSM][suite]'
     - id: 1001
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.CompressionTests][suite]'
@@ -476,7 +476,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1004
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/CompressionTests/[NetworkStateManager.Tests][NSM.Tests.CompressionTests.CompressAndDecompress_ValidInput_ReturnsOriginalInput]'
@@ -560,7 +560,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1007
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameEventsBufferTests/[NetworkStateManager.Tests][NSM.Tests.GameEventsBufferTests.Indexer_Get_ReturnsEmptyHashSetWhenNoEvents]'
@@ -648,6 +648,150 @@ MonoBehaviour:
       parentId: 1006
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameEventsBufferTests][suite]'
     - id: 1012
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests][suite]'
+      name: GameStateManagerClientServerTests
+      fullName: NSM.Tests.GameStateManagerClientServerTests
+      resultStatus: 1
+      duration: 0
+      messages: 
+      output: 
+      stacktrace: 
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 1
+      categories: []
+      parentId: 1139
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
+    - id: 1019
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerClientServerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests.AllInputsDelayedOutOfOrderTest]'
+      name: AllInputsDelayedOutOfOrderTest
+      fullName: NSM.Tests.GameStateManagerClientServerTests.AllInputsDelayedOutOfOrderTest
+      resultStatus: 1
+      duration: 0.0865867
+      messages: 
+      output: 
+      stacktrace: 
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests][suite]'
+    - id: 1013
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerClientServerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests.BasicSetupTest]'
+      name: BasicSetupTest
+      fullName: NSM.Tests.GameStateManagerClientServerTests.BasicSetupTest
+      resultStatus: 1
+      duration: 0.0830683
+      messages: 
+      output: 
+      stacktrace: 
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests][suite]'
+    - id: 1016
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerClientServerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests.ClientAndServerRunningInSyncTest]'
+      name: ClientAndServerRunningInSyncTest
+      fullName: NSM.Tests.GameStateManagerClientServerTests.ClientAndServerRunningInSyncTest
+      resultStatus: 1
+      duration: 0.0044261
+      messages: 
+      output: 'Client inputs are coming from server''s future.  Server time: 0 Client
+        time: 1
+
+        Client inputs are coming from server''s future.  Server
+        time: 1 Client time: 2
+
+        Client inputs are coming from server''s future. 
+        Server time: 2 Client time: 3
+
+'
+      stacktrace: 
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests][suite]'
+    - id: 1017
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerClientServerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests.DelayedClientInputTest]'
+      name: DelayedClientInputTest
+      fullName: NSM.Tests.GameStateManagerClientServerTests.DelayedClientInputTest
+      resultStatus: 1
+      duration: 0.0014059
+      messages: 
+      output: 
+      stacktrace: 
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests][suite]'
+    - id: 1018
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerClientServerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests.DelayedOutOfOrderClientInputTest]'
+      name: DelayedOutOfOrderClientInputTest
+      fullName: NSM.Tests.GameStateManagerClientServerTests.DelayedOutOfOrderClientInputTest
+      resultStatus: 1
+      duration: 0.0014167
+      messages: 
+      output: 
+      stacktrace: 
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests][suite]'
+    - id: 1015
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerClientServerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests.DelayedServerToClientInputTest]'
+      name: DelayedServerToClientInputTest
+      fullName: NSM.Tests.GameStateManagerClientServerTests.DelayedServerToClientInputTest
+      resultStatus: 1
+      duration: 0.0012763
+      messages: 
+      output: 
+      stacktrace: 
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests][suite]'
+    - id: 1014
+      uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerClientServerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests.FirstFewFramesTest]'
+      name: FirstFewFramesTest
+      fullName: NSM.Tests.GameStateManagerClientServerTests.FirstFewFramesTest
+      resultStatus: 1
+      duration: 0.0011628
+      messages: 
+      output: 
+      stacktrace: 
+      notRunnable: 0
+      ignoredOrSkipped: 0
+      description: 
+      isSuite: 0
+      categories:
+      - Uncategorized
+      parentId: 1012
+      parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerClientServerTests][suite]'
+    - id: 1020
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests][suite]'
       name: GameStateManagerTests
       fullName: NSM.Tests.GameStateManagerTests
@@ -661,7 +805,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1016
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/GameStateManagerTests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests.AdvanceTime_IncrementsTicksCorrectly]'
@@ -1017,7 +1161,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1012
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.GameStateManagerTests][suite]'
-    - id: 1029
+    - id: 1037
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.InputsBufferTests][suite]'
       name: InputsBufferTests
       fullName: NSM.Tests.InputsBufferTests
@@ -1031,7 +1175,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1022
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/InputsBufferTests/[NetworkStateManager.Tests][NSM.Tests.InputsBufferTests.GetInputsForTick_ReturnsExpectedInputs]'
@@ -1135,7 +1279,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1021
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.InputsBufferTests][suite]'
-    - id: 1036
+    - id: 1044
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.IntegrationTests][suite]'
       name: IntegrationTests
       fullName: NSM.Tests.IntegrationTests
@@ -1149,7 +1293,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1029
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/IntegrationTests/[NetworkStateManager.Tests][NSM.Tests.IntegrationTests.SingleFrameExecutes]'
@@ -1810,7 +1954,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1028
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.IntegrationTests][suite]'
-    - id: 1039
+    - id: 1047
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.NetworkIdManagerTests][suite]'
       name: NetworkIdManagerTests
       fullName: NSM.Tests.NetworkIdManagerTests
@@ -1824,7 +1968,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1033
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/NetworkIdManagerTests/[NetworkStateManager.Tests][NSM.Tests.NetworkIdManagerTests.GetAllNetworkIdGameObjects_ShouldReturnAllRegisteredGameObjects]'
@@ -1980,7 +2124,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1028
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.NetworkIdManagerTests][suite]'
-    - id: 1047
+    - id: 1055
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.NetworkIdTests][suite]'
       name: NetworkIdTests
       fullName: NSM.Tests.NetworkIdTests
@@ -1994,7 +2138,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1038
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/NetworkIdTests/[NetworkStateManager.Tests][NSM.Tests.NetworkIdTests.CanSetNetworkId]'
@@ -2030,7 +2174,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1036
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.NetworkIdTests][suite]'
-    - id: 1050
+    - id: 1058
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.NetworkStateManagerTests][suite]'
       name: NetworkStateManagerTests
       fullName: NSM.Tests.NetworkStateManagerTests
@@ -2044,7 +2188,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1045
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/NetworkStateManagerTests/[NetworkStateManager.Tests][NSM.Tests.NetworkStateManagerTests.ApplyEvents_DoesNotRaiseOnApplyEventsWithEmptySet]'
@@ -2381,7 +2525,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1039
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.NetworkStateManagerTests][suite]'
-    - id: 1066
+    - id: 1074
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PhysicsManagerTests][suite]'
       name: PhysicsManagerTests
       fullName: NSM.Tests.PhysicsManagerTests
@@ -2395,7 +2539,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1005
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/PhysicsManagerTests/[NetworkStateManager.Tests][NSM.Tests.PhysicsManagerTests.ApplyPhysicsState_AppliesStateToExistingGameObject]'
@@ -2507,7 +2651,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1001
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PhysicsManagerTests][suite]'
-    - id: 1073
+    - id: 1081
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PhysicsStateDTOTests][suite]'
       name: PhysicsStateDTOTests
       fullName: NSM.Tests.PhysicsStateDTOTests
@@ -2521,7 +2665,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1065
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/PhysicsStateDTOTests/[NetworkStateManager.Tests][NSM.Tests.PhysicsStateDTOTests.TakeSnapshot_ShouldHandleEmptyList]'
@@ -2574,7 +2718,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1062
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PhysicsStateDTOTests][suite]'
-    - id: 1077
+    - id: 1085
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PlayerInputDTOTests][suite]'
       name: PlayerInputDTOTests
       fullName: NSM.Tests.PlayerInputDTOTests
@@ -2588,7 +2732,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1069
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/PlayerInputDTOTests/[NetworkStateManager.Tests][NSM.Tests.PlayerInputDTOTests.PlayerInputDTO_CreatesInstanceWithCorrectType]'
@@ -2641,7 +2785,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1066
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PlayerInputDTOTests][suite]'
-    - id: 1081
+    - id: 1089
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PlayerInputsDTOTests][suite]'
       name: PlayerInputsDTOTests
       fullName: NSM.Tests.PlayerInputsDTOTests
@@ -2655,7 +2799,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1071
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/PlayerInputsDTOTests/[NetworkStateManager.Tests][NSM.Tests.PlayerInputsDTOTests.PlayerInputs_Get_WhenNotInitialized_ShouldReturnEmptyDictionary]'
@@ -2708,7 +2852,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1070
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.PlayerInputsDTOTests][suite]'
-    - id: 1085
+    - id: 1093
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.RandomManagerTests][suite]'
       name: RandomManagerTests
       fullName: NSM.Tests.RandomManagerTests
@@ -2722,7 +2866,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1079
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/RandomManagerTests/[NetworkStateManager.Tests][NSM.Tests.RandomManagerTests.GetRandomNext_ShouldReturnRandomNumber]'
@@ -2877,7 +3021,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1074
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.RandomManagerTests][suite]'
-    - id: 1095
+    - id: 1103
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.RigidBodyStateDTOTests][suite]'
       name: RigidBodyStateDTOTests
       fullName: NSM.Tests.RigidBodyStateDTOTests
@@ -2891,7 +3035,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1089
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/RigidBodyStateDTOTests/[NetworkStateManager.Tests][NSM.Tests.RigidBodyStateDTOTests.ApplyState_SetsRigidbodyPropertiesForNonSleepingBody]'
@@ -2998,7 +3142,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1084
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.RigidBodyStateDTOTests][suite]'
-    - id: 1102
+    - id: 1110
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.StateBufferTests][suite]'
       name: StateBufferTests
       fullName: NSM.Tests.StateBufferTests
@@ -3012,7 +3156,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1092
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/StateBufferTests/[NetworkStateManager.Tests][NSM.Tests.StateBufferTests.Indexer_Get_NegativeIndex_LogsWarningAndThrowsKeyNotFoundException]'
@@ -3072,7 +3216,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1091
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.StateBufferTests][suite]'
-    - id: 1106
+    - id: 1114
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.StateFrameDeltaDTOTests][suite]'
       name: StateFrameDeltaDTOTests
       fullName: NSM.Tests.StateFrameDeltaDTOTests
@@ -3086,7 +3230,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1099
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/StateFrameDeltaDTOTests/[NetworkStateManager.Tests][NSM.Tests.StateFrameDeltaDTOTests.ApplyTo_InvalidCrc_ThrowsException]'
@@ -3158,7 +3302,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1095
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.StateFrameDeltaDTOTests][suite]'
-    - id: 1111
+    - id: 1119
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.StateFrameDTOTests][suite]'
       name: StateFrameDTOTests
       fullName: NSM.Tests.StateFrameDTOTests
@@ -3172,7 +3316,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1103
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/StateFrameDTOTests/[NetworkStateManager.Tests][NSM.Tests.StateFrameDTOTests.Clone_ReturnsCorrectCopy]'
@@ -3278,7 +3422,7 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1100
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.StateFrameDTOTests][suite]'
-    - id: 1118
+    - id: 1126
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.TypeStoreTests][suite]'
       name: TypeStoreTests
       fullName: NSM.Tests.TypeStoreTests
@@ -3292,7 +3436,7 @@ MonoBehaviour:
       description: 
       isSuite: 1
       categories: []
-      parentId: 1131
+      parentId: 1139
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/[NetworkStateManager.Tests][NSM.Tests][suite]'
     - id: 1114
       uniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/TypeStoreTests/[NetworkStateManager.Tests][NSM.Tests.TypeStoreTests.CreateBlankGameState_ReturnsInstance]'
@@ -3464,20 +3608,13 @@ MonoBehaviour:
       - Uncategorized
       parentId: 1107
       parentUniqueId: 'NetworkStateManager.Tests.dll/NSM/Tests/[NetworkStateManager.Tests][NSM.Tests.TypeStoreTests][suite]'
-    m_ResultText: "CaptureInitialFrame_FailFrameCaptureWithoutTypeStoreInit (0.002s)\nFails
-      if TypeStore hasn't been initialized correctly\n---\n  Expected: <System.ArgumentNullException>\r\n 
-      But was:  null\r\n\n---\nat NSM.Tests.GameStateManagerTests.CaptureInitialFrame_FailFrameCaptureWithoutTypeStoreInit
-      () [0x00049] in <color=#40a0ff><a href=\"C:\\Users\\Xaroth\\Documents\\GitHub\\NetworkStateManager\\Assets\\Tests\\GameStateManagerTests.cs\"
-      line=\"86\">Assets\\Tests\\GameStateManagerTests.cs:86</a></color>"
-    m_ResultStacktrace: 'at NSM.Tests.GameStateManagerTests.CaptureInitialFrame_FailFrameCaptureWithoutTypeStoreInit
-      () [0x00049] in C:\Users\Xaroth\Documents\GitHub\NetworkStateManager\Assets\Tests\GameStateManagerTests.cs:86
-
-'
+    m_ResultText: GameStateManagerClientServerTests (7 tests) (0.000s)
+    m_ResultStacktrace: 
     m_TestListState:
       scrollPos: {x: 0, y: 0}
-      m_SelectedIDs: 44277be9
-      m_LastClickedID: -377804988
-      m_ExpandedIDs: d9a9f3b381648bc05a22842a40b638536024b36effffff7f
+      m_SelectedIDs: ecaac0d1
+      m_LastClickedID: -775902484
+      m_ExpandedIDs: d9a9f3b381648bc0ecaac0d15a22842a6024b36effffff7f
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -3745,10 +3882,10 @@ MonoBehaviour:
     m_TextWithWhitespace: "Game\u200B"
   m_Pos:
     serializedVersion: 2
-    x: 1261.3334
-    y: 78.22222
-    width: 444.33325
-    height: 787.7778
+    x: 1275.5
+    y: 102
+    width: 451.5
+    height: 969
   m_SerializedDataModeController:
     m_DataMode: 0
     m_PreferredDataMode: 0
@@ -3766,7 +3903,7 @@ MonoBehaviour:
   m_ShowGizmos: 0
   m_TargetDisplay: 0
   m_ClearColor: {r: 0, g: 0, b: 0, a: 0}
-  m_TargetSize: {x: 444.33325, y: 278}
+  m_TargetSize: {x: 451.5, y: 282}
   m_TextureFilterMode: 0
   m_TextureHideFlags: 61
   m_RenderIMGUI: 1
@@ -3781,10 +3918,10 @@ MonoBehaviour:
     m_VRangeLocked: 0
     hZoomLockedByDefault: 0
     vZoomLockedByDefault: 0
-    m_HBaseRangeMin: -98.74072
-    m_HBaseRangeMax: 98.74072
-    m_VBaseRangeMin: -61.77778
-    m_VBaseRangeMax: 61.77778
+    m_HBaseRangeMin: -112.875
+    m_HBaseRangeMax: 112.875
+    m_VBaseRangeMin: -70.5
+    m_VBaseRangeMax: 70.5
     m_HAllowExceedBaseRangeMin: 1
     m_HAllowExceedBaseRangeMax: 1
     m_VAllowExceedBaseRangeMin: 1
@@ -3802,23 +3939,23 @@ MonoBehaviour:
       serializedVersion: 2
       x: 0
       y: 21
-      width: 444.33325
-      height: 766.7778
+      width: 451.5
+      height: 948
     m_Scale: {x: 2.25, y: 2.25}
-    m_Translation: {x: 222.16663, y: 383.3889}
+    m_Translation: {x: 225.75, y: 474}
     m_MarginLeft: 0
     m_MarginRight: 0
     m_MarginTop: 0
     m_MarginBottom: 0
     m_LastShownAreaInsideMargins:
       serializedVersion: 2
-      x: -98.74072
-      y: -170.39507
-      width: 197.48145
-      height: 340.79013
+      x: -100.333336
+      y: -210.66667
+      width: 200.66667
+      height: 421.33334
     m_MinimalGUI: 1
   m_defaultScale: 2
-  m_LastWindowPixelSize: {x: 999.7498, y: 1772.5}
+  m_LastWindowPixelSize: {x: 903, y: 1938}
   m_ClearInEditMode: 1
   m_NoCameraWarning: 1
   m_LowResolutionForAspectRatios: 01000000000000000000
@@ -3847,8 +3984,8 @@ MonoBehaviour:
     serializedVersion: 2
     x: 0
     y: 24
-    width: 384.77777
-    height: 446.8889
+    width: 388.5
+    height: 552
   m_SerializedDataModeController:
     m_DataMode: 0
     m_PreferredDataMode: 0
@@ -3865,7 +4002,7 @@ MonoBehaviour:
       scrollPos: {x: 0, y: 0}
       m_SelectedIDs: 
       m_LastClickedID: 0
-      m_ExpandedIDs: d2faffff
+      m_ExpandedIDs: daedffffb8eeffff60efffff3ef0ffffe6f0ffffc4f1ffff6cf2ffff4af3fffff2f3ffffd0f4ffff1cf5fffffaf5ffffa2f6ffff80f7ffffd4f8ffffc6f9ffffe0faffff
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -4618,9 +4755,9 @@ MonoBehaviour:
   m_Pos:
     serializedVersion: 2
     x: 0
-    y: 496.8889
-    width: 1260.3334
-    height: 314.8889
+    y: 602
+    width: 1274.5
+    height: 391
   m_SerializedDataModeController:
     m_DataMode: 0
     m_PreferredDataMode: 0
@@ -4643,7 +4780,7 @@ MonoBehaviour:
     m_SkipHidden: 0
     m_SearchArea: 1
     m_Folders:
-    - Assets/Runtime
+    - Assets
     m_Globs: []
     m_ProductIds: 
     m_AnyWithAssetOrigin: 0
@@ -4653,16 +4790,16 @@ MonoBehaviour:
   m_ViewMode: 1
   m_StartGridSize: 96
   m_LastFolders:
-  - Assets/Runtime
+  - Assets
   m_LastFoldersGridSize: 96
-  m_LastProjectPath: C:\Users\Xaroth\Documents\GitHub\NetworkStateManager
+  m_LastProjectPath: /Users/xaroth/Documents/github/NetworkStateManager
   m_LockTracker:
     m_IsLocked: 0
   m_FolderTreeState:
     scrollPos: {x: 0, y: 79}
-    m_SelectedIDs: a4910000
-    m_LastClickedID: 37284
-    m_ExpandedIDs: 0000000010910000
+    m_SelectedIDs: 00910000
+    m_LastClickedID: 37120
+    m_ExpandedIDs: 0000000092950000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -4691,7 +4828,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 0}
     m_SelectedIDs: 
     m_LastClickedID: 0
-    m_ExpandedIDs: 0000000010910000
+    m_ExpandedIDs: 0000000092950000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -4719,7 +4856,7 @@ MonoBehaviour:
   m_ListAreaState:
     m_SelectedInstanceIDs: 
     m_LastClickedInstanceID: 0
-    m_HadKeyboardFocusLastEvent: 1
+    m_HadKeyboardFocusLastEvent: 0
     m_ExpandedInstanceIDs: c6230000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
@@ -4870,10 +5007,10 @@ MonoBehaviour:
     m_TextWithWhitespace: "Inspector\u200B"
   m_Pos:
     serializedVersion: 2
-    x: 1262.3334
+    x: 1276.5
     y: 24
-    width: 444.33325
-    height: 787.7778
+    width: 451.5
+    height: 969
   m_SerializedDataModeController:
     m_DataMode: 0
     m_PreferredDataMode: 0
