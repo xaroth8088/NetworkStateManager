@@ -84,7 +84,7 @@ This object should hold information about an event happening in the game.  This 
 To make the magic happen, this framework requires that you implement a number of event callbacks for vital parts of the process.  Each callback requires you to do a small part of your overall game logic.
 
 **IMPORTANT**
-This framework assumes your game logic happens exclusively in `FixedUpdate`.  If this is not the case (collecting user input in `Update` is the obvious unfortunate example), then it's up to you to coalesce any game state changes into things that can be represented in discrete game frames that happen at `FixedUpdate` time steps.
+This framework assumes your game logic happens exclusively in `FixedUpdate`.  If this is not the case, then it's up to you to coalesce any game state changes into things that can be represented in discrete game frames that happen at `FixedUpdate` time steps.  For simplicity, it is recommended that you set Input System's `Update Mode` to `Process Events In Fixed Update`.
 
 #### Normal gameplay
 

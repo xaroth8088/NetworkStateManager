@@ -169,7 +169,7 @@ namespace NSM
         /// <param name="estimatedLag">Estimated network lag in ticks.</param>
         internal void ReplayDueToInputs(PlayerInputsDTO playerInputs, int clientTimeTick, int serverTick, int estimatedLag)
         {
-            _networkStateManager.VerboseLog("Replaying due to player inputs at client time " + clientTimeTick);
+            _networkStateManager.VerboseLog($"Replaying due to player inputs at client time {clientTimeTick}");
 
             // Rewind, set & predict, get caught up again
             TimeTravelToEndOf(clientTimeTick - 1, GameEventsBuffer);
