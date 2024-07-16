@@ -1,42 +1,28 @@
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace NSM
 {
-    internal class InputsBuffer : IInputsBuffer
+    internal struct InputWrapper
     {
-        private struct InputWrapper
-        {
-            public bool localInput;
-            public bool serverAuthoritative;
-            public IPlayerInput input;
-        }
+        public bool localInput;
+        public bool serverAuthoritative;
+        public IPlayerInput input;
+    }
 
-        private readonly Dictionary<int, Dictionary<byte, InputWrapper>> _playerInputs = new();  // Do not use outside of the [] accessor!
+    internal class InputsBuffer : SortedDefaultDict<int, SortedDefaultDict<byte, InputWrapper>>, IInputsBuffer
+    {
+        public InputsBuffer() : base(() => new SortedDefaultDict<byte, InputWrapper>(() => new())) { }
 
-        private Dictionary<byte, InputWrapper> this[int tick]
-        {
-            get
-            {
-                if (!_playerInputs.ContainsKey(tick))
-                {
-                    _playerInputs[tick] = new();
-                }
-
-                return _playerInputs[tick];
-            }
-        }
-
+        /// <summary>
+        /// Unwraps the inputs at the given tick, for simpler use
+        /// </summary>
+        /// <param name="tick">Which tick did you want inputs for?</param>
+        /// <returns>A dictionary of playerId:IPlayerInput</returns>
         public Dictionary<byte, IPlayerInput> GetInputsForTick(int tick)
         {
-            Dictionary<byte, InputWrapper> inputWrappers = this[tick];
-
-            Dictionary<byte, IPlayerInput> playerInputs = new();
-            foreach ((byte playerId, InputWrapper inputWrapper) in inputWrappers)
-            {
-                playerInputs[playerId] = inputWrapper.input;
-            }
-
-            return playerInputs;
+            return this[tick].ToDictionary(kvp => kvp.Key, kvp => kvp.Value.input);
         }
 
         public IPlayerInput PredictInput(byte playerId, int tick)
@@ -44,20 +30,12 @@ namespace NSM
             // TODO: alternate prediction algorithms
 
             // For now, find the last authoritative tick and just return that.
-            // TODO: maintain an ordered list of (tick, authoritative input) for each player, so that we don't have to iterate
-            //       through every input in the buffer to find the last authoritative input.
-
-            int pastTick = tick - 1;
-            while (pastTick > 0)
+            foreach (KeyValuePair<int, SortedDefaultDict<byte, InputWrapper>> kvp in this.Reverse())
             {
-                Dictionary<byte, InputWrapper> inputWrappers = this[pastTick];
-
-                if (inputWrappers.TryGetValue(playerId, out InputWrapper inputWrapper) && inputWrapper.serverAuthoritative == true)
+                if (kvp.Key < tick && kvp.Value[playerId].serverAuthoritative)
                 {
-                    return inputWrapper.input;
+                    return kvp.Value[playerId].input;
                 }
-
-                pastTick--;
             }
 
             return TypeStore.Instance.CreateBlankPlayerInput();
@@ -78,8 +56,8 @@ namespace NSM
 
         public Dictionary<byte, IPlayerInput> GetMinimalInputsDiff(int tick)
         {
-            Dictionary<byte, InputWrapper> inputWrappersThisFrame = this[tick];
-            Dictionary<byte, InputWrapper> inputWrappersPreviousFrame = this[tick - 1];
+            Dictionary<byte, InputWrapper> inputWrappersThisFrame = new(this[tick]);
+            Dictionary<byte, InputWrapper> inputWrappersPreviousFrame = new(this[tick - 1]);
 
             // This function collects any local inputs that changed from the previous frame
             // (because anything other than that will be predicted by host/clients when they look at the previous frame
