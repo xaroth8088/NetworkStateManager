@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -11,9 +10,9 @@ namespace NSM
         public IPlayerInput input;
     }
 
-    internal class InputsBuffer : SortedDefaultDict<int, SortedDefaultDict<byte, InputWrapper>>, IInputsBuffer
+    internal class InputsBuffer : SortedDefaultDict<int, Dictionary<byte, InputWrapper>>, IInputsBuffer
     {
-        public InputsBuffer() : base(() => new SortedDefaultDict<byte, InputWrapper>(() => new())) { }
+        public InputsBuffer() : base(() => new()) { }
 
         /// <summary>
         /// Unwraps the inputs at the given tick, for simpler use
@@ -30,7 +29,7 @@ namespace NSM
             // TODO: alternate prediction algorithms
 
             // For now, find the last authoritative tick and just return that.
-            foreach (KeyValuePair<int, SortedDefaultDict<byte, InputWrapper>> kvp in this.Reverse())
+            foreach (KeyValuePair<int, Dictionary<byte, InputWrapper>> kvp in this.Reverse())
             {
                 if (kvp.Key < tick && kvp.Value[playerId].serverAuthoritative)
                 {
@@ -56,8 +55,8 @@ namespace NSM
 
         public Dictionary<byte, IPlayerInput> GetMinimalInputsDiff(int tick)
         {
-            Dictionary<byte, InputWrapper> inputWrappersThisFrame = new(this[tick]);
-            Dictionary<byte, InputWrapper> inputWrappersPreviousFrame = new(this[tick - 1]);
+            Dictionary<byte, InputWrapper> inputWrappersThisFrame = this[tick];
+            Dictionary<byte, InputWrapper> inputWrappersPreviousFrame = this[tick - 1];
 
             // This function collects any local inputs that changed from the previous frame
             // (because anything other than that will be predicted by host/clients when they look at the previous frame
