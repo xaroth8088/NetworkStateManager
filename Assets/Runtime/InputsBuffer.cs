@@ -31,7 +31,7 @@ namespace NSM
             // For now, find the last authoritative tick and just return that.
             foreach (KeyValuePair<int, Dictionary<byte, InputWrapper>> kvp in this.Reverse())
             {
-                if (kvp.Key < tick && kvp.Value[playerId].serverAuthoritative)
+                if (kvp.Key < tick && kvp.Value.TryGetValue(playerId, out InputWrapper inputWrapper) && inputWrapper.serverAuthoritative)
                 {
                     return kvp.Value[playerId].input;
                 }
