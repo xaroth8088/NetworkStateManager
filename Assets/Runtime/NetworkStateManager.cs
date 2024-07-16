@@ -24,10 +24,13 @@ namespace NSM
 
         #region Runtime state
 
-        [Header("Runtime state: Time")]
-        [SerializeField]
-        private int realGameTick { get => gameStateManager?.RealGameTick ?? -1; }   // This is the internal game tick, which keeps track of "now"
+        [SerializeProperty]
+        private int RealGameTick { get => gameStateManager?.RealGameTick ?? -1; }    // This is the internal game tick, which keeps track of "now"
+
+        [SerializeProperty]
         public int GameTick { get => gameStateManager?.GameTick ?? -1; }    // Users of the library will get the tick associated with whatever frame is currently being processed, which might include frames that are being replayed
+
+        [SerializeProperty]
         public bool isReplaying { get => gameStateManager?.IsReplaying ?? false; }
 
         [SerializeField]
@@ -339,27 +342,27 @@ namespace NSM
                     PlayerInputs = inputsToSend
                 };
 
-                ForwardPlayerInputsClientRpc(playerInputsDTO, realGameTick, realGameTick, RpcTarget.NotServer);
+                ForwardPlayerInputsClientRpc(playerInputsDTO, RealGameTick, RealGameTick, RpcTarget.NotServer);
             }
 
             // (Maybe) send the new state to the clients for reconciliation
-            if (realGameTick % sendFullStateEveryNFrames == 0)
+            if (RealGameTick % sendFullStateEveryNFrames == 0)
             {
                 VerboseLog("Sending full state to clients");
 
                 // To avoid problems later with applying diffs, go back to the last time we would've sent out a
                 // frame delta normally.
-                int requestedGameTick = realGameTick - (realGameTick % sendStateDeltaEveryNFrames);
+                int requestedGameTick = RealGameTick - (RealGameTick % sendStateDeltaEveryNFrames);
 
-                ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), (GameEventsBuffer)gameStateManager.GameEventsBuffer, realGameTick, RpcTarget.NotServer);
+                ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), (GameEventsBuffer)gameStateManager.GameEventsBuffer, RealGameTick, RpcTarget.NotServer);
             }
-            else if (realGameTick % sendStateDeltaEveryNFrames == 0)
+            else if (RealGameTick % sendStateDeltaEveryNFrames == 0)
             {
-                VerboseLog("Sending delta - base frame comes from tick " + (realGameTick - sendStateDeltaEveryNFrames));
+                VerboseLog("Sending delta - base frame comes from tick " + (RealGameTick - sendStateDeltaEveryNFrames));
 
-                StateFrameDeltaDTO delta = new(gameStateManager.GetStateFrame(realGameTick - sendStateDeltaEveryNFrames), gameStateManager.GetStateFrame(realGameTick));
+                StateFrameDeltaDTO delta = new(gameStateManager.GetStateFrame(RealGameTick - sendStateDeltaEveryNFrames), gameStateManager.GetStateFrame(RealGameTick));
 
-                ProcessStateDeltaUpdateClientRpc(delta, (GameEventsBuffer)gameStateManager.GameEventsBuffer, realGameTick);
+                ProcessStateDeltaUpdateClientRpc(delta, (GameEventsBuffer)gameStateManager.GameEventsBuffer, RealGameTick);
             }
         }
 
@@ -384,7 +387,7 @@ namespace NSM
             clientIds[0] = NetworkManager.LocalClientId;    // Don't send to the host
             clientIds[1] = rpcParams.Receive.SenderClientId;  // Don't send back to the client that sent this to us
 
-            ForwardPlayerInputsClientRpc(playerInputs, clientTimeTick, realGameTick, RpcTarget.Not(clientIds, RpcTargetUse.Temp));
+            ForwardPlayerInputsClientRpc(playerInputs, clientTimeTick, RealGameTick, RpcTarget.Not(clientIds, RpcTargetUse.Temp));
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
@@ -395,11 +398,11 @@ namespace NSM
 
             // To avoid problems later with applying diffs, go back to the last time we would've sent out a
             // frame delta normally.
-            int requestedGameTick = realGameTick - (realGameTick % sendStateDeltaEveryNFrames);
+            int requestedGameTick = RealGameTick - (RealGameTick % sendStateDeltaEveryNFrames);
             VerboseLog($"Full frame requested for {requestedGameTick}");
 
             // Send this back to only the client that requested it
-            ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), (GameEventsBuffer)gameStateManager.GameEventsBuffer, realGameTick, RpcTarget.Single(rpcParams.Receive.SenderClientId, RpcTargetUse.Temp));
+            ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), (GameEventsBuffer)gameStateManager.GameEventsBuffer, RealGameTick, RpcTarget.Single(rpcParams.Receive.SenderClientId, RpcTargetUse.Temp));
         }
 
         #endregion Server-side only code
@@ -408,7 +411,7 @@ namespace NSM
 
         private void ClientFixedUpdate()
         {
-            if (realGameTick > gameStateManager.LastAuthoritativeTick + maxFramesWithoutHearingFromServer)
+            if (RealGameTick > gameStateManager.LastAuthoritativeTick + maxFramesWithoutHearingFromServer)
             {
                 Debug.LogWarning($"Haven't heard from the server since {gameStateManager.LastAuthoritativeTick}");
             }
@@ -425,7 +428,7 @@ namespace NSM
                     PlayerInputs = inputsToSend
                 };
 
-                SetPlayerInputsServerRpc(playerInputsDTO, realGameTick);
+                SetPlayerInputsServerRpc(playerInputsDTO, RealGameTick);
             }
         }
 
@@ -664,13 +667,13 @@ namespace NSM
             string log = "";
 
 
-            if (realGameTick != GameTick)
+            if (RealGameTick != GameTick)
             {
                 log += "** ";
             }
 
-            log += realGameTick + "";
-            if (realGameTick != GameTick)
+            log += RealGameTick + "";
+            if (RealGameTick != GameTick)
             {
                 log += " (" + GameTick + ")";
             }
