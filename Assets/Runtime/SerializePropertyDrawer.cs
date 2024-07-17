@@ -1,26 +1,9 @@
-using UnityEditor;
-using UnityEngine;
 using System;
 using System.Reflection;
 using Unity.Netcode;
-
-[AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
-public class SerializePropertyAttribute : PropertyAttribute
-{
-    public SerializePropertyAttribute() { }
-}
-
-[CustomEditor(typeof(MonoBehaviour), true)]
-[CanEditMultipleObjects]
-public class MonoBehaviourSerializePropertyEditor : BaseSerializePropertyEditor
-{
-}
-
-[CustomEditor(typeof(NetworkBehaviour), true)]
-[CanEditMultipleObjects]
-public class NetworkBehaviourSerializePropertyEditor : BaseSerializePropertyEditor
-{
-}
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
 
 public class BaseSerializePropertyEditor : Editor
 {
@@ -48,6 +31,38 @@ public class BaseSerializePropertyEditor : Editor
             }
         }
 
-        EditorUtility.SetDirty(target);
+        bool isPlaying = EditorApplication.isPlaying;
+        bool prefabAssetTypeIsNotAPrefab = PrefabUtility.GetPrefabAssetType(targetObject.gameObject) == PrefabAssetType.NotAPrefab;
+        bool inLiveScene = targetObject.gameObject.scene.isLoaded;
+        bool prefabStageIsNull = (PrefabStageUtility.GetPrefabStage(targetObject.gameObject) == null);
+
+        if (
+            isPlaying &&
+            prefabAssetTypeIsNotAPrefab &&
+            prefabStageIsNull &&
+            inLiveScene
+        )
+        {
+            EditorUtility.SetDirty(target);
+        }
     }
+}
+
+[CustomEditor(typeof(MonoBehaviour), true)]
+[CanEditMultipleObjects]
+public class MonoBehaviourSerializePropertyEditor : BaseSerializePropertyEditor
+{
+}
+
+[CustomEditor(typeof(NetworkBehaviour), true)]
+[CanEditMultipleObjects]
+public class NetworkBehaviourSerializePropertyEditor : BaseSerializePropertyEditor
+{
+}
+
+[AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
+public class SerializePropertyAttribute : PropertyAttribute
+{
+    public SerializePropertyAttribute()
+    { }
 }
