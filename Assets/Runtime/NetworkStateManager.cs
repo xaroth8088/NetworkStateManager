@@ -354,11 +354,17 @@ namespace NSM
                 // frame delta normally.
                 int requestedGameTick = RealGameTick - (RealGameTick % sendStateDeltaEveryNFrames);
 
-                ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), (GameEventsBuffer)gameStateManager.GameEventsBuffer, RealGameTick, RpcTarget.NotServer);
+                ProcessFullStateUpdateClientRpc(
+                    gameStateManager.GetStateFrame(requestedGameTick),
+                    (GameEventsBuffer)gameStateManager.GameEventsBuffer,
+                    requestedGameTick,
+                    RealGameTick,
+                    RpcTarget.NotServer
+                );
             }
             else if (RealGameTick % sendStateDeltaEveryNFrames == 0)
             {
-                VerboseLog("Sending delta - base frame comes from tick " + (RealGameTick - sendStateDeltaEveryNFrames));
+                VerboseLog($"Sending delta - base frame comes from tick {RealGameTick - sendStateDeltaEveryNFrames}");
 
                 StateFrameDeltaDTO delta = new(gameStateManager.GetStateFrame(RealGameTick - sendStateDeltaEveryNFrames), gameStateManager.GetStateFrame(RealGameTick));
 
@@ -402,7 +408,13 @@ namespace NSM
             VerboseLog($"Full frame requested for {requestedGameTick}");
 
             // Send this back to only the client that requested it
-            ProcessFullStateUpdateClientRpc(gameStateManager.GetStateFrame(requestedGameTick), (GameEventsBuffer)gameStateManager.GameEventsBuffer, RealGameTick, RpcTarget.Single(rpcParams.Receive.SenderClientId, RpcTargetUse.Temp));
+            ProcessFullStateUpdateClientRpc(
+                gameStateManager.GetStateFrame(requestedGameTick),
+                (GameEventsBuffer)gameStateManager.GameEventsBuffer,
+                requestedGameTick,
+                RealGameTick,
+                RpcTarget.Single(rpcParams.Receive.SenderClientId, RpcTargetUse.Temp)
+            );
         }
 
         #endregion Server-side only code
@@ -522,9 +534,9 @@ namespace NSM
         /// </summary>
         /// <param name="serverGameState"></param>
         /// <param name="serverGameEventsBuffer"></param>
-        /// <param name="serverTick">This is needed because the server will only ever send full frames that are aligned to the delta tick frequency</param>
+        /// <param name="serverNow">This is needed because the server will only ever send full frames that are aligned to the delta tick frequency</param>
         [Rpc(SendTo.SpecifiedInParams)]
-        private void ProcessFullStateUpdateClientRpc(StateFrameDTO serverGameState, GameEventsBuffer serverGameEventsBuffer, int serverTick, RpcParams _)
+        private void ProcessFullStateUpdateClientRpc(StateFrameDTO serverGameState, GameEventsBuffer serverGameEventsBuffer, int frameTick, int serverNow, RpcParams _)
         {
             if (!IsReadyForRpcs())
             {
@@ -534,7 +546,7 @@ namespace NSM
             VerboseLog("Received full state update from server");
 
             // Get us back in sync
-            gameStateManager.SyncToServerState(serverGameState, serverGameEventsBuffer, serverTick, GetEstimatedLag());
+            gameStateManager.SyncToServerState(serverGameState, serverGameEventsBuffer, frameTick, serverNow, GetEstimatedLag());
         }
 
         private int GetEstimatedLag()

@@ -130,7 +130,7 @@ namespace NSM
             StateFrameDTO serverGameState = serverGameStateDelta.ApplyTo(_stateBuffer[serverTick - sendStateDeltaEveryNFrames]);
             serverGameState.authoritative = true;
 
-            SyncToServerState(serverGameState, newGameEventsBuffer, serverTick, estimatedLag);
+            SyncToServerState(serverGameState, newGameEventsBuffer, serverTick, serverTick, estimatedLag);
         }
 
         /// <summary>
@@ -334,7 +334,7 @@ namespace NSM
             StateFrameDTO stateFrame = (StateFrameDTO)initialStateFrame.Clone();
             _stateBuffer[0] = stateFrame;
             Random = new(randomSeedBase);
-            SyncToServerState(_stateBuffer[0], GameEventsBuffer, 0, estimatedLag);
+            SyncToServerState(_stateBuffer[0], GameEventsBuffer, 0, 0, estimatedLag);
         }
 
         /// <summary>
@@ -350,29 +350,29 @@ namespace NSM
         /// <param name="newGameEventsBuffer">The authoritative set of game events</param>
         /// <param name="serverTick">What time is it on the server at time of sending?</param>
         /// <param name="estimatedLag">How long do we think it took to get from the server to us?</param>
-        internal void SyncToServerState(StateFrameDTO serverState, IGameEventsBuffer newGameEventsBuffer, int serverTick, int estimatedLag)
+        internal void SyncToServerState(StateFrameDTO serverState, IGameEventsBuffer newGameEventsBuffer, int frameTick, int serverNow, int estimatedLag)
         {
-            // NOTE: when we get here, we'll be at the _end_ of frame realGameTick, and when we leave we'll be at the end of (serverTick + lag)
+            // NOTE: when we get here, we'll be at the _end_ of frame RealGameTick, and when we leave we'll be at the end of (serverNow + lag)
 
-            if (serverTick < LastAuthoritativeTick)
+            if (frameTick < LastAuthoritativeTick)
             {
-                _networkStateManager.VerboseLog($"Asked to synchronize to before the last authoritative frame, so drop it.  Server tick: {serverTick} Last authoritative tick: {LastAuthoritativeTick}");
+                _networkStateManager.VerboseLog($"Asked to synchronize to before the last authoritative frame, so drop it.  Server tick: {frameTick} Last authoritative tick: {LastAuthoritativeTick} Server now: {serverNow}");
                 return;
             }
 
-            _networkStateManager.VerboseLog($"Resync with server.  Server sent state from the end of tick {serverState.gameTick} at server tick {serverTick}");
+            _networkStateManager.VerboseLog($"Resync with server.  Server sent state from the end of tick {frameTick} at server tick {serverNow}");
 
-            TimeTravelToEndOf(serverState.gameTick - 1, newGameEventsBuffer);
+            TimeTravelToEndOf(frameTick - 1, newGameEventsBuffer);
 
             serverState.authoritative = true;
-            _stateBuffer[serverTick] = serverState;
-            RunSingleGameFrame(serverState.gameTick, FrameRunMode.ApplyExistingFrame);
-            RealGameTick = serverTick;
+            _stateBuffer[frameTick] = serverState;
+            RunSingleGameFrame(frameTick, FrameRunMode.ApplyExistingFrame);
+            RealGameTick = frameTick;
 
-            TimeTravelToEndOf(serverTick + estimatedLag, newGameEventsBuffer);
+            TimeTravelToEndOf(serverNow + estimatedLag, newGameEventsBuffer);
 
             // Set our last authoritative tick
-            LastAuthoritativeTick = serverState.gameTick;
+            LastAuthoritativeTick = frameTick;
         }
 
         /// <summary>

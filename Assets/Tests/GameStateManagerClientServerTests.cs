@@ -1,3 +1,4 @@
+using Codice.Client.Common;
 using NSubstitute;
 using NUnit.Framework;
 using System.Collections.Generic;
@@ -9,6 +10,7 @@ namespace NSM.Tests
     [TestFixture]
     public class GameStateManagerClientServerTests
     {
+        private readonly byte EVENT_INCREMENT = 11;
         private TestGameStateDTO _clientCurrentGameState;
         private GameStateManager _clientGameStateManager;
         private InputsBuffer _clientInputsBuffer;
@@ -23,7 +25,57 @@ namespace NSM.Tests
         private IInternalNetworkStateManager _serverNetworkStateManager;
         private Scene _serverScene;
         private StateBuffer _serverStateBuffer;
-        private readonly byte EVENT_INCREMENT = 11;
+
+        [Test]
+        public void AllInputsDelayedOutOfOrderTest()
+        {
+            int lag = 0;
+            int randomBase = 123;
+
+            _serverGameStateManager.SetRandomBase(randomBase);
+            _serverGameStateManager.CaptureInitialFrame();
+            _clientGameStateManager.SetInitialGameState(_serverGameStateManager.GetStateFrame(0), randomBase, lag);
+
+            // Client first, since it'll get caught up to the server's frame at the end of recieving inputs from it
+            RunClientFrame(false);
+            RunServerFrame(false, lag);
+            RunClientFrame(false);
+            RunServerFrame(false, lag);
+            RunClientFrame(false);
+            RunServerFrame(false, lag);
+
+            SendClientInputsToServer(3);
+            SendServerInputsToClient(2, lag);
+            SendServerInputsToClient(0, lag);
+            SendClientInputsToServer(1);
+            SendServerInputsToClient(1, lag);
+            SendClientInputsToServer(0);
+            SendServerInputsToClient(3, lag);   // The last input sent to the client will determine which frame the client's on during assertions
+            SendClientInputsToServer(2);
+
+            Assert.AreEqual(3, _clientGameStateManager.RealGameTick);
+            Assert.AreEqual(3, _serverGameStateManager.RealGameTick);
+            Assert.AreEqual(7, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue);
+            Assert.AreEqual(6, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue);
+            Assert.AreEqual(12, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue);
+            Assert.AreEqual(11, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue);
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(0).GameState).testValue
+            );
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(1).GameState).testValue
+            );
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(2).GameState).testValue
+            );
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(3).GameState).testValue
+            );
+        }
 
         [Test]
         public void BasicSetupTest()
@@ -41,132 +93,6 @@ namespace NSM.Tests
                 ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue,
                 ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(0).GameState).testValue
             );
-        }
-
-        [Test]
-        public void FirstFewFramesTest()
-        {
-            int lag = 3;
-            int randomBase = 123;
-
-            _serverGameStateManager.SetRandomBase(randomBase);
-            _serverGameStateManager.CaptureInitialFrame();
-            _clientGameStateManager.SetInitialGameState(_serverGameStateManager.GetStateFrame(0), randomBase, lag);
-
-            RunServerFrame(true, lag);
-            RunServerFrame(true, lag);
-            RunServerFrame(true, lag);
-
-            Assert.AreEqual(6, _clientGameStateManager.RealGameTick);   // 6, because of lag compensation
-            Assert.AreEqual(3, _serverGameStateManager.RealGameTick);
-            Assert.AreEqual(7, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue);
-            Assert.AreEqual(8, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue);
-            Assert.AreEqual(14, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue);
-            Assert.AreEqual(15, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue);
-            Assert.AreEqual(
-                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue,
-                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(0).GameState).testValue
-            );
-            Assert.AreEqual(
-                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue,
-                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(1).GameState).testValue
-            );
-            Assert.AreEqual(
-                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue,
-                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(2).GameState).testValue
-            );
-            Assert.AreEqual(
-                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue,
-                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(3).GameState).testValue
-            );
-        }
-
-       [Test]
-        public void DelayedServerToClientInputTest()
-        {
-            int lag = 3;
-            int randomBase = 123;
-
-            _serverGameStateManager.SetRandomBase(randomBase);
-            _serverGameStateManager.CaptureInitialFrame();
-            _clientGameStateManager.SetInitialGameState(_serverGameStateManager.GetStateFrame(0), randomBase, lag);
-
-            RunServerFrame(false, lag);
-            RunServerFrame(false, lag);
-            RunServerFrame(false, lag);
-
-            for(int tick = 0; tick < 4; tick++) {
-                SendServerInputsToClient(tick, lag);
-            }
-
-            Assert.AreEqual(6, _clientGameStateManager.RealGameTick);   // 6, because of lag compensation
-            Assert.AreEqual(3, _serverGameStateManager.RealGameTick);
-            Assert.AreEqual(7, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue);
-            Assert.AreEqual(8, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue);
-            Assert.AreEqual(14, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue);
-            Assert.AreEqual(15, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue);
-            Assert.AreEqual(
-                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue,
-                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(0).GameState).testValue
-            );
-            Assert.AreEqual(
-                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue,
-                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(1).GameState).testValue
-            );
-            Assert.AreEqual(
-                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue,
-                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(2).GameState).testValue
-            );
-            Assert.AreEqual(
-                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue,
-                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(3).GameState).testValue
-            );
-        }
-
-        private void RunServerFrame(bool andSendInput, int lag) {
-            _serverGameStateManager.RunFixedUpdate();
-            if(andSendInput) {
-                SendServerInputsToClient(_serverGameStateManager.RealGameTick, lag);
-            }
-        }
-
-        private void RunClientFrame(bool andSendInput) {
-            _clientGameStateManager.RunFixedUpdate();
-            if (andSendInput) {
-                SendClientInputsToServer(_clientGameStateManager.RealGameTick);
-            }
-        }
-
-        private void SendServerInputsToClient(int tick, int lag) {
-            _clientGameStateManager.ReplayDueToInputs(
-                new PlayerInputsDTO()
-                {
-                    PlayerInputs = _serverInputsBuffer.GetInputsForTick(tick)
-                },
-                tick,
-                tick,
-                lag
-            );
-        }
-
-        private void SendClientInputsToServer(int tick) {
-            _serverGameStateManager.PlayerInputsReceived(
-                new PlayerInputsDTO()
-                {
-                    PlayerInputs = _clientInputsBuffer.GetInputsForTick(tick)
-                },
-                tick
-            );
-        }
-
-        /// <summary>
-        /// Simulates the NSM functionality that happens when an event is scheduled on the server.
-        /// This only does the "send to client" bit, so we can have fine-grained control on when
-        /// it arrives at the client.
-        /// </summary>
-        /// <param name="lag"></param>
-        private void SendEventsBufferToClient(int lag) {
-            _clientGameStateManager.ReplayDueToEvents(_serverGameStateManager.RealGameTick, (GameEventsBuffer)_serverGameStateManager.GameEventsBuffer, lag);
         }
 
         [Test]
@@ -229,7 +155,8 @@ namespace NSM.Tests
             RunClientFrame(false);
             RunServerFrame(true, lag);
 
-            for(int tick = 0; tick < 4; tick++) {
+            for (int tick = 0; tick < 4; tick++)
+            {
                 SendClientInputsToServer(tick);
             }
 
@@ -305,38 +232,30 @@ namespace NSM.Tests
         }
 
         [Test]
-        public void AllInputsDelayedOutOfOrderTest()
+        public void DelayedServerToClientInputTest()
         {
-            int lag = 0;
+            int lag = 3;
             int randomBase = 123;
 
             _serverGameStateManager.SetRandomBase(randomBase);
             _serverGameStateManager.CaptureInitialFrame();
             _clientGameStateManager.SetInitialGameState(_serverGameStateManager.GetStateFrame(0), randomBase, lag);
 
-            // Client first, since it'll get caught up to the server's frame at the end of recieving inputs from it
-            RunClientFrame(false);
             RunServerFrame(false, lag);
-            RunClientFrame(false);
             RunServerFrame(false, lag);
-            RunClientFrame(false);
             RunServerFrame(false, lag);
 
-            SendClientInputsToServer(3);
-            SendServerInputsToClient(2, lag);
-            SendServerInputsToClient(0, lag);
-            SendClientInputsToServer(1);
-            SendServerInputsToClient(1, lag);
-            SendClientInputsToServer(0);
-            SendServerInputsToClient(3, lag);   // The last input sent to the client will determine which frame the client's on during assertions
-            SendClientInputsToServer(2);
+            for (int tick = 0; tick < 4; tick++)
+            {
+                SendServerInputsToClient(tick, lag);
+            }
 
-            Assert.AreEqual(3, _clientGameStateManager.RealGameTick);
+            Assert.AreEqual(6, _clientGameStateManager.RealGameTick);   // 6, because of lag compensation
             Assert.AreEqual(3, _serverGameStateManager.RealGameTick);
             Assert.AreEqual(7, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue);
-            Assert.AreEqual(6, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue);
-            Assert.AreEqual(12, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue);
-            Assert.AreEqual(11, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue);
+            Assert.AreEqual(8, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue);
+            Assert.AreEqual(14, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue);
+            Assert.AreEqual(15, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue);
             Assert.AreEqual(
                 ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue,
                 ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(0).GameState).testValue
@@ -353,6 +272,84 @@ namespace NSM.Tests
                 ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue,
                 ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(3).GameState).testValue
             );
+        }
+
+        [Test]
+        public void FirstFewFramesTest()
+        {
+            int lag = 3;
+            int randomBase = 123;
+
+            _serverGameStateManager.SetRandomBase(randomBase);
+            _serverGameStateManager.CaptureInitialFrame();
+            _clientGameStateManager.SetInitialGameState(_serverGameStateManager.GetStateFrame(0), randomBase, lag);
+
+            RunServerFrame(true, lag);
+            RunServerFrame(true, lag);
+            RunServerFrame(true, lag);
+
+            Assert.AreEqual(6, _clientGameStateManager.RealGameTick);   // 6, because of lag compensation
+            Assert.AreEqual(3, _serverGameStateManager.RealGameTick);
+            Assert.AreEqual(7, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue);
+            Assert.AreEqual(8, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue);
+            Assert.AreEqual(14, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue);
+            Assert.AreEqual(15, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue);
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(0).GameState).testValue
+            );
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(1).GameState).testValue
+            );
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(2).GameState).testValue
+            );
+            Assert.AreEqual(
+                ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue,
+                ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(3).GameState).testValue
+            );
+        }
+
+        [Test]
+        public void FullStateSyncTest()
+        {
+            int lag = 0;
+            int randomBase = 123;
+
+            _serverGameStateManager.SetRandomBase(randomBase);
+            _serverGameStateManager.CaptureInitialFrame();
+            _clientGameStateManager.SetInitialGameState(_serverGameStateManager.GetStateFrame(0), randomBase, lag);
+
+            _serverGameStateManager.ScheduleGameEvent(new TestGameEventDTO(), 5);
+            _serverGameStateManager.ScheduleGameEvent(new TestGameEventDTO(), 15);
+            SendEventsBufferToClient(lag);
+
+            // Client first, since it'll get caught up to the server's frame at the end of recieving inputs from it
+            for (int i = 0; i < 30; i++)
+            {
+                RunClientFrame(true);
+                RunServerFrame(true, lag);
+            }
+
+            _clientGameStateManager.SyncToServerState(_serverGameStateManager.GetStateFrame(10), _serverGameStateManager.GameEventsBuffer, 10, _serverGameStateManager.RealGameTick, lag);
+
+            Assert.AreEqual(_serverGameStateManager.RealGameTick + lag, _clientGameStateManager.RealGameTick);
+            Assert.AreEqual(30, _serverGameStateManager.RealGameTick);
+
+            Assert.AreEqual(7, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(0).GameState).testValue);
+            Assert.AreEqual(6, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(1).GameState).testValue);
+            Assert.AreEqual(12, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(2).GameState).testValue);
+            Assert.AreEqual(11, ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(3).GameState).testValue);
+
+            for (int i = 0; i < 30; i++)
+            {
+                Assert.AreEqual(
+                    ((TestGameStateDTO)_serverGameStateManager.GetStateFrame(i).GameState).testValue,
+                    ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(i).GameState).testValue
+                );
+            }
         }
 
         [Test]
@@ -398,7 +395,6 @@ namespace NSM.Tests
                 ((TestGameStateDTO)_clientGameStateManager.GetStateFrame(3).GameState).testValue
             );
         }
-
 
         [SetUp]
         public void SetUp()
@@ -539,24 +535,32 @@ namespace NSM.Tests
                 _clientCurrentGameState.testValue++;
             });
 
-            _serverNetworkStateManager.When(x => x.ApplyEvents(Arg.Any<HashSet<IGameEvent>>())).Do(x => {
-                foreach(IGameEvent e in (HashSet<IGameEvent>)x[0]) {
+            _serverNetworkStateManager.When(x => x.ApplyEvents(Arg.Any<HashSet<IGameEvent>>())).Do(x =>
+            {
+                foreach (IGameEvent e in (HashSet<IGameEvent>)x[0])
+                {
                     _serverCurrentGameState.testValue += EVENT_INCREMENT;
                 }
             });
-            _clientNetworkStateManager.When(x => x.ApplyEvents(Arg.Any<HashSet<IGameEvent>>())).Do(x => {
-                foreach(IGameEvent e in (HashSet<IGameEvent>)x[0]) {
+            _clientNetworkStateManager.When(x => x.ApplyEvents(Arg.Any<HashSet<IGameEvent>>())).Do(x =>
+            {
+                foreach (IGameEvent e in (HashSet<IGameEvent>)x[0])
+                {
                     _clientCurrentGameState.testValue += EVENT_INCREMENT;
                 }
             });
 
-            _serverNetworkStateManager.When(x => x.RollbackEvents(Arg.Any<HashSet<IGameEvent>>(), Arg.Any<IGameState>())).Do(x => {
-                foreach(IGameEvent e in (HashSet<IGameEvent>)x[0]) {
+            _serverNetworkStateManager.When(x => x.RollbackEvents(Arg.Any<HashSet<IGameEvent>>(), Arg.Any<IGameState>())).Do(x =>
+            {
+                foreach (IGameEvent e in (HashSet<IGameEvent>)x[0])
+                {
                     _serverCurrentGameState.testValue -= EVENT_INCREMENT;
                 }
             });
-            _clientNetworkStateManager.When(x => x.RollbackEvents(Arg.Any<HashSet<IGameEvent>>(), Arg.Any<IGameState>())).Do(x => {
-                foreach(IGameEvent e in (HashSet<IGameEvent>)x[0]) {
+            _clientNetworkStateManager.When(x => x.RollbackEvents(Arg.Any<HashSet<IGameEvent>>(), Arg.Any<IGameState>())).Do(x =>
+            {
+                foreach (IGameEvent e in (HashSet<IGameEvent>)x[0])
+                {
                     _clientCurrentGameState.testValue -= EVENT_INCREMENT;
                 }
             });
@@ -572,6 +576,59 @@ namespace NSM.Tests
             TypeStore.Instance.GameStateType = typeof(TestGameStateDTO);
             TypeStore.Instance.GameEventType = typeof(TestGameEventDTO);
             TypeStore.Instance.PlayerInputType = typeof(TestPlayerInputDTO);
+        }
+
+        private void RunClientFrame(bool andSendInput)
+        {
+            _clientGameStateManager.RunFixedUpdate();
+            if (andSendInput)
+            {
+                SendClientInputsToServer(_clientGameStateManager.RealGameTick);
+            }
+        }
+
+        private void RunServerFrame(bool andSendInput, int lag)
+        {
+            _serverGameStateManager.RunFixedUpdate();
+            if (andSendInput)
+            {
+                SendServerInputsToClient(_serverGameStateManager.RealGameTick, lag);
+            }
+        }
+
+        private void SendClientInputsToServer(int tick)
+        {
+            _serverGameStateManager.PlayerInputsReceived(
+                new PlayerInputsDTO()
+                {
+                    PlayerInputs = _clientInputsBuffer.GetInputsForTick(tick)
+                },
+                tick
+            );
+        }
+
+        /// <summary>
+        /// Simulates the NSM functionality that happens when an event is scheduled on the server.
+        /// This only does the "send to client" bit, so we can have fine-grained control on when
+        /// it arrives at the client.
+        /// </summary>
+        /// <param name="lag"></param>
+        private void SendEventsBufferToClient(int lag)
+        {
+            _clientGameStateManager.ReplayDueToEvents(_serverGameStateManager.RealGameTick, (GameEventsBuffer)_serverGameStateManager.GameEventsBuffer, lag);
+        }
+
+        private void SendServerInputsToClient(int tick, int lag)
+        {
+            _clientGameStateManager.ReplayDueToInputs(
+                new PlayerInputsDTO()
+                {
+                    PlayerInputs = _serverInputsBuffer.GetInputsForTick(tick)
+                },
+                tick,
+                tick,
+                lag
+            );
         }
     }
 }

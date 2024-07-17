@@ -229,7 +229,7 @@ namespace NSM.Tests
             _inputsBuffer.GetInputsForTick(serverTick + estimatedLag).Returns(new Dictionary<byte, IPlayerInput>());
 
             // Act
-            _gameStateManager.SyncToServerState(serverState, newGameEventsBuffer, serverTick, estimatedLag);
+            _gameStateManager.SyncToServerState(serverState, newGameEventsBuffer, serverState.gameTick, serverTick, estimatedLag);
 
             // Assert
             // Ensure that the state has been updated correctly
