@@ -278,7 +278,7 @@ namespace NSM
 
         #region Initialization code
 
-        public void StartNetworkStateManager(Type gameStateType, Type playerInputType, Type gameEventType)
+        public async Awaitable StartNetworkStateManager(Type gameStateType, Type playerInputType, Type gameEventType)
         {
             VerboseLog("Network State Manager starting up");
 
@@ -312,6 +312,12 @@ namespace NSM
 
             // Capture the initial game state
             gameStateManager.CaptureInitialFrame();
+
+            // I don't trust NGO to have sent the correct readiness signals, so give a little buffer for things to settle
+            // before sending the initial gamestate
+            // TODO: maybe NGO 2.x will make this simpler?
+            await Awaitable.WaitForSecondsAsync(1);
+            await Awaitable.MainThreadAsync();
 
             // Ensure clients are starting from the same view of the world
             VerboseLog("Sending initial state");

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace NSM
 {
@@ -22,7 +23,7 @@ namespace NSM
         IPlayerInput PredictInputForPlayer(byte playerId);
         void RemoveEventAtTick(int eventTick, Predicate<IGameEvent> gameEventPredicate);
         void ScheduleGameEvent(IGameEvent gameEvent, int eventTick = -1);
-        void StartNetworkStateManager(Type gameStateType, Type playerInputType, Type gameEventType);
+        Awaitable StartNetworkStateManager(Type gameStateType, Type playerInputType, Type gameEventType);
         void VerboseLog(string message);
     }
 
