@@ -305,8 +305,6 @@ namespace NSM
             }
 
             // Server-only from here down
-            isRunning = true;
-
             int randomSeedBase = UnityEngine.Random.Range(int.MinValue, int.MaxValue);
             gameStateManager.SetRandomBase(randomSeedBase);
 
@@ -322,6 +320,8 @@ namespace NSM
             // Ensure clients are starting from the same view of the world
             VerboseLog("Sending initial state");
             StartGameClientRpc(gameStateManager.GetStateFrame(0), randomSeedBase);
+
+            isRunning = true;
         }
 
         private void Awake()
