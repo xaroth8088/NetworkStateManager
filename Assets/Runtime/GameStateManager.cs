@@ -149,7 +149,7 @@ namespace NSM
         /// <param name="estimatedLag">Estimated network lag in ticks.</param>
         internal void ReplayDueToEvents(int serverTimeTick, GameEventsBuffer newGameEventsBuffer, int estimatedLag)
         {
-            _networkStateManager.VerboseLog("Updating upcoming game events, taking effect on tick " + serverTimeTick);
+            _networkStateManager.VerboseLog($"Updating upcoming game events, taking effect on tick {serverTimeTick}");
 
             // Probably rewinding time.
             // In either event, the new events buffer will be in place after this first call.
@@ -318,7 +318,7 @@ namespace NSM
                 Debug.LogWarning("Game event scheduled for the past - will not be replayed on clients");
             }
 
-            _networkStateManager.VerboseLog("Game event scheduled for tick " + eventTick);
+            _networkStateManager.VerboseLog($"Game event scheduled for tick {eventTick}");
             GameEventsBuffer[eventTick].Add(gameEvent);
         }
 
