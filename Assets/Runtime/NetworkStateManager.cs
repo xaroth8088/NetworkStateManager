@@ -314,7 +314,7 @@ namespace NSM
             // I don't trust NGO to have sent the correct readiness signals, so give a little buffer for things to settle
             // before sending the initial gamestate
             // TODO: maybe NGO 2.x will make this simpler?
-            await Awaitable.WaitForSecondsAsync(1);
+            await Awaitable.WaitForSecondsAsync(0.5f);
             await Awaitable.MainThreadAsync();
 
             // Ensure clients are starting from the same view of the world
