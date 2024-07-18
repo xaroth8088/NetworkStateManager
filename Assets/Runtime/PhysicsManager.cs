@@ -28,7 +28,7 @@ namespace NSM
                 if (networkedGameObject == null || networkedGameObject.activeInHierarchy == false)
                 {
                     // This object no longer exists in the scene
-                    Debug.LogError("Attempted to restore state to a GameObject that no longer exists");
+                    Debug.LogError($"Attempted to restore state to a GameObject that no longer exists, network id {networkId}, object {networkedGameObject}");
                     // TODO: this seems like it'll lead to some bugs later with objects that disappeared recently
                     continue;
                 }

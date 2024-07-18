@@ -1,10 +1,21 @@
 using System;
+using UnityEngine;
+
+#if UNITY_EDITOR
 using System.Reflection;
 using Unity.Netcode;
 using UnityEditor;
 using UnityEditor.SceneManagement;
-using UnityEngine;
+#endif
 
+[AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
+public class SerializePropertyAttribute : PropertyAttribute
+{
+    public SerializePropertyAttribute()
+    { }
+}
+
+#if UNITY_EDITOR
 public class BaseSerializePropertyEditor : Editor
 {
     public override void OnInspectorGUI()
@@ -59,10 +70,4 @@ public class MonoBehaviourSerializePropertyEditor : BaseSerializePropertyEditor
 public class NetworkBehaviourSerializePropertyEditor : BaseSerializePropertyEditor
 {
 }
-
-[AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
-public class SerializePropertyAttribute : PropertyAttribute
-{
-    public SerializePropertyAttribute()
-    { }
-}
+#endif

@@ -35,6 +35,12 @@ namespace NSM
 
         public void ApplyState(Rigidbody rigidbody)
         {
+            if(rigidbody == null)
+            {
+                Debug.LogWarning("ApplyState was given a null rigidbody to restore to");
+                return;
+            }
+
             rigidbody.gameObject.transform.SetPositionAndRotation(position, rotation);
 
             if (rigidbody.isKinematic == false)
