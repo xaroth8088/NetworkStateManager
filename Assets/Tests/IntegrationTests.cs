@@ -216,7 +216,7 @@ namespace NSM.Tests
         [UnityTest]
         public IEnumerator SingleFrameExecutes()
         {
-            networkStateManager.StartNetworkStateManager(typeof(IntegrationTestGameStateDTO), typeof(IntegrationTestPlayerInputDTO), typeof(IntegrationTestGameEventDTO));
+            yield return networkStateManager.StartNetworkStateManager(typeof(IntegrationTestGameStateDTO), typeof(IntegrationTestPlayerInputDTO), typeof(IntegrationTestGameEventDTO));
 
             float originalY1 = player1GO.transform.position.y;
 

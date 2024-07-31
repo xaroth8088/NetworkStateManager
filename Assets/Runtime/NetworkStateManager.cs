@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
@@ -33,7 +34,7 @@ namespace NSM
         [SerializeProperty]
         public bool isReplaying { get => gameStateManager?.IsReplaying ?? false; }
 
-        public bool isRunning = false;
+        public bool IsRunning { get; private set; } = false;    // Have the server given us our initial state, so we're now good to go?
 
         public NetworkIdManager NetworkIdManager { get => (NetworkIdManager)gameStateManager.NetworkIdManager; }
 
@@ -42,7 +43,7 @@ namespace NSM
 
         public RandomManager Random { get => gameStateManager.Random; }
 
-        private Queue<RPCQueueJob> rpcQueue = new();
+        private readonly Queue<RPCQueueJob> rpcQueue = new();
 
         #endregion Runtime state
 
@@ -304,8 +305,6 @@ namespace NSM
                 gameObject.scene
             );
 
-            isRunning = true;
-
             if (!IsHost)
             {
                 return;
@@ -321,11 +320,12 @@ namespace NSM
             // Ensure clients are starting from the same view of the world
             VerboseLog("Sending initial state");
             StartGameClientRpc(gameStateManager.GetStateFrame(0), randomSeedBase);
+            IsRunning = true;
         }
 
         private void Awake()
         {
-            isRunning = false;
+            IsRunning = false;
 
             PhysicsManager.InitPhysics();
         }
@@ -506,6 +506,7 @@ namespace NSM
             VerboseLog("Initial game state received from server.");
 
             gameStateManager.SetInitialGameState(initialStateFrame, randomSeedBase, GetEstimatedLag());
+            IsRunning = true;
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
@@ -646,8 +647,9 @@ namespace NSM
 
         private void FixedUpdate()
         {
-            if (!isRunning)
+            if(gameStateManager == null)
             {
+                // We're not initialized yet
                 return;
             }
 
@@ -668,6 +670,33 @@ namespace NSM
 
         internal void ProcessRPCQueue()
         {
+            if (!IsRunning)
+            {
+                // See if we have the RPCQueueJobStartGameClientRpc job in our queue.
+                // If so, run it (this will set IsRunning to true) and remove it. Else, basically do nothing.
+
+                // We'll do this by copying the (almost certainly empty) queue, running through each,
+                // and either processing the start game or putting the job back into the queue.
+                // In theory, this can probably be made more efficient.  In practice... meh.
+                List<RPCQueueJob> tempQueue = rpcQueue.ToList();
+                rpcQueue.Clear();
+                foreach (RPCQueueJob job in tempQueue)
+                {
+                    // Anything not starting the game can go back in the queue
+                    if (job.GetType() != typeof(RPCQueueJobStartGameClientRpc))
+                    {
+                        rpcQueue.Enqueue(job);
+                        continue;
+                    }
+
+                    RPCQueueJobStartGameClientRpc jobParams = (RPCQueueJobStartGameClientRpc)job;
+                    RunJobStartGameClient(jobParams.initialStateFrame, jobParams.randomSeedBase);
+                    // Intentionally don't put this job back in the queue
+                }
+
+                return;
+            }
+
             while (rpcQueue.TryDequeue(out RPCQueueJob job))
             {
                 switch(job)
@@ -687,14 +716,12 @@ namespace NSM
                     case RPCQueueJobSetPlayerInputsServerRpc jobParams:
                         RunJobSetPlayerInputsServer(jobParams.playerInputs, jobParams.clientTimeTick, jobParams.rpcParams);
                         break;
-                    case RPCQueueJobStartGameClientRpc jobParams:
-                        RunJobStartGameClient(jobParams.initialStateFrame, jobParams.randomSeedBase);
-                        break;
                     case RPCQueueJobSyncGameEventsToClientsClientRpc jobParams:
                         RunJobSyncGameEventsToClientsClient(jobParams.serverTimeTick, jobParams.newGameEventsBuffer);
                         break;
                     default:
-                        throw new Exception($"Unknown RPC job type: {job.GetType()}");
+                        Debug.LogError($"Unknown RPC job type: {job.GetType()}");
+                        break;
                 }
             }
         }
