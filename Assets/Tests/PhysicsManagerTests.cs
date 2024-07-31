@@ -67,7 +67,7 @@ namespace NSM.Tests
             PhysicsManager.ApplyPhysicsState(physicsState, networkIdManager);
 
             // Assert
-            LogAssert.Expect(LogType.Error, "Attempted to restore state to a GameObject that no longer exists");
+            LogAssert.Expect(LogType.Error, "Attempted to restore state to a GameObject that no longer exists, network id 1, object ");
         }
 
         [Test]

@@ -42,6 +42,8 @@ namespace NSM
 
         public RandomManager Random { get => gameStateManager.Random; }
 
+        private Queue<RPCQueueJob> rpcQueue = new();
+
         #endregion Runtime state
 
         #region Lifecycle event delegates and wrappers
@@ -381,13 +383,15 @@ namespace NSM
         [Rpc(SendTo.Server, RequireOwnership = false)]
         private void SetPlayerInputsServerRpc(PlayerInputsDTO playerInputs, int clientTimeTick, RpcParams rpcParams = default)
         {
-            if (!IsReadyForRpcs())
-            {
-                // RPC's can arrive before this component has started, so skip out if it's too early
-                VerboseLog("Player inputs received, but we haven't started yet so ignoring.");
-                return;
-            }
+            rpcQueue.Enqueue(new RPCQueueJobSetPlayerInputsServerRpc(
+                playerInputs,
+                clientTimeTick,
+                rpcParams
+            ));
+        }
 
+        private void RunJobSetPlayerInputsServer(PlayerInputsDTO playerInputs, int clientTimeTick, RpcParams rpcParams)
+        {
             VerboseLog($"Player inputs received at {clientTimeTick}");
 
             // Set the input in our buffer and replay to include the input
@@ -404,6 +408,11 @@ namespace NSM
         // NOTE: Rpc's are processed at the _end_ of each frame
         [Rpc(SendTo.Server, RequireOwnership = false)]
         private void RequestFullStateUpdateServerRpc(RpcParams rpcParams = default)
+        {
+            rpcQueue.Enqueue(new RPCQueueJobRequestFullStateUpdateServerRpc(rpcParams));
+        }
+
+        private void RunJobRequestFullStateUpdateServer(RpcParams rpcParams)
         {
             VerboseLog("Received request for full state update");
 
@@ -449,27 +458,15 @@ namespace NSM
             }
         }
 
-        private bool IsReadyForRpcs()
-        {
-            if (isRunning)
-            {
-                return true;
-            }
-
-            // RPC's can arrive before this component has started, so skip out if it's too early
-            VerboseLog("Server RPC arrived before we've started, so skipping");
-            return false;
-        }
-
         // NOTE: Rpc's are processed at the _end_ of each frame
         [Rpc(SendTo.SpecifiedInParams)]
         private void ForwardPlayerInputsClientRpc(PlayerInputsDTO playerInputs, int clientTimeTick, int serverTick, RpcParams _)
         {
-            if (!IsReadyForRpcs())
-            {
-                return;
-            }
+            rpcQueue.Enqueue(new RPCQueueJobForwardPlayerInputsClientRpc(playerInputs, clientTimeTick, serverTick));
+        }
 
+        private void RunJobForwardPlayerInputsClient(PlayerInputsDTO playerInputs, int clientTimeTick, int serverTick)
+        {
             // If this happened before our last authoritative tick, we can safely ignore it
             if (clientTimeTick < gameStateManager.LastAuthoritativeTick || serverTick < gameStateManager.LastAuthoritativeTick)
             {
@@ -484,11 +481,11 @@ namespace NSM
         [Rpc(SendTo.NotServer)]
         private void SyncGameEventsToClientsClientRpc(int serverTimeTick, GameEventsBuffer newGameEventsBuffer)
         {
-            if (!IsReadyForRpcs())
-            {
-                return;
-            }
+            rpcQueue.Enqueue(new RPCQueueJobSyncGameEventsToClientsClientRpc(serverTimeTick, newGameEventsBuffer));
+        }
 
+        private void RunJobSyncGameEventsToClientsClient(int serverTimeTick, GameEventsBuffer newGameEventsBuffer)
+        {
             if (serverTimeTick < gameStateManager.LastAuthoritativeTick)
             {
                 // We'll already have the most up-to-date events reflected from whatever sent us the last authoritative
@@ -503,6 +500,11 @@ namespace NSM
         [Rpc(SendTo.NotServer)]
         private void StartGameClientRpc(StateFrameDTO initialStateFrame, int randomSeedBase)
         {
+            rpcQueue.Enqueue(new RPCQueueJobStartGameClientRpc(initialStateFrame, randomSeedBase));
+        }
+
+        private void RunJobStartGameClient(StateFrameDTO initialStateFrame, int randomSeedBase)
+        {
             VerboseLog("Initial game state received from server.");
 
             gameStateManager.SetInitialGameState(initialStateFrame, randomSeedBase, GetEstimatedLag());
@@ -515,11 +517,11 @@ namespace NSM
         [Rpc(SendTo.NotServer)]
         private void ProcessStateDeltaUpdateClientRpc(StateFrameDeltaDTO serverGameStateDelta, GameEventsBuffer newGameEventsBuffer, int serverTick)
         {
-            if (!IsReadyForRpcs())
-            {
-                return;
-            }
+            rpcQueue.Enqueue(new RPCQueueJobProcessStateDeltaUpdateClientRpc(serverGameStateDelta, newGameEventsBuffer, serverTick));
+        }
 
+        private void RunJobProcessStateDeltaUpdateClient(StateFrameDeltaDTO serverGameStateDelta, GameEventsBuffer newGameEventsBuffer, int serverTick)
+        {
             VerboseLog("Server state delta received.");
 
             try
@@ -543,11 +545,11 @@ namespace NSM
         [Rpc(SendTo.SpecifiedInParams)]
         private void ProcessFullStateUpdateClientRpc(StateFrameDTO serverGameState, GameEventsBuffer serverGameEventsBuffer, int frameTick, int serverNow, RpcParams _)
         {
-            if (!IsReadyForRpcs())
-            {
-                return;
-            }
+            rpcQueue.Enqueue(new RPCQueueJobProcessFullStateUpdateClientRpc(serverGameState, serverGameEventsBuffer, frameTick, serverNow));
+        }
 
+        private void RunJobProcessFullStateUpdateClient(StateFrameDTO serverGameState, GameEventsBuffer serverGameEventsBuffer, int frameTick, int serverNow)
+        {
             VerboseLog("Received full state update from server");
 
             // Get us back in sync
@@ -662,7 +664,43 @@ namespace NSM
             {
                 ClientFixedUpdate();
             }
+
+            ProcessRPCQueue();
+
             VerboseLog("---- END FRAME ----");
+        }
+
+        internal void ProcessRPCQueue()
+        {
+            while (rpcQueue.TryDequeue(out RPCQueueJob job))
+            {
+                switch(job)
+                {
+                    case RPCQueueJobForwardPlayerInputsClientRpc jobParams:
+                        RunJobForwardPlayerInputsClient(jobParams.playerInputs, jobParams.clientTimeTick, jobParams.serverTick);
+                        break;
+                    case RPCQueueJobProcessFullStateUpdateClientRpc jobParams:
+                        RunJobProcessFullStateUpdateClient(jobParams.serverGameState, jobParams.serverGameEventsBuffer, jobParams.frameTick, jobParams.serverNow);
+                        break;
+                    case RPCQueueJobProcessStateDeltaUpdateClientRpc jobParams:
+                        RunJobProcessStateDeltaUpdateClient(jobParams.serverGameStateDelta, jobParams.newGameEventsBuffer, jobParams.serverTick);
+                        break;
+                    case RPCQueueJobRequestFullStateUpdateServerRpc jobParams:
+                        RunJobRequestFullStateUpdateServer(jobParams.rpcParams);
+                        break;
+                    case RPCQueueJobSetPlayerInputsServerRpc jobParams:
+                        RunJobSetPlayerInputsServer(jobParams.playerInputs, jobParams.clientTimeTick, jobParams.rpcParams);
+                        break;
+                    case RPCQueueJobStartGameClientRpc jobParams:
+                        RunJobStartGameClient(jobParams.initialStateFrame, jobParams.randomSeedBase);
+                        break;
+                    case RPCQueueJobSyncGameEventsToClientsClientRpc jobParams:
+                        RunJobSyncGameEventsToClientsClient(jobParams.serverTimeTick, jobParams.newGameEventsBuffer);
+                        break;
+                    default:
+                        throw new Exception($"Unknown RPC job type: {job.GetType()}");
+                }
+            }
         }
 
         public void VerboseLog(string message)
