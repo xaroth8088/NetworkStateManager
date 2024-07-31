@@ -33,8 +33,7 @@ namespace NSM
         [SerializeProperty]
         public bool isReplaying { get => gameStateManager?.IsReplaying ?? false; }
 
-        [SerializeField]
-        private bool isRunning = false;
+        public bool isRunning = false;
 
         public NetworkIdManager NetworkIdManager { get => (NetworkIdManager)gameStateManager.NetworkIdManager; }
 
@@ -280,6 +279,12 @@ namespace NSM
 
         public async Awaitable StartNetworkStateManager(Type gameStateType, Type playerInputType, Type gameEventType)
         {
+            // I don't trust NGO to have sent the correct readiness signals, so give a little buffer for things to settle
+            // before sending the initial gamestate
+            // TODO: maybe NGO 2.x will make this simpler?
+            await Awaitable.NextFrameAsync();
+            await Awaitable.MainThreadAsync();
+
             VerboseLog("Network State Manager starting up");
 
             TypeStore.Instance.GameStateType = gameStateType;
@@ -310,12 +315,6 @@ namespace NSM
 
             // Capture the initial game state
             gameStateManager.CaptureInitialFrame();
-
-            // I don't trust NGO to have sent the correct readiness signals, so give a little buffer for things to settle
-            // before sending the initial gamestate
-            // TODO: maybe NGO 2.x will make this simpler?
-            await Awaitable.WaitForSecondsAsync(0.5f);
-            await Awaitable.MainThreadAsync();
 
             // Ensure clients are starting from the same view of the world
             VerboseLog("Sending initial state");
