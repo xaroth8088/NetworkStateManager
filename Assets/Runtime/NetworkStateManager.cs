@@ -304,7 +304,7 @@ namespace NSM
                 gameObject.scene
             );
 
-            isRunning = false;
+            isRunning = true;
 
             if (!IsHost)
             {
@@ -321,8 +321,6 @@ namespace NSM
             // Ensure clients are starting from the same view of the world
             VerboseLog("Sending initial state");
             StartGameClientRpc(gameStateManager.GetStateFrame(0), randomSeedBase);
-
-            isRunning = true;
         }
 
         private void Awake()
@@ -500,9 +498,6 @@ namespace NSM
         [Rpc(SendTo.NotServer)]
         private void StartGameClientRpc(StateFrameDTO initialStateFrame, int randomSeedBase)
         {
-            // This is the exception for RPCs, since this officially marks the start of the game
-            isRunning = true;
-
             rpcQueue.Enqueue(new RPCQueueJobStartGameClientRpc(initialStateFrame, randomSeedBase));
         }
 
@@ -511,9 +506,6 @@ namespace NSM
             VerboseLog("Initial game state received from server.");
 
             gameStateManager.SetInitialGameState(initialStateFrame, randomSeedBase, GetEstimatedLag());
-
-            // Start things off!
-            isRunning = true;
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
