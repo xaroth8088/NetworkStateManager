@@ -500,6 +500,9 @@ namespace NSM
         [Rpc(SendTo.NotServer)]
         private void StartGameClientRpc(StateFrameDTO initialStateFrame, int randomSeedBase)
         {
+            // This is the exception for RPCs, since this officially marks the start of the game
+            isRunning = true;
+
             rpcQueue.Enqueue(new RPCQueueJobStartGameClientRpc(initialStateFrame, randomSeedBase));
         }
 
@@ -656,6 +659,9 @@ namespace NSM
                 return;
             }
 
+            // Enqueued received RPC's should be thought of as having arrived "at the end of the previous frame"
+            ProcessRPCQueue();
+
             if (IsHost)
             {
                 HostFixedUpdate();
@@ -664,8 +670,6 @@ namespace NSM
             {
                 ClientFixedUpdate();
             }
-
-            ProcessRPCQueue();
 
             VerboseLog("---- END FRAME ----");
         }
