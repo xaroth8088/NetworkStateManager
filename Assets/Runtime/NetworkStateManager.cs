@@ -656,6 +656,11 @@ namespace NSM
             // Enqueued received RPC's should be thought of as having arrived "at the end of the previous frame"
             ProcessRPCQueue();
 
+            if(!IsRunning)
+            {
+                return;
+            }
+
             if (IsHost)
             {
                 HostFixedUpdate();
