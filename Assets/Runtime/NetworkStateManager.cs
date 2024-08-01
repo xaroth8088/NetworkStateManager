@@ -733,7 +733,7 @@ namespace NSM
 
         public void VerboseLog(string message)
         {
-#if UNITY_EDITOR
+//#if UNITY_EDITOR
             if (!verboseLogging)
             {
                 return;
@@ -771,7 +771,7 @@ namespace NSM
             log += message;
 
             Debug.Log(log);
-#endif
+//#endif
         }
     }
 }
