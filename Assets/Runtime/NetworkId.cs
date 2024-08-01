@@ -38,13 +38,20 @@ namespace NSM
 
         private void GenerateNewID()
         {
-            Undo.RecordObject(this, "Update GUID");
+            // 'this' can be null when executing in the context of unit tests
+            if(this != null)
+            {
+                Undo.RecordObject(this, "Update GUID");
+            }
 
             uniqueID = Guid.NewGuid().ToString();
 
-            PrefabUtility.RecordPrefabInstancePropertyModifications(this);
-            EditorUtility.SetDirty(this);
-            EditorSceneManager.MarkSceneDirty(gameObject.scene);
+            if (this != null)
+            {
+                PrefabUtility.RecordPrefabInstancePropertyModifications(this);
+                EditorUtility.SetDirty(this);
+                EditorSceneManager.MarkSceneDirty(gameObject.scene);
+            }
         }
 
         private async Awaitable DeferredSet()
