@@ -110,23 +110,18 @@ namespace NSM
             // get the same network id's on instantiation.
             // So instead, when the scene's ready we'll:
             //  * reset the counter
-            //  * go through all the game objects that need a network id (in hierarchy order)
+            //  * go through all the game objects that need a network id, sorted by GUID
             //  * regenerate the network ids
-            // In theory, the client and server should agree on the objects in the hierarchy at this point in time, so it should
-            // be ok to use as a deterministic ordering mechanism.
 
             Reset();
 
-            List<GameObject> gameObjects = UnityEngine.Object.FindObjectsByType<NetworkId>(FindObjectsSortMode.None)
-                .Select(networkId => networkId.gameObject)
-                .ToList();
+            List<NetworkId> gameObjects = UnityEngine.Object.FindObjectsByType<NetworkId>(FindObjectsSortMode.None).ToList();
 
-            gameObjects.Sort((a, b) => string.Compare(GetHierarchyPath(a), GetHierarchyPath(b), StringComparison.Ordinal));
+            gameObjects.Sort((a, b) => string.Compare(a.GUID, b.GUID, StringComparison.Ordinal));
 
-            foreach (GameObject gameObject in gameObjects)
+            foreach (NetworkId gameObject in gameObjects)
             {
-                Debug.Log($"PATH: {gameObject.name} ||| {GetHierarchyPath(gameObject)}");
-                RegisterGameObject(gameObject);
+                RegisterGameObject(gameObject.gameObject);
             }
         }
 
