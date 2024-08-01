@@ -125,6 +125,7 @@ namespace NSM
 
             foreach (GameObject gameObject in gameObjects)
             {
+                Debug.Log($"PATH: {gameObject.name} ||| {GetHierarchyPath(gameObject)}");
                 RegisterGameObject(gameObject);
             }
         }
