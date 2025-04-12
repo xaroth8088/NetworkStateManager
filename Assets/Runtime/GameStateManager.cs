@@ -251,6 +251,7 @@ namespace NSM
             //       so that we can have it set super granularly
             Random.ResetRandom(tickToRollBack);
             // Pass the correct set of events that were originally applied
+            _networkStateManager.RollbackEvents(eventsToRollBack, stateBeingRolledBack.GameState);
 
             // Put the previous frame's state in place
             GameTick = tickToRestore;
@@ -478,6 +479,7 @@ namespace NSM
         {
             _networkStateManager.VerboseLog($"Running frames from (end of) {RealGameTick} to (end of) {targetTick}");
 
+            // Store the original AppliedEvents for frames we are about to replay
             Dictionary<int, HashSet<IGameEvent>> originalAppliedEvents = new();
             for (int tick = RealGameTick + 1; tick <= targetTick; tick++)
             {
