@@ -252,7 +252,24 @@ namespace NSM
         /// <param name="gameEventPredicate">If this function returns true for a given event, that event will be de-scheduled.</param>
         public void RemoveEventAtTick(int eventTick, Predicate<IGameEvent> gameEventPredicate)
         {
+            if (!IsHost)
+            {
+                // Clients cannot remove events authoritatively
+                Debug.LogWarning("Client attempted to remove a game event.");
+                return;
+            }
+
+            // Store count before removal for comparison
+            int initialCount = gameStateManager.GameEventsBuffer[eventTick].Count;
+
             gameStateManager.RemoveEventAtTick(eventTick, gameEventPredicate);
+
+            // If an event was actually removed, notify clients
+            if (gameStateManager.GameEventsBuffer[eventTick].Count < initialCount)
+            {
+                VerboseLog($"Event removed at tick {eventTick}, synchronizing event buffer.");
+                SyncGameEventsToClientsClientRpc(GameTick, (GameEventsBuffer)gameStateManager.GameEventsBuffer);
+            }
         }
 
         /// <summary>

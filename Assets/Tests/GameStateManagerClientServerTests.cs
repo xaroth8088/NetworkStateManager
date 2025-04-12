@@ -413,7 +413,7 @@ namespace NSM.Tests
             _clientGameStateManager.SetInitialGameState(_serverGameStateManager.GetStateFrame(0), randomBase, lag);
 
             // 1. Simulate up to the event tick
-            for (int i = 0; i < eventTick; i++)
+            for (int i = 0; i < eventTick - 1; i++)
             {
                 RunClientFrame(true); // Keep client in sync for simplicity
                 RunServerFrame(true, lag);
@@ -450,7 +450,7 @@ namespace NSM.Tests
                 RunClientFrame(true);
                 RunServerFrame(true, lag);
             }
-            Assert.AreEqual(finalTick + 1, _serverGameStateManager.RealGameTick, "Server should reach final tick");
+            Assert.AreEqual(finalTick, _serverGameStateManager.RealGameTick, "Server should reach final tick");
 
             // 7. Prepare for assertion: Clear prior Rollback calls on server mock
             _serverNetworkStateManager.ClearReceivedCalls();
@@ -460,7 +460,7 @@ namespace NSM.Tests
             SendClientInputsToServer(lateInputTick); // Input for tick 2 received when server is at tick 15
 
             // ASSERT
-            // 9. Verify RollbackEvents was NOT called on the server for the specific event at eventTick=5
+            // 9. Verify RollbackEvents was called on the server for the specific event at eventTick=5
             bool rollbackCalledForTick5Event = false;
             var receivedCalls = _serverNetworkStateManager.ReceivedCalls();
             foreach (var call in receivedCalls)

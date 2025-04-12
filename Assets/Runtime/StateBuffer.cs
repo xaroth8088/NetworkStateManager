@@ -48,5 +48,9 @@ namespace NSM
                 _stateBuffer[i] = value;
             }
         }
+        public bool TryGetValue(int key, out StateFrameDTO value)
+        {
+            return _stateBuffer.TryGetValue(key, out value);
+        }
     }
 }

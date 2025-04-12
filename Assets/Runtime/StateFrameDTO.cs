@@ -1,5 +1,6 @@
 using MemoryPack;
 using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -20,6 +21,9 @@ namespace NSM
 
         [MemoryPackInclude]
         private byte[] _gameStateBytes;
+
+        [MemoryPackIgnore]
+        public HashSet<IGameEvent> AppliedEvents { get; internal set; } // Store events applied in this frame
 
         [MemoryPackIgnore]
         public IGameState GameState
@@ -56,7 +60,9 @@ namespace NSM
         public object Clone()
         {
             StateFrameDTO newFrame = new();
+
             newFrame.RestoreFromBinaryRepresentation(GetBinaryRepresentation());
+            newFrame.AppliedEvents = AppliedEvents != null ? new HashSet<IGameEvent>(AppliedEvents) : null;
 
             return newFrame;
         }

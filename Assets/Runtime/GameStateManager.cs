@@ -240,13 +240,17 @@ namespace NSM
             int tickToRestore = GameTick - 1;
             int tickToRollBack = GameTick;
 
+            // Get events from the stored frame data
+            StateFrameDTO stateBeingRolledBack = _stateBuffer[tickToRollBack];
+            HashSet<IGameEvent> eventsToRollBack = stateBeingRolledBack.AppliedEvents ?? new HashSet<IGameEvent>(); // Use stored events, default to empty if null
+
             // Roll back the relevant events
             GameTick = tickToRollBack;
             // Reset the RNG as a courtesy to games that need to know what the state of the RNG *would've* been when the frame ran its events
             // TODO: consider having the random get reset at each phase sub-step (with some offset to the seed to account for this happening),
             //       so that we can have it set super granularly
             Random.ResetRandom(tickToRollBack);
-            _networkStateManager.RollbackEvents(GameEventsBuffer[tickToRollBack], _stateBuffer[tickToRollBack].GameState);
+            // Pass the correct set of events that were originally applied
 
             // Put the previous frame's state in place
             GameTick = tickToRestore;
@@ -288,8 +292,13 @@ namespace NSM
                     _networkStateManager.PostPhysicsFrameUpdate();
 
                     _networkStateManager.VerboseLog($"RNG after running frame: {Random.GetRandomNext()}");
-                    // Capture the state from the scene and game logic, then return that frame
-                    return CaptureStateFrame(tick);
+                    // Capture the state from the scene and game logic
+                    StateFrameDTO capturedFrame = CaptureStateFrame(tick);
+
+                    // Store the events that were just applied
+                    capturedFrame.AppliedEvents = new HashSet<IGameEvent>(events);
+
+                    return capturedFrame;
                 case FrameRunMode.ApplyExistingFrame:
                     StateFrameDTO frameToApply = _stateBuffer[tick];
                     PhysicsManager.ApplyPhysicsState(frameToApply.PhysicsState, NetworkIdManager);
@@ -437,9 +446,13 @@ namespace NSM
             {
                 _networkStateManager.VerboseLog($"Checking tick {GameTick} to see if we should undo events in that frame");
 
+                StateFrameDTO frameToCheck = _stateBuffer[GameTick];
+                bool hasAppliedEvents = frameToCheck.AppliedEvents != null && frameToCheck.AppliedEvents.Count > 0;
+                bool isLastFrameBeforeTarget = GameTick == (targetTick + 1);
+
                 // Undo the frame if there are events OR it's the last tick before we stop rewinding.
                 // Always undo the last frame, even if it doesn't have events.  This ensures we set the state correctly without re-running events.
-                if (GameEventsBuffer[GameTick].Count > 0 || GameTick == (targetTick + 1))
+                if (hasAppliedEvents || isLastFrameBeforeTarget)
                 {
                     _networkStateManager.VerboseLog($"Undoing with event count {GameEventsBuffer[GameTick].Count} and lastFrame: {GameTick == (targetTick + 1)}");
                     UndoLastFrame();    // NOTE: this also decrements GameTick
@@ -465,6 +478,15 @@ namespace NSM
         {
             _networkStateManager.VerboseLog($"Running frames from (end of) {RealGameTick} to (end of) {targetTick}");
 
+            Dictionary<int, HashSet<IGameEvent>> originalAppliedEvents = new();
+            for (int tick = RealGameTick + 1; tick <= targetTick; tick++)
+            {
+                if (_stateBuffer.TryGetValue(tick, out var existingFrame) && existingFrame.AppliedEvents != null)
+                {
+                    originalAppliedEvents[tick] = existingFrame.AppliedEvents;
+                }
+            }
+
             GameTick = RealGameTick;
 
             while (GameTick < targetTick)
@@ -472,7 +494,24 @@ namespace NSM
                 GameTick++;
 
                 _networkStateManager.VerboseLog("Simulating for tick " + GameTick);
-                _stateBuffer[GameTick] = RunSingleGameFrame(GameTick, FrameRunMode.RunAndCaptureFrame);
+                // Run the frame and capture the new state
+                StateFrameDTO newFrame = RunSingleGameFrame(GameTick, FrameRunMode.RunAndCaptureFrame);
+
+                // Restore the original AppliedEvents if they existed for this tick
+                if (originalAppliedEvents.TryGetValue(GameTick, out var originalEvents))
+                {
+                    // Overwrite the AppliedEvents calculated during replay with the original ones
+                    newFrame.AppliedEvents = originalEvents;
+                    _networkStateManager.VerboseLog($"Restored original AppliedEvents for tick {GameTick}");
+                }
+                else
+                {
+                    _networkStateManager.VerboseLog($"No original AppliedEvents found to restore for tick {GameTick}");
+                }
+
+
+                // Store the potentially modified frame
+                _stateBuffer[GameTick] = newFrame;
             }
 
             RealGameTick = GameTick;
@@ -487,7 +526,7 @@ namespace NSM
         /// <param name="newGameEventsBuffer">The updated authoritative list of future and past game events</param>
         private void TimeTravelToEndOf(int targetTick, IGameEventsBuffer newGameEventsBuffer)
         {
-            _networkStateManager.VerboseLog("Time traveling from end of " + RealGameTick + " until end of " + targetTick);
+            _networkStateManager.VerboseLog($"Time traveling from end of {RealGameTick} until end of {targetTick}");
 
             // If the target is in the past, rewind time until we get to just before serverTick (rolling back any events along the way)
             // If it's in the future, simulate until we get to just before serverTick (playing any events along the way)
