@@ -1,11 +1,16 @@
-using MemoryPack;
 using System;
 using Unity.Netcode;
 
 namespace NSM.Tests
 {
-    public struct TestGameEventDTO : IGameEvent
+    public struct TestGameEventDTO : IGameEvent, IEquatable<TestGameEventDTO>
     {
+        public int EventValue { get; set; }
+
+        public bool Equals(TestGameEventDTO other) => EventValue == other.EventValue; // Basic equality
+        public override bool Equals(object obj) => obj is TestGameEventDTO other && Equals(other);
+        public override int GetHashCode() => EventValue.GetHashCode();
+
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
             throw new NotImplementedException();

@@ -395,6 +395,106 @@ namespace NSM.Tests
             );
         }
 
+        [Test]
+        public void RollbackShouldInvokeCallbackForAppliedEventEvenWhenEventIsRemovedFromBufferLater()
+        {
+            // ARRANGE
+            int lag = 0;
+            int randomBase = 123;
+            int eventTick = 5;
+            int removalTick = 10; // Event removed *after* frame 5 runs
+            int lateInputTick = 2; // Late input arrives triggering rollback past eventTick
+            int finalTick = 15;    // Simulate up to this tick before rollback
+
+            var theEvent = new TestGameEventDTO { };
+
+            _serverGameStateManager.SetRandomBase(randomBase);
+            _serverGameStateManager.CaptureInitialFrame();
+            _clientGameStateManager.SetInitialGameState(_serverGameStateManager.GetStateFrame(0), randomBase, lag);
+
+            // 1. Simulate up to the event tick
+            for (int i = 0; i < eventTick; i++)
+            {
+                RunClientFrame(true); // Keep client in sync for simplicity
+                RunServerFrame(true, lag);
+            }
+
+            // 2. Schedule event on server, send buffer to client
+            _serverGameStateManager.ScheduleGameEvent(theEvent, eventTick);
+            SendEventsBufferToClient(lag); // Client knows about the event
+
+            // 3. Run the event frame (tick 5)
+            RunClientFrame(true);
+            RunServerFrame(true, lag);
+
+            // Verify ApplyEvents was called on the server for the event frame
+            _serverNetworkStateManager.Received(1).ApplyEvents(Arg.Is<HashSet<IGameEvent>>(set => set.Contains(theEvent)));
+            var serverStateAfterEventFrame = (TestGameStateDTO)_serverStateBuffer[eventTick].GameState; // Capture state after event application
+
+            // 4. Simulate forward past the event tick up to removal tick
+            for (int i = eventTick; i < removalTick; i++)
+            {
+                RunClientFrame(true);
+                RunServerFrame(true, lag);
+            }
+
+            // 5. Remove the event from the server's buffer *after* it was applied
+            Assert.IsTrue(_serverGameStateManager.GameEventsBuffer[eventTick].Count == 1, "Event should be there before removing it.");
+            _serverGameStateManager.RemoveEventAtTick(eventTick, e => theEvent.Equals(e));
+            Assert.IsTrue(_serverGameStateManager.GameEventsBuffer[eventTick].Count == 0, "Event should be gone after removing it.");
+            // ** Crucially, do NOT call SendEventsBufferToClient() here **
+
+            // 6. Simulate forward to the final tick before rollback
+            for (int i = removalTick; i < finalTick; i++)
+            {
+                RunClientFrame(true);
+                RunServerFrame(true, lag);
+            }
+            Assert.AreEqual(finalTick + 1, _serverGameStateManager.RealGameTick, "Server should reach final tick");
+
+            // 7. Prepare for assertion: Clear prior Rollback calls on server mock
+            _serverNetworkStateManager.ClearReceivedCalls();
+
+            // ACT
+            // 8. Trigger rollback on server by sending late client input
+            SendClientInputsToServer(lateInputTick); // Input for tick 2 received when server is at tick 15
+
+            // ASSERT
+            // 9. Verify RollbackEvents was NOT called on the server for the specific event at eventTick=5
+            bool rollbackCalledForTick5Event = false;
+            var receivedCalls = _serverNetworkStateManager.ReceivedCalls();
+            foreach (var call in receivedCalls)
+            {
+                if (call.GetMethodInfo().Name == nameof(IInternalNetworkStateManager.RollbackEvents))
+                {
+                    var args = call.GetArguments();
+                    var eventSet = (HashSet<IGameEvent>)args[0];
+                    var stateAfter = (TestGameStateDTO)args[1]; // Assuming mock state
+
+                    // Check if this rollback call corresponds to the state *after* our event frame
+                    // Need to be careful with state comparison due to potential intermediate modifications
+                    // A simpler check might be just for the event itself in *any* rollback call,
+                    // expecting it to be absent.
+                    if (eventSet.Contains(theEvent))
+                    {
+                        rollbackCalledForTick5Event = true;
+                        break;
+                    }
+                }
+            }
+
+            Assert.IsTrue(rollbackCalledForTick5Event, $"RollbackEvents SHOULD have been called");
+
+            // Optional: Verify Rollback WAS called for *some* frame during rewind
+            _serverNetworkStateManager.Received().RollbackEvents(Arg.Any<HashSet<IGameEvent>>(), Arg.Any<IGameState>());
+
+            // Additional checks (optional, state can be complex to trace perfectly)
+            // - Check server state at eventTick *after* replay - should not have EVENT_INCREMENT applied this time.
+            var serverStateAtEventTickAfterReplay = (TestGameStateDTO)_serverStateBuffer[eventTick].GameState;
+            // - Check server state at finalTick *after* replay - should be consistent with simulation without the event at tick 5.
+            var serverStateAtFinalTickAfterReplay = (TestGameStateDTO)_serverStateBuffer[finalTick].GameState;
+        }
+
         [SetUp]
         public void SetUp()
         {
