@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using NSubstitute;
 using NUnit.Framework;
 using UnityEngine.SceneManagement;
-using System.Linq;
 
 namespace NSM.Tests
 {
@@ -51,7 +51,8 @@ namespace NSM.Tests
             TypeStore.Instance.PlayerInputType = typeof(TestPlayerInputDTO);
             TypeStore.Instance.GameEventType = typeof(TestGameEventDTO);
 
-            _networkStateManager.When(x => x.GetGameState(ref Arg.Any<IGameState>()))
+            _networkStateManager
+                .When(x => x.GetGameState(ref Arg.Any<IGameState>()))
                 .Do(callInfo =>
                 {
                     callInfo[0] = new TestGameStateDTO() { testValue = 123 };
@@ -63,7 +64,8 @@ namespace NSM.Tests
             _stateBuffer.Received(1)[0] = Arg.Any<StateFrameDTO>();
 
             // Did the game state that was requested by NSM match what was stored in the buffer?
-            StateFrameDTO capturedFrame = (StateFrameDTO)_stateBuffer.ReceivedCalls().First().GetArguments()[1];
+            StateFrameDTO capturedFrame = (StateFrameDTO)
+                _stateBuffer.ReceivedCalls().First().GetArguments()[1];
             Assert.AreEqual(123, ((TestGameStateDTO)capturedFrame.GameState).testValue);
 
             TypeStore.Instance.ResetTypeStore();
@@ -106,27 +108,31 @@ namespace NSM.Tests
         [Test]
         public void Constructor_ThrowsException_WhenGameEventsBufferIsNull()
         {
-            Assert.Throws<ArgumentNullException>(() => new GameStateManager(
-                _networkStateManager,
-                null,
-                _inputsBuffer,
-                _stateBuffer,
-                _networkIdManager,
-                _scene
-            ));
+            Assert.Throws<ArgumentNullException>(() =>
+                new GameStateManager(
+                    _networkStateManager,
+                    null,
+                    _inputsBuffer,
+                    _stateBuffer,
+                    _networkIdManager,
+                    _scene
+                )
+            );
         }
 
         [Test]
         public void Constructor_ThrowsException_WhenNetworkStateManagerIsNull()
         {
-            Assert.Throws<ArgumentNullException>(() => new GameStateManager(
-                null,
-                _gameEventsBuffer,
-                _inputsBuffer,
-                _stateBuffer,
-                _networkIdManager,
-                _scene
-            ));
+            Assert.Throws<ArgumentNullException>(() =>
+                new GameStateManager(
+                    null,
+                    _gameEventsBuffer,
+                    _inputsBuffer,
+                    _stateBuffer,
+                    _networkIdManager,
+                    _scene
+                )
+            );
         }
 
         [Test]
@@ -199,37 +205,37 @@ namespace NSM.Tests
             var initialState = new StateFrameDTO
             {
                 gameTick = 0,
-                PhysicsState = new PhysicsStateDTO
-                {
-                    RigidBodyStates = new()
-                },
-                GameState = new TestGameStateDTO
-                {
-                    testValue = 123,
-                }
+                PhysicsState = new PhysicsStateDTO { RigidBodyStates = new() },
+                GameState = new TestGameStateDTO { testValue = 123 },
             };
             _stateBuffer[initialTick].Returns(initialState);
-            _inputsBuffer.GetInputsForTick(initialTick).Returns(new Dictionary<byte, IPlayerInput>());
+            _inputsBuffer
+                .GetInputsForTick(initialTick)
+                .Returns(new Dictionary<byte, IPlayerInput>());
 
             // Server's frame
-            var serverState = new StateFrameDTO {
+            var serverState = new StateFrameDTO
+            {
                 gameTick = initialTick,
-                PhysicsState = new PhysicsStateDTO {
-                    RigidBodyStates = new()
-                },
-                GameState = new TestGameStateDTO
-                {
-                    testValue = 45,
-                }
+                PhysicsState = new PhysicsStateDTO { RigidBodyStates = new() },
+                GameState = new TestGameStateDTO { testValue = 45 },
             };
             _stateBuffer[serverTick].Returns(serverState);
 
             var newGameEventsBuffer = Substitute.For<IGameEventsBuffer>();
 
-            _inputsBuffer.GetInputsForTick(serverTick + estimatedLag).Returns(new Dictionary<byte, IPlayerInput>());
+            _inputsBuffer
+                .GetInputsForTick(serverTick + estimatedLag)
+                .Returns(new Dictionary<byte, IPlayerInput>());
 
             // Act
-            _gameStateManager.SyncToServerState(serverState, newGameEventsBuffer, serverState.gameTick, serverTick, estimatedLag);
+            _gameStateManager.SyncToServerState(
+                serverState,
+                newGameEventsBuffer,
+                serverState.gameTick,
+                serverTick,
+                estimatedLag
+            );
 
             // Assert
             // Ensure that the state has been updated correctly
@@ -242,7 +248,7 @@ namespace NSM.Tests
 
             // Check that the state of the current frame matches the server's state advanced to lag time
             var currentFrameState = _stateBuffer[serverTick + estimatedLag];
-            Assert.AreEqual(serverState, currentFrameState);  // TODO: this needs to take into account what happens during the simulation time on those lag frames
+            Assert.AreEqual(serverState, currentFrameState); // TODO: this needs to take into account what happens during the simulation time on those lag frames
         }
 
         [Test]
