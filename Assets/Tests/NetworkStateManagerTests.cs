@@ -15,13 +15,17 @@ namespace NSM.Tests
         private NetworkStateManager _networkStateManager;
         private GameStateManager _gameStateManagerMock;
 
-        private void InitializeNetworkStateManager(bool isHost) {
+        private void InitializeNetworkStateManager(bool isHost)
+        {
             // Create a new GameObject
             var gameObject = new GameObject();
 
             // Prep to mock IsHost
             var networkBehaviourSubstitute = Substitute.For<NetworkBehaviour>();
-            PropertyInfo IsHostProperty = typeof(NetworkBehaviour).GetProperty("IsHost", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
+            PropertyInfo IsHostProperty = typeof(NetworkBehaviour).GetProperty(
+                "IsHost",
+                BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public
+            );
             IsHostProperty.SetValue(networkBehaviourSubstitute, true);
 
             // Add NetworkStateManager component to the GameObject
@@ -41,7 +45,10 @@ namespace NSM.Tests
             );
 
             // Use reflection to set the private gameStateManager field in the NetworkStateManager instance
-            var field = typeof(NetworkStateManager).GetField("gameStateManager", BindingFlags.NonPublic | BindingFlags.Instance);
+            var field = typeof(NetworkStateManager).GetField(
+                "gameStateManager",
+                BindingFlags.NonPublic | BindingFlags.Instance
+            );
             field.SetValue(_networkStateManager, _gameStateManagerMock);
         }
 
@@ -91,23 +98,48 @@ namespace NSM.Tests
         }
 
         [Test]
+        public void RemoveEventAtTick_IsNotHost_DoesNotCallGameStateManager()
+        {
+            InitializeNetworkStateManager(false);
+
+            int eventTick = 10;
+            Predicate<IGameEvent> gameEventPredicate = Substitute.For<Predicate<IGameEvent>>();
+
+            _networkStateManager.RemoveEventAtTick(eventTick, gameEventPredicate);
+
+            _gameStateManagerMock.DidNotReceive().RemoveEventAtTick(eventTick, gameEventPredicate);
+        }
+
+        [Test]
         public void PredictInputForPlayer_CallsGameStateManager()
         {
             byte playerId = 1;
 
             _networkStateManager.PredictInputForPlayer(playerId);
 
-            _gameStateManagerMock.Received().PredictedInputForPlayer(playerId, _networkStateManager.GameTick);
+            _gameStateManagerMock
+                .Received()
+                .PredictedInputForPlayer(playerId, _networkStateManager.GameTick);
+        }
+
+        [Test]
+        public void PredictInputForPlayer_NoPreviousInput_ReturnsBlankInput()
+        {
+            // Ensure no prior inputs for the player
+            byte playerId = 2;
+            // Predict input when there's no input history
+            IPlayerInput predictedInput = _networkStateManager.PredictInputForPlayer(playerId);
+
+            // It should return a blank input of the correct type
+            Assert.IsInstanceOf<TestPlayerInputDTO>(predictedInput);
         }
 
         [Test]
         public void ApplyEvents_RaisesOnApplyEvents()
         {
-            var events = new HashSet<IGameEvent>
-            {
-                new TestGameEventDTO()
-            };
-            var onApplyEventsMock = Substitute.For<NetworkStateManager.ApplyEventsDelegateHandler>();
+            var events = new HashSet<IGameEvent> { new TestGameEventDTO() };
+            var onApplyEventsMock =
+                Substitute.For<NetworkStateManager.ApplyEventsDelegateHandler>();
 
             _networkStateManager.OnApplyEvents += onApplyEventsMock;
 
@@ -120,7 +152,8 @@ namespace NSM.Tests
         public void ApplyEvents_DoesNotRaiseOnApplyEventsWithEmptySet()
         {
             var events = new HashSet<IGameEvent>();
-            var onApplyEventsMock = Substitute.For<NetworkStateManager.ApplyEventsDelegateHandler>();
+            var onApplyEventsMock =
+                Substitute.For<NetworkStateManager.ApplyEventsDelegateHandler>();
 
             _networkStateManager.OnApplyEvents += onApplyEventsMock;
 
@@ -134,7 +167,8 @@ namespace NSM.Tests
         {
             var events = new HashSet<IGameEvent>();
             var gameStateMock = Substitute.For<IGameState>();
-            var onRollbackEventsMock = Substitute.For<NetworkStateManager.RollbackEventsDelegateHandler>();
+            var onRollbackEventsMock =
+                Substitute.For<NetworkStateManager.RollbackEventsDelegateHandler>();
 
             _networkStateManager.OnRollbackEvents += onRollbackEventsMock;
 
@@ -146,12 +180,10 @@ namespace NSM.Tests
         [Test]
         public void RollbackEvents_RaisesOnRollbackEvents()
         {
-            var events = new HashSet<IGameEvent>
-            {
-                new TestGameEventDTO()
-            };
+            var events = new HashSet<IGameEvent> { new TestGameEventDTO() };
             var gameStateMock = Substitute.For<IGameState>();
-            var onRollbackEventsMock = Substitute.For<NetworkStateManager.RollbackEventsDelegateHandler>();
+            var onRollbackEventsMock =
+                Substitute.For<NetworkStateManager.RollbackEventsDelegateHandler>();
 
             _networkStateManager.OnRollbackEvents += onRollbackEventsMock;
 
@@ -165,9 +197,10 @@ namespace NSM.Tests
         {
             var playerInputs = new Dictionary<byte, IPlayerInput>
             {
-                { 123, new TestPlayerInputDTO() }
+                { 123, new TestPlayerInputDTO() },
             };
-            var onApplyInputsMock = Substitute.For<NetworkStateManager.ApplyInputsDelegateHandler>();
+            var onApplyInputsMock =
+                Substitute.For<NetworkStateManager.ApplyInputsDelegateHandler>();
 
             _networkStateManager.OnApplyInputs += onApplyInputsMock;
 
@@ -180,7 +213,8 @@ namespace NSM.Tests
         public void ApplyInputs_DoesNotRaiseOnApplyInputsWithEmptySet()
         {
             var playerInputs = new Dictionary<byte, IPlayerInput>();
-            var onApplyInputsMock = Substitute.For<NetworkStateManager.ApplyInputsDelegateHandler>();
+            var onApplyInputsMock =
+                Substitute.For<NetworkStateManager.ApplyInputsDelegateHandler>();
 
             _networkStateManager.OnApplyInputs += onApplyInputsMock;
 
@@ -206,7 +240,8 @@ namespace NSM.Tests
         public void GetGameState_RaisesOnGetGameState()
         {
             var gameStateMock = Substitute.For<IGameState>();
-            var onGetGameStateMock = Substitute.For<NetworkStateManager.OnGetGameStateDelegateHandler>();
+            var onGetGameStateMock =
+                Substitute.For<NetworkStateManager.OnGetGameStateDelegateHandler>();
 
             _networkStateManager.OnGetGameState += onGetGameStateMock;
 
@@ -231,7 +266,8 @@ namespace NSM.Tests
         [Test]
         public void PostPhysicsFrameUpdate_RaisesOnPostPhysicsFrameUpdate()
         {
-            var onPostPhysicsFrameUpdateMock = Substitute.For<NetworkStateManager.OnPostPhysicsFrameUpdateDelegateHandler>();
+            var onPostPhysicsFrameUpdateMock =
+                Substitute.For<NetworkStateManager.OnPostPhysicsFrameUpdateDelegateHandler>();
 
             _networkStateManager.OnPostPhysicsFrameUpdate += onPostPhysicsFrameUpdateMock;
 
@@ -243,13 +279,45 @@ namespace NSM.Tests
         [Test]
         public void PrePhysicsFrameUpdate_RaisesOnPrePhysicsFrameUpdate()
         {
-            var onPrePhysicsFrameUpdateMock = Substitute.For<NetworkStateManager.OnPrePhysicsFrameUpdateDelegateHandler>();
+            var onPrePhysicsFrameUpdateMock =
+                Substitute.For<NetworkStateManager.OnPrePhysicsFrameUpdateDelegateHandler>();
 
             _networkStateManager.OnPrePhysicsFrameUpdate += onPrePhysicsFrameUpdateMock;
 
             _networkStateManager.PrePhysicsFrameUpdate();
 
             onPrePhysicsFrameUpdateMock.Received().Invoke();
+        }
+
+        [Test]
+        public void StateBuffer_OverwritingAuthoritativeFrame_ReplacesFrame()
+        {
+            var stateBuffer = new StateBuffer();
+            // Create two state frames for the same tick
+            StateFrameDTO frameAuthoritative = new StateFrameDTO
+            {
+                gameTick = 5,
+                authoritative = true,
+                PhysicsState = new PhysicsStateDTO(),
+            };
+            StateFrameDTO framePredicted = new StateFrameDTO
+            {
+                gameTick = 5,
+                authoritative = false,
+                PhysicsState = new PhysicsStateDTO(),
+            };
+
+            // Store the authoritative frame first
+            stateBuffer[5] = frameAuthoritative;
+            StateFrameDTO storedFrame1 = stateBuffer[5];
+            // Overwrite with a predicted frame at the same tick
+            stateBuffer[5] = framePredicted;
+            StateFrameDTO storedFrame2 = stateBuffer[5];
+
+            // The first stored frame should be marked authoritative
+            Assert.IsTrue(storedFrame1.authoritative);
+            // After overwriting, the stored frame should be the new one (non-authoritative)
+            Assert.IsFalse(storedFrame2.authoritative);
         }
     }
 }
