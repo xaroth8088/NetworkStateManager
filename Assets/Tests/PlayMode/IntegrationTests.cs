@@ -1,11 +1,13 @@
 using NUnit.Framework;
 using Unity.Netcode;
-using UnityEditor;
+using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections.Generic;
 using UnityEngine.TestTools;
 using System.Collections;
+using System.Reflection;
+using System.Linq;
 
 namespace NSM.Tests
 {
@@ -16,10 +18,16 @@ namespace NSM.Tests
         private byte score;
         private GameObject player0GO;
         private GameObject player1GO;
+        private NetworkManager remoteClient;
+        private ushort hostPort;
+        private SimulationMode previousPhysicsMode;
+        private bool previousAutoSync;
 
         [UnitySetUp]
         public IEnumerator SetUp()
         {
+            previousPhysicsMode = Physics.simulationMode;
+            previousAutoSync = Physics.autoSyncTransforms;
             // A simple scene with two rigidbodies (one per player).  One is affected by gravity, the other is kinematic.
             // The game state only has one value - the score - which increases monotonically per frame.
             // The only game event contains a value that'll be added to the score when triggered.
@@ -37,10 +45,11 @@ namespace NSM.Tests
             player1GO.AddComponent<NetworkId>();
             player1GO.transform.SetPositionAndRotation(new Vector3(40, 200, 50), Quaternion.identity);
 
-            GameObject nsmContainer = new();
-            nsmContainer.AddComponent<NetworkObject>();
-            networkStateManager = nsmContainer.AddComponent<NetworkStateManager>();
-            networkStateManager.verboseLogging = true;
+            var prefab = Resources.Load<GameObject>("NSMIntegrationFixture");
+            Assert.That(prefab, Is.Not.Null);
+            GameObject nsmContainer = Object.Instantiate(prefab);
+            networkStateManager = nsmContainer.GetComponent<NetworkStateManager>();
+            networkStateManager.verboseLogging = false;
 
             networkStateManager.OnApplyEvents += NetworkStateManager_OnApplyEvents;
             networkStateManager.OnApplyInputs += NetworkStateManager_OnApplyInputs;
@@ -53,25 +62,21 @@ namespace NSM.Tests
 
             // Start us off
             // Setup the NetworkManager
-            string prefabPath = "Assets/Tests/NetworkManager.prefab";
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-            Assert.IsNotNull(prefab, "NetworkManager Prefab could not be loaded.");
-
-            // Instantiate the NetworkManager prefab
-            GameObject networkManagerContainer = Object.Instantiate(prefab);
-            Assert.IsNotNull(networkManagerContainer, "Prefab instantiation failed.");
-
-            // Wait a frame to allow any initialization logic to run
+            GameObject networkManagerContainer = new("NSM Test Host");
+            networkManager = networkManagerContainer.AddComponent<NetworkManager>();
+            networkManager.NetworkConfig = new NetworkConfig();
+            var transport = networkManagerContainer.AddComponent<UnityTransport>();
+            using (var reservation = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0)))
+                hostPort = (ushort)((System.Net.IPEndPoint)reservation.Client.LocalEndPoint).Port;
+            transport.SetConnectionData("127.0.0.1", hostPort, "127.0.0.1");
+            networkManager.NetworkConfig.NetworkTransport = transport;
+            networkManager.NetworkConfig.EnableSceneManagement = false;
+            networkManager.AddNetworkPrefab(prefab);
+            Assert.That(networkManager.StartHost(), Is.True);
+            nsmContainer.SetActive(true);
+            Assert.That(nsmContainer.GetComponent<NetworkObject>().IsSpawned, Is.True);
             yield return null;
-
-            networkManager = networkManagerContainer.GetComponent<NetworkManager>();
-            networkManager.StartHost();
-
-            // Wait for the network manager to finish initialization
-            while (networkStateManager.IsHost == false)
-            {
-                yield return null;
-            }
+            Assert.That(networkStateManager.IsServer, Is.True);
 
             score = 0;
         }
@@ -79,6 +84,17 @@ namespace NSM.Tests
         [UnityTearDown]
         public IEnumerator TearDown()
         {
+            if (remoteClient != null)
+            {
+                var objects = remoteClient.SpawnManager.SpawnedObjects.Values.Select(obj => obj.gameObject).ToArray();
+                remoteClient.Shutdown();
+                float timeout = Time.realtimeSinceStartup + 10;
+                while (remoteClient.IsListening && Time.realtimeSinceStartup < timeout) yield return null;
+                Assert.That(remoteClient.IsListening, Is.False);
+                foreach (var obj in objects) if (obj != null) Object.DestroyImmediate(obj);
+                Object.DestroyImmediate(remoteClient.gameObject);
+                remoteClient = null;
+            }
             GameObject.DestroyImmediate(networkStateManager.gameObject);
             networkStateManager = null;
             GameObject.DestroyImmediate(player0GO);
@@ -89,9 +105,13 @@ namespace NSM.Tests
 
             networkManager.Shutdown();
 
-            while (networkManager.IsHost) { yield return null; }
+            float deadline = Time.realtimeSinceStartup + 10;
+            while (networkManager.IsHost && Time.realtimeSinceStartup < deadline) { yield return null; }
+            Assert.That(networkManager.IsHost, Is.False, "Host shutdown timed out");
             GameObject.DestroyImmediate(networkManager.gameObject);
             networkManager = null;
+            Physics.simulationMode = previousPhysicsMode;
+            Physics.autoSyncTransforms = previousAutoSync;
         }
 
         #region Callbacks
@@ -211,12 +231,77 @@ namespace NSM.Tests
 
         #endregion DTOs
 
+        private IEnumerator StartSimulation()
+        {
+            var operation = networkStateManager.StartNetworkStateManager(typeof(IntegrationTestGameStateDTO), typeof(IntegrationTestPlayerInputDTO), typeof(IntegrationTestGameEventDTO));
+            var awaiter = operation.GetAwaiter();
+            float deadline = Time.realtimeSinceStartup + 10;
+            while (!awaiter.IsCompleted && Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.That(awaiter.IsCompleted, Is.True, "NSM startup timed out");
+            awaiter.GetResult();
+        }
+
         #region Tests
+
+        [UnityTest]
+        public IEnumerator RemoteInputRpcEnforcesOwnershipValuesAndDuplicateTicks()
+        {
+            var clientObject = new GameObject("NSM remote test peer");
+            remoteClient = clientObject.AddComponent<NetworkManager>();
+            remoteClient.NetworkConfig = new NetworkConfig { EnableSceneManagement = false };
+            var transport = clientObject.AddComponent<UnityTransport>();
+            transport.SetConnectionData("127.0.0.1", hostPort);
+            remoteClient.NetworkConfig.NetworkTransport = transport;
+            remoteClient.AddNetworkPrefab(Resources.Load<GameObject>("NSMIntegrationFixture"));
+            Assert.That(remoteClient.StartClient(), Is.True);
+            yield return WaitFor(() => remoteClient.IsConnectedClient && remoteClient.SpawnManager.SpawnedObjects.Count > 0);
+            var peer = remoteClient.SpawnManager.SpawnedObjects.Values.Select(obj => obj.GetComponent<NetworkStateManager>()).First(obj => obj != null);
+            Assert.That(peer.IsServer, Is.False);
+            var forgeEvents = typeof(NetworkStateManager).GetMethod("SyncGameEventsToClientsClientRpc", BindingFlags.NonPublic | BindingFlags.Instance);
+            var unauthorized = Assert.Throws<TargetInvocationException>(() => forgeEvents.Invoke(peer, new object[] { 0, new GameEventsBuffer() }));
+            Assert.That(unauthorized.InnerException, Is.TypeOf<RpcException>());
+            var rejections = new List<InputRejection>();
+            networkStateManager.OnInputRejected += (_, reason) => rejections.Add(reason);
+            networkStateManager.ConfigureInputPolicy(policy =>
+            {
+                policy.AssignPlayer(1, networkManager.LocalClientId);
+                policy.AssignPlayer(5, remoteClient.LocalClientId);
+                policy.ValidateValue = (_, input) => input is IntegrationTestPlayerInputDTO value && value.IsJumping;
+            });
+            yield return StartSimulation();
+            yield return new WaitForFixedUpdate();
+            int tick = networkStateManager.GameTick;
+            var send = typeof(NetworkStateManager).GetMethod("SetPlayerInputsServerRpc", BindingFlags.NonPublic | BindingFlags.Instance);
+            void Send(byte player, bool jumping, int inputTick) => send.Invoke(peer, new object[]
+            {
+                new PlayerInputsDTO { PlayerInputs = new() { [player] = new IntegrationTestPlayerInputDTO { IsJumping = jumping } } },
+                inputTick, default(RpcParams)
+            });
+            Send(1, true, tick);
+            yield return WaitFor(() => rejections.Contains(InputRejection.WrongOwner));
+            tick = networkStateManager.GameTick;
+            Send(5, false, tick);
+            yield return WaitFor(() => rejections.Contains(InputRejection.InvalidValue));
+            tick = networkStateManager.GameTick;
+            Send(5, true, tick);
+            yield return WaitFor(() => networkStateManager.GetInputsForTick(tick).ContainsKey(5));
+            Assert.That(((IntegrationTestPlayerInputDTO)networkStateManager.GetInputsForTick(tick)[5]).IsJumping, Is.True);
+            Send(5, true, tick);
+            yield return WaitFor(() => rejections.Contains(InputRejection.Duplicate));
+            Assert.That(networkStateManager.IsRunning, Is.True);
+        }
+
+        private static IEnumerator WaitFor(System.Func<bool> condition)
+        {
+            float deadline = Time.realtimeSinceStartup + 10;
+            while (!condition() && Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.That(condition(), Is.True, "Network condition timed out");
+        }
 
         [UnityTest]
         public IEnumerator SingleFrameExecutes()
         {
-            yield return networkStateManager.StartNetworkStateManager(typeof(IntegrationTestGameStateDTO), typeof(IntegrationTestPlayerInputDTO), typeof(IntegrationTestGameEventDTO));
+            yield return StartSimulation();
 
             float originalY1 = player1GO.transform.position.y;
 
@@ -231,7 +316,7 @@ namespace NSM.Tests
         [UnityTest]
         public IEnumerator TwentyFramesExecute()
         {
-            yield return networkStateManager.StartNetworkStateManager(typeof(IntegrationTestGameStateDTO), typeof(IntegrationTestPlayerInputDTO), typeof(IntegrationTestGameEventDTO));
+            yield return StartSimulation();
 
             float originalY1 = player1GO.transform.position.y;
 

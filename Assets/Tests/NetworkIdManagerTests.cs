@@ -3,29 +3,41 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using NSubstitute;
 using System.Linq;
-using System.Threading.Tasks;
+using System.Collections.Generic;
+using UnityEditor.SceneManagement;
 
 namespace NSM.Tests
 {
     public class NetworkIdManagerTests
     {
         private NetworkIdManager _networkIdManager;
-        private NetworkStateManager _networkStateManager;
+        private IInternalNetworkStateManager _networkStateManager;
+        private readonly List<GameObject> createdObjects = new();
+        private readonly List<Scene> createdScenes = new();
+        private GameObject NewObject(string name)
+        {
+            var obj = new GameObject(name);
+            createdObjects.Add(obj);
+            return obj;
+        }
 
         [SetUp]
         public void Setup()
         {
-            _networkStateManager = Substitute.For<NetworkStateManager>();
+            _networkStateManager = Substitute.For<IInternalNetworkStateManager>();
             _networkIdManager = new NetworkIdManager(_networkStateManager);
         }
 
         [TearDown]
         public void TearDown()
         {
-            foreach (var go in Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None))
+            foreach (var go in createdObjects)
             {
-                Object.DestroyImmediate(go);
+                if (go != null) Object.DestroyImmediate(go);
             }
+            createdObjects.Clear();
+            foreach (var scene in createdScenes) if (scene.IsValid()) EditorSceneManager.ClosePreviewScene(scene);
+            createdScenes.Clear();
         }
 
         [Test]
@@ -45,7 +57,7 @@ namespace NSM.Tests
         [Test]
         public void RegisterGameObject_ShouldAssignNetworkIdAndCacheGameObject()
         {
-            var gameObject = new GameObject("TestObject");
+            var gameObject = NewObject("TestObject");
 
             _networkIdManager.RegisterGameObject(gameObject);
 
@@ -73,7 +85,7 @@ namespace NSM.Tests
         [Test]
         public void ReleaseNetworkId_ShouldReleaseReservedId()
         {
-            var gameObject = new GameObject("TestObject");
+            var gameObject = NewObject("TestObject");
             _networkIdManager.RegisterGameObject(gameObject);
             var networkId = gameObject.GetComponent<NetworkId>().networkId;
 
@@ -89,8 +101,8 @@ namespace NSM.Tests
         [Test]
         public void GetAllNetworkIdGameObjects_ShouldReturnAllRegisteredGameObjects()
         {
-            var gameObject1 = new GameObject("TestObject1");
-            var gameObject2 = new GameObject("TestObject2");
+            var gameObject1 = NewObject("TestObject1");
+            var gameObject2 = NewObject("TestObject2");
 
             _networkIdManager.RegisterGameObject(gameObject1);
             _networkIdManager.RegisterGameObject(gameObject2);
@@ -102,15 +114,16 @@ namespace NSM.Tests
         }
 
         [Test]
-        public async Task SetupInitialNetworkIds_ShouldResetAndSetupNetworkIds()
+        public void SetupInitialNetworkIds_ShouldResetAndSetupNetworkIds()
         {
-            var scene = SceneManager.CreateScene("TestScene");
+            var scene = EditorSceneManager.NewPreviewScene();
+            createdScenes.Add(scene);
 
-            var rootParent = new GameObject("RootParent");
+            var rootParent = NewObject("RootParent");
             SceneManager.MoveGameObjectToScene(rootParent, scene);
 
-            var childObject1 = new GameObject("Child1");
-            var childObject2 = new GameObject("Child2");
+            var childObject1 = NewObject("Child1");
+            var childObject2 = NewObject("Child2");
             childObject1.transform.SetParent(rootParent.transform);
             childObject2.transform.SetParent(rootParent.transform);
 
@@ -125,16 +138,17 @@ namespace NSM.Tests
             Assert.Contains(childObject1, allGameObjects);
             Assert.Contains(childObject2, allGameObjects);
 
-            await SceneManager.UnloadSceneAsync(scene);
+
         }
 
         [Test]
-        public async Task SetupInitialNetworkIds_ShouldResetAndSetupNetworkIdsIncludingRootObjects()
+        public void SetupInitialNetworkIds_ShouldResetAndSetupNetworkIdsIncludingRootObjects()
         {
-            var scene = SceneManager.CreateScene("TestScene");
+            var scene = EditorSceneManager.NewPreviewScene();
+            createdScenes.Add(scene);
 
-            var rootObject1 = new GameObject("Root1");
-            var rootObject2 = new GameObject("Root2");
+            var rootObject1 = NewObject("Root1");
+            var rootObject2 = NewObject("Root2");
             SceneManager.MoveGameObjectToScene(rootObject1, scene);
             SceneManager.MoveGameObjectToScene(rootObject2, scene);
 
@@ -149,7 +163,7 @@ namespace NSM.Tests
             Assert.Contains(rootObject1, allGameObjects);
             Assert.Contains(rootObject2, allGameObjects);
 
-            await SceneManager.UnloadSceneAsync(scene);
+
         }
     }
 }

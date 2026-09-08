@@ -52,5 +52,16 @@ namespace NSM
         {
             return _stateBuffer.TryGetValue(key, out value);
         }
+
+        public int Count => _stateBuffer.Count;
+        public void Clear() => _stateBuffer.Clear();
+
+        public void RemoveBefore(int tick)
+        {
+            var expired = new List<int>();
+            foreach (int key in _stateBuffer.Keys)
+                if (key < tick) expired.Add(key);
+            foreach (int key in expired) _stateBuffer.Remove(key);
+        }
     }
 }

@@ -12,7 +12,11 @@ namespace NSM
 
     internal class InputsBuffer : SortedDefaultDict<int, Dictionary<byte, InputWrapper>>, IInputsBuffer
     {
+        // One predecessor per player preserves hold-last-input prediction after pruning.
+        private readonly Dictionary<byte, IPlayerInput> predictionBaseline = new();
+        private int oldestTick;
         public InputsBuffer() : base(() => new()) { }
+        public void Reset() { Clear(); predictionBaseline.Clear(); oldestTick = 0; }
 
         /// <summary>
         /// Unwraps the inputs at the given tick, for simpler use
@@ -21,7 +25,9 @@ namespace NSM
         /// <returns>A dictionary of playerId:IPlayerInput</returns>
         public Dictionary<byte, IPlayerInput> GetInputsForTick(int tick)
         {
-            return this[tick].ToDictionary(kvp => kvp.Key, kvp => kvp.Value.input);
+            return TryGetValue(tick, out var inputs)
+                ? inputs.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.input)
+                : new Dictionary<byte, IPlayerInput>();
         }
 
         public IPlayerInput PredictInput(byte playerId, int tick)
@@ -37,6 +43,8 @@ namespace NSM
                 }
             }
 
+            if (tick >= oldestTick && predictionBaseline.TryGetValue(playerId, out var baseline))
+                return baseline;
             return TypeStore.Instance.CreateBlankPlayerInput();
         }
 
@@ -121,5 +129,20 @@ namespace NSM
             }
         }
         #endregion Internal interface
+
+        public void RemoveBefore(int tick)
+        {
+            if (tick <= oldestTick) return;
+            var expired = new List<int>();
+            foreach (var frame in this)
+            {
+                if (frame.Key >= tick) break;
+                foreach (var player in frame.Value)
+                    if (player.Value.serverAuthoritative) predictionBaseline[player.Key] = player.Value.input;
+                expired.Add(frame.Key);
+            }
+            foreach (int key in expired) Remove(key);
+            oldestTick = tick;
+        }
     }
 }

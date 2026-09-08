@@ -13,7 +13,9 @@ namespace NSM.Tests
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
-            throw new NotImplementedException();
+            int value = EventValue;
+            serializer.SerializeValue(ref value);
+            EventValue = value;
         }
     }
 
@@ -48,7 +50,7 @@ namespace NSM.Tests
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
-            throw new NotImplementedException();
+            serializer.SerializeValue(ref buttonWasPressed);
         }
     }
 }

@@ -8,6 +8,12 @@ namespace NSM
     {
         int GameTick { get; }
         bool isReplaying { get; }
+        int ConfirmedTick { get; }
+        InputAdmission InputPolicy { get; }
+        void ConfigureInputPolicy(Action<InputAdmission> configure);
+        event Action<int, StateFrameDTO> OnFrameConfirmed;
+        event Action<Exception> OnSimulationFault;
+        event Action<int, StateFrameDTO> OnHistoryReset;
         NetworkIdManager NetworkIdManager { get; }
         RandomManager Random { get; }
 
@@ -37,5 +43,7 @@ namespace NSM
         void GetInputs(ref Dictionary<byte, IPlayerInput> inputs);
         void PostPhysicsFrameUpdate();
         void PrePhysicsFrameUpdate();
+        void ConfirmFrame(int tick, StateFrameDTO frame);
+        bool RestoreBaseline(int previousConfirmedTick, StateFrameDTO frame);
     }
 }

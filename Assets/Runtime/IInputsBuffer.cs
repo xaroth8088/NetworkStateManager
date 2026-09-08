@@ -9,5 +9,7 @@ namespace NSM
         IPlayerInput PredictInput(byte playerId, int tick);
         void SetLocalInputs(Dictionary<byte, IPlayerInput> localInputs, int tick);
         void SetPlayerInputsAtTick(PlayerInputsDTO playerInputs, int clientTick);
+        void RemoveBefore(int tick);
+        void Reset();
     }
 }

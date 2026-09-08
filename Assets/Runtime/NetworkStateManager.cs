@@ -20,6 +20,38 @@ namespace NSM
         public int maxFramesWithoutHearingFromServer = 40;
 
         public bool verboseLogging = false;
+        public SimulationLimits simulationLimits = new();
+        private SimulationLimits activeLimits;
+        public InputAdmission InputPolicy { get; private set; }
+        public event Action<ulong, InputRejection> OnInputRejected;
+        /// <summary>Called once when a frame leaves the mutable rollback window. Use for irreversible effects.</summary>
+        public event Action<int, StateFrameDTO> OnFrameConfirmed;
+        public event Action<Exception> OnSimulationFault;
+        /// <summary>Rebuild the world and discard reversible effects from missing history. Missing frames are not confirmed individually.</summary>
+        public event Action<int, StateFrameDTO> OnHistoryReset;
+        private bool startRequested;
+        private bool faulted;
+        private float nextBaselineRequest;
+        private readonly Dictionary<ulong, int> pendingRequests = new();
+        public int ConfirmedTick => gameStateManager?.ConfirmedTick ?? 0;
+        private StateFrameDTO lastSentState;
+        private int lastSentTick;
+
+        public void ConfigureInputPolicy(Action<InputAdmission> configure)
+        {
+            if (startRequested || IsRunning) throw new InvalidOperationException("Configure the initial input policy before starting NSM.");
+            activeLimits = simulationLimits.ValidatedCopy();
+            InputPolicy = new InputAdmission(activeLimits);
+            configure?.Invoke(InputPolicy);
+        }
+
+        void IInternalNetworkStateManager.ConfirmFrame(int tick, StateFrameDTO frame) => OnFrameConfirmed?.Invoke(tick, (StateFrameDTO)frame.Clone());
+        bool IInternalNetworkStateManager.RestoreBaseline(int previousConfirmedTick, StateFrameDTO frame)
+        {
+            if (OnHistoryReset == null) return false;
+            OnHistoryReset(previousConfirmedTick, frame);
+            return true;
+        }
 
         #endregion NetworkStateManager configuration
 
@@ -127,11 +159,10 @@ namespace NSM
         /// spawning new game objects, etc.) will need to be reversed in order to ensure
         /// a consistent state once everything's said and done.
         /// <br/>
-        /// NOTE: The game state will be restored to the state just before the event originally
-        /// fired, NOT the game state immediately after the event fired (as would be the case
-        /// for a strict rewinding of time).  This way, your rollback handler has access to the
-        /// state that originally triggered the event.  The GameState from after the event fires is
-        /// passed in as a parameter to your callback just in case, though.
+        /// The callback observes the exact post-frame game and physics state of the frame
+        /// being undone. That state is also passed as an argument. NSM restores the prior
+        /// frame after the callback. isReplaying is true throughout rewind and replay.
+        /// Keep effects reversible, or defer irreversible effects to OnFrameConfirmed.
         /// NOTE: The RNG's state will be what it was just before the events were originally run.
         /// See also: <br/>
         /// <seealso cref="RollbackEventsDelegateHandler"/> and
@@ -232,7 +263,7 @@ namespace NSM
         /// <param name="eventTick">The game tick when the event should fire.  Leave empty to fire on the next game tick.</param>
         public void ScheduleGameEvent(IGameEvent gameEvent, int eventTick = -1)
         {
-            if (!IsHost)
+            if (!IsServer)
             {
                 // Events need to be server-authoritative in all cases, to prevent problems with the client erroneously scheduling them
                 // based on incorrect predictions
@@ -242,7 +273,8 @@ namespace NSM
             gameStateManager.ScheduleGameEvent(gameEvent, eventTick);
 
             // Let everyone know that an event is happening
-            SyncGameEventsToClientsClientRpc(GameTick, (GameEventsBuffer)gameStateManager.GameEventsBuffer);
+            if (IsSpawned)
+                SyncGameEventsToClientsClientRpc(GameTick, (GameEventsBuffer)gameStateManager.GameEventsBuffer);
         }
 
         /// <summary>
@@ -252,7 +284,7 @@ namespace NSM
         /// <param name="gameEventPredicate">If this function returns true for a given event, that event will be de-scheduled.</param>
         public void RemoveEventAtTick(int eventTick, Predicate<IGameEvent> gameEventPredicate)
         {
-            if (!IsHost)
+            if (!IsServer)
             {
                 // Clients cannot remove events authoritatively
                 Debug.LogWarning("Client attempted to remove a game event.");
@@ -265,7 +297,7 @@ namespace NSM
             gameStateManager.RemoveEventAtTick(eventTick, gameEventPredicate);
 
             // If an event was actually removed, notify clients
-            if (gameStateManager.GameEventsBuffer[eventTick].Count < initialCount)
+            if (IsSpawned && gameStateManager.GameEventsBuffer[eventTick].Count < initialCount)
             {
                 VerboseLog($"Event removed at tick {eventTick}, synchronizing event buffer.");
                 SyncGameEventsToClientsClientRpc(GameTick, (GameEventsBuffer)gameStateManager.GameEventsBuffer);
@@ -299,6 +331,17 @@ namespace NSM
 
         public async Awaitable StartNetworkStateManager(Type gameStateType, Type playerInputType, Type gameEventType)
         {
+            if (startRequested || IsRunning || faulted) throw new InvalidOperationException("NSM has already started. Despawn before starting a new session.");
+            if (!IsSpawned) throw new InvalidOperationException("Spawn NSM before starting the simulation.");
+            activeLimits ??= simulationLimits.ValidatedCopy();
+            if (sendStateDeltaEveryNFrames <= 0 || sendFullStateEveryNFrames <= 0 ||
+                sendStateDeltaEveryNFrames >= activeLimits.historyTicks)
+                throw new InvalidOperationException("Snapshot cadence must be positive and fit inside retained history.");
+            InputPolicy ??= new InputAdmission(activeLimits);
+            InputPolicy.ResetSession();
+            startRequested = true;
+            nextBaselineRequest = 0;
+            NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
             // I don't trust NGO to have sent the correct readiness signals, so give a little buffer for things to settle
             // before sending the initial gamestate
             // TODO: maybe NGO 2.x will make this simpler?
@@ -319,10 +362,12 @@ namespace NSM
                 new InputsBuffer(),
                 new StateBuffer(),
                 new NetworkIdManager(this),
-                gameObject.scene
+                gameObject.scene,
+                activeLimits,
+                IsServer
             );
 
-            if (!IsHost)
+            if (!IsServer)
             {
                 return;
             }
@@ -333,6 +378,8 @@ namespace NSM
 
             // Capture the initial game state
             gameStateManager.CaptureInitialFrame();
+            lastSentState = gameStateManager.GetStateFrame(0);
+            lastSentTick = 0;
 
             // Ensure clients are starting from the same view of the world
             VerboseLog("Sending initial state");
@@ -377,7 +424,7 @@ namespace NSM
                 int requestedGameTick = RealGameTick - (RealGameTick % sendStateDeltaEveryNFrames);
 
                 ProcessFullStateUpdateClientRpc(
-                    gameStateManager.GetStateFrame(requestedGameTick),
+                    requestedGameTick == RealGameTick ? gameStateManager.GetStateFrame(requestedGameTick) : lastSentState,
                     (GameEventsBuffer)gameStateManager.GameEventsBuffer,
                     requestedGameTick,
                     RealGameTick,
@@ -388,29 +435,42 @@ namespace NSM
             {
                 VerboseLog($"Sending delta - base frame comes from tick {RealGameTick - sendStateDeltaEveryNFrames}");
 
-                StateFrameDeltaDTO delta = new(gameStateManager.GetStateFrame(RealGameTick - sendStateDeltaEveryNFrames), gameStateManager.GetStateFrame(RealGameTick));
+                StateFrameDeltaDTO delta = new(lastSentState, gameStateManager.GetStateFrame(RealGameTick));
 
                 ProcessStateDeltaUpdateClientRpc(delta, (GameEventsBuffer)gameStateManager.GameEventsBuffer, RealGameTick);
+            }
+            if (RealGameTick % sendStateDeltaEveryNFrames == 0)
+            {
+                lastSentTick = RealGameTick;
+                lastSentState = gameStateManager.GetStateFrame(lastSentTick);
             }
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
-        [Rpc(SendTo.Server, RequireOwnership = false)]
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         private void SetPlayerInputsServerRpc(PlayerInputsDTO playerInputs, int clientTimeTick, RpcParams rpcParams = default)
         {
-            rpcQueue.Enqueue(new RPCQueueJobSetPlayerInputsServerRpc(
+            if (!IsRunning || InputPolicy == null) return;
+            TryEnqueue(new RPCQueueJobSetPlayerInputsServerRpc(
                 playerInputs,
                 clientTimeTick,
                 rpcParams
-            ));
+            ), rpcParams.Receive.SenderClientId);
         }
 
         private void RunJobSetPlayerInputsServer(PlayerInputsDTO playerInputs, int clientTimeTick, RpcParams rpcParams)
         {
+            var rejection = InputPolicy.TryAccept(rpcParams.Receive.SenderClientId, playerInputs.PlayerInputs,
+                clientTimeTick, RealGameTick, gameStateManager.OldestRetainedTick, TypeStore.Instance.PlayerInputType);
+            if (rejection != InputRejection.None)
+            {
+                OnInputRejected?.Invoke(rpcParams.Receive.SenderClientId, rejection);
+                return;
+            }
             VerboseLog($"Player inputs received at {clientTimeTick}");
 
             // Set the input in our buffer and replay to include the input
-            gameStateManager.PlayerInputsReceived(playerInputs, clientTimeTick);
+            if (!gameStateManager.PlayerInputsReceived(playerInputs, clientTimeTick)) return;
 
             // Forward the input to all other non-host clients so they can do the same
             ulong[] clientIds = new ulong[2];
@@ -421,10 +481,11 @@ namespace NSM
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
-        [Rpc(SendTo.Server, RequireOwnership = false)]
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         private void RequestFullStateUpdateServerRpc(RpcParams rpcParams = default)
         {
-            rpcQueue.Enqueue(new RPCQueueJobRequestFullStateUpdateServerRpc(rpcParams));
+            if (!IsRunning) return;
+            TryEnqueue(new RPCQueueJobRequestFullStateUpdateServerRpc(rpcParams), rpcParams.Receive.SenderClientId);
         }
 
         private void RunJobRequestFullStateUpdateServer(RpcParams rpcParams)
@@ -433,12 +494,12 @@ namespace NSM
 
             // To avoid problems later with applying diffs, go back to the last time we would've sent out a
             // frame delta normally.
-            int requestedGameTick = RealGameTick - (RealGameTick % sendStateDeltaEveryNFrames);
+            int requestedGameTick = lastSentTick;
             VerboseLog($"Full frame requested for {requestedGameTick}");
 
             // Send this back to only the client that requested it
             ProcessFullStateUpdateClientRpc(
-                gameStateManager.GetStateFrame(requestedGameTick),
+                lastSentState,
                 (GameEventsBuffer)gameStateManager.GameEventsBuffer,
                 requestedGameTick,
                 RealGameTick,
@@ -452,6 +513,12 @@ namespace NSM
 
         private void ClientFixedUpdate()
         {
+            // Stop prediction before a disconnected server can cause unbounded retained history.
+            if ((long)RealGameTick - gameStateManager.LastAuthoritativeTick >= activeLimits.historyTicks)
+            {
+                RequestBaseline();
+                return;
+            }
             if (RealGameTick > gameStateManager.LastAuthoritativeTick + maxFramesWithoutHearingFromServer)
             {
                 Debug.LogWarning($"Haven't heard from the server since {gameStateManager.LastAuthoritativeTick}");
@@ -474,16 +541,17 @@ namespace NSM
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
-        [Rpc(SendTo.SpecifiedInParams)]
+        [Rpc(SendTo.SpecifiedInParams, InvokePermission = RpcInvokePermission.Server)]
         private void ForwardPlayerInputsClientRpc(PlayerInputsDTO playerInputs, int clientTimeTick, int serverTick, RpcParams _)
         {
-            rpcQueue.Enqueue(new RPCQueueJobForwardPlayerInputsClientRpc(playerInputs, clientTimeTick, serverTick));
+            TryEnqueue(new RPCQueueJobForwardPlayerInputsClientRpc(playerInputs, clientTimeTick, serverTick));
         }
 
         private void RunJobForwardPlayerInputsClient(PlayerInputsDTO playerInputs, int clientTimeTick, int serverTick)
         {
+            if ((long)serverTick - RealGameTick > activeLimits.historyTicks) { RequestBaseline(); return; }
             // If this happened before our last authoritative tick, we can safely ignore it
-            if (clientTimeTick < gameStateManager.LastAuthoritativeTick || serverTick < gameStateManager.LastAuthoritativeTick)
+            if (clientTimeTick <= gameStateManager.ConfirmedTick || serverTick < gameStateManager.ConfirmedTick)
             {
                 VerboseLog("Client inputs arrived from before our last authoritative tick, so ignoring");
                 return;
@@ -493,14 +561,15 @@ namespace NSM
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
-        [Rpc(SendTo.NotServer)]
+        [Rpc(SendTo.NotServer, InvokePermission = RpcInvokePermission.Server)]
         private void SyncGameEventsToClientsClientRpc(int serverTimeTick, GameEventsBuffer newGameEventsBuffer)
         {
-            rpcQueue.Enqueue(new RPCQueueJobSyncGameEventsToClientsClientRpc(serverTimeTick, newGameEventsBuffer));
+            TryEnqueue(new RPCQueueJobSyncGameEventsToClientsClientRpc(serverTimeTick, newGameEventsBuffer));
         }
 
         private void RunJobSyncGameEventsToClientsClient(int serverTimeTick, GameEventsBuffer newGameEventsBuffer)
         {
+            if ((long)serverTimeTick - RealGameTick > activeLimits.historyTicks) { RequestBaseline(); return; }
             if (serverTimeTick < gameStateManager.LastAuthoritativeTick)
             {
                 // We'll already have the most up-to-date events reflected from whatever sent us the last authoritative
@@ -512,10 +581,10 @@ namespace NSM
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
-        [Rpc(SendTo.NotServer)]
+        [Rpc(SendTo.NotServer, InvokePermission = RpcInvokePermission.Server)]
         private void StartGameClientRpc(StateFrameDTO initialStateFrame, int randomSeedBase)
         {
-            rpcQueue.Enqueue(new RPCQueueJobStartGameClientRpc(initialStateFrame, randomSeedBase));
+            if (!IsRunning) TryEnqueue(new RPCQueueJobStartGameClientRpc(initialStateFrame, randomSeedBase));
         }
 
         private void RunJobStartGameClient(StateFrameDTO initialStateFrame, int randomSeedBase)
@@ -527,25 +596,24 @@ namespace NSM
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
-        [Rpc(SendTo.NotServer)]
+        [Rpc(SendTo.NotServer, InvokePermission = RpcInvokePermission.Server)]
         private void ProcessStateDeltaUpdateClientRpc(StateFrameDeltaDTO serverGameStateDelta, GameEventsBuffer newGameEventsBuffer, int serverTick)
         {
-            rpcQueue.Enqueue(new RPCQueueJobProcessStateDeltaUpdateClientRpc(serverGameStateDelta, newGameEventsBuffer, serverTick));
+            TryEnqueue(new RPCQueueJobProcessStateDeltaUpdateClientRpc(serverGameStateDelta, newGameEventsBuffer, serverTick));
         }
 
         private void RunJobProcessStateDeltaUpdateClient(StateFrameDeltaDTO serverGameStateDelta, GameEventsBuffer newGameEventsBuffer, int serverTick)
         {
             VerboseLog("Server state delta received.");
 
-            try
+            if (serverTick <= gameStateManager.LastAuthoritativeTick) return;
+            if ((long)serverTick != (long)gameStateManager.LastAuthoritativeTick + sendStateDeltaEveryNFrames)
             {
-                gameStateManager.ProcessStateDeltaReceived(serverGameStateDelta, newGameEventsBuffer, serverTick, GetEstimatedLag(), sendStateDeltaEveryNFrames);
+                RequestBaseline();
+                return;
             }
-            catch (Exception e)
-            {
-                VerboseLog($"Something went wrong when reconstituting game state from diff, so will request a full update from the server: {e.Message}");
-                RequestFullStateUpdateServerRpc();
-            }
+            try { gameStateManager.ProcessStateDeltaReceived(serverGameStateDelta, newGameEventsBuffer, serverTick, GetEstimatedLag(), sendStateDeltaEveryNFrames); }
+            catch (StateDeltaDecodeException) { RequestBaseline(); }
         }
 
         // NOTE: Rpc's are processed at the _end_ of each frame
@@ -555,10 +623,10 @@ namespace NSM
         /// <param name="serverGameState"></param>
         /// <param name="serverGameEventsBuffer"></param>
         /// <param name="serverNow">This is needed because the server will only ever send full frames that are aligned to the delta tick frequency</param>
-        [Rpc(SendTo.SpecifiedInParams)]
+        [Rpc(SendTo.SpecifiedInParams, InvokePermission = RpcInvokePermission.Server)]
         private void ProcessFullStateUpdateClientRpc(StateFrameDTO serverGameState, GameEventsBuffer serverGameEventsBuffer, int frameTick, int serverNow, RpcParams _)
         {
-            rpcQueue.Enqueue(new RPCQueueJobProcessFullStateUpdateClientRpc(serverGameState, serverGameEventsBuffer, frameTick, serverNow));
+            TryEnqueue(new RPCQueueJobProcessFullStateUpdateClientRpc(serverGameState, serverGameEventsBuffer, frameTick, serverNow));
         }
 
         private void RunJobProcessFullStateUpdateClient(StateFrameDTO serverGameState, GameEventsBuffer serverGameEventsBuffer, int frameTick, int serverNow)
@@ -571,20 +639,32 @@ namespace NSM
 
         private int GetEstimatedLag()
         {
-            if (IsHost)
+            if (IsServer)
             {
                 throw new Exception("The host shouldn't ever call this");
             }
 
-            int framesOfLag = (NetworkManager.LocalTime - NetworkManager.ServerTime).Tick;
-            if (framesOfLag < 0)
-            {
-                throw new Exception("Client is somehow ahead of server, which Unity's library shouldn't ever permit to happen.");
-            }
+            // NGO's tick rate can differ from Unity's fixed simulation timestep.
+            int framesOfLag = EstimateLagTicks(NetworkManager.LocalTime.Time - NetworkManager.ServerTime.Time, Time.fixedDeltaTime);
 
             VerboseLog($"Client is about {framesOfLag} frames behind the server");
 
             return framesOfLag;
+        }
+
+        internal static int EstimateLagTicks(double seconds, double fixedStep)
+        {
+            if (double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds < 0 ||
+                double.IsNaN(fixedStep) || double.IsInfinity(fixedStep) || fixedStep <= 0 || seconds / fixedStep > int.MaxValue)
+                throw new InvalidOperationException("Invalid network clock offset or simulation timestep.");
+            return checked((int)Math.Ceiling(seconds / fixedStep));
+        }
+
+        private void RequestBaseline()
+        {
+            if (!IsSpawned || Time.unscaledTime < nextBaselineRequest) return;
+            nextBaselineRequest = Time.unscaledTime + 1;
+            RequestFullStateUpdateServerRpc();
         }
 
         #endregion Client-side only code
@@ -664,7 +744,34 @@ namespace NSM
 
         private void FixedUpdate()
         {
-            if(gameStateManager == null)
+            try { RunFixedUpdate(); }
+            catch (Exception error)
+            {
+                faulted = true;
+                IsRunning = false;
+                rpcQueue.Clear();
+                pendingRequests.Clear();
+                Debug.LogException(error);
+                OnSimulationFault?.Invoke(error);
+            }
+        }
+
+        private void OnClientDisconnected(ulong clientId) => InputPolicy?.RemoveClient(clientId);
+
+        public override void OnNetworkDespawn()
+        {
+            IsRunning = false;
+            rpcQueue.Clear();
+            pendingRequests.Clear();
+            startRequested = faulted = false;
+            gameStateManager = null;
+            if (NetworkManager != null) NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+            base.OnNetworkDespawn();
+        }
+
+        private void RunFixedUpdate()
+        {
+            if(gameStateManager == null || faulted)
             {
                 // We're not initialized yet
                 return;
@@ -678,7 +785,7 @@ namespace NSM
                 return;
             }
 
-            if (IsHost)
+            if (IsServer)
             {
                 HostFixedUpdate();
             }
@@ -690,8 +797,36 @@ namespace NSM
             VerboseLog("---- END FRAME ----");
         }
 
+        internal bool TryEnqueue(RPCQueueJob job, ulong? sender = null)
+        {
+            if (faulted) return false;
+            int queueLimit = activeLimits?.maxQueuedMessages ?? 128;
+            int peerLimit = activeLimits?.maxMessagesPerClientPerUpdate ?? 4;
+            int pending = 0;
+            if (sender.HasValue) pendingRequests.TryGetValue(sender.Value, out pending);
+            if (rpcQueue.Count >= queueLimit || (sender.HasValue && pending >= peerLimit))
+            {
+                if (sender.HasValue) OnInputRejected?.Invoke(sender.Value, InputRejection.QueueFull);
+                else if (IsRunning) RequestBaseline();
+                return false;
+            }
+            if (sender.HasValue) pendingRequests[sender.Value] = pending + 1;
+            rpcQueue.Enqueue(job);
+            return true;
+        }
+
+        private void ReleasePending(ulong sender)
+        {
+            if (!pendingRequests.TryGetValue(sender, out int count)) return;
+            if (count <= 1) pendingRequests.Remove(sender);
+            else pendingRequests[sender] = count - 1;
+        }
+
         internal void ProcessRPCQueue()
         {
+            if (faulted) return;
+            gameStateManager?.BeginUpdate();
+            InputPolicy?.BeginUpdate(RealGameTick);
             if (!IsRunning)
             {
                 // See if we have the RPCQueueJobStartGameClientRpc job in our queue.
@@ -712,14 +847,18 @@ namespace NSM
                     }
 
                     RPCQueueJobStartGameClientRpc jobParams = (RPCQueueJobStartGameClientRpc)job;
-                    RunJobStartGameClient(jobParams.initialStateFrame, jobParams.randomSeedBase);
+                    if (!IsRunning) RunJobStartGameClient(jobParams.initialStateFrame, jobParams.randomSeedBase);
                     // Intentionally don't put this job back in the queue
                 }
 
                 return;
             }
 
-            while (rpcQueue.TryDequeue(out RPCQueueJob job))
+            int remaining = activeLimits?.maxMessagesPerUpdate ?? 16;
+            // Reserve enough for one worst-case reconciliation; leave excess work queued.
+            while (remaining-- > 0 &&
+                (gameStateManager?.ReplayTicksThisUpdate ?? 0) <= (activeLimits?.maxReplayTicksPerUpdate ?? 1024) - 4 * (activeLimits?.historyTicks ?? 256) &&
+                rpcQueue.TryDequeue(out RPCQueueJob job))
             {
                 switch(job)
                 {
@@ -733,9 +872,11 @@ namespace NSM
                         RunJobProcessStateDeltaUpdateClient(jobParams.serverGameStateDelta, jobParams.newGameEventsBuffer, jobParams.serverTick);
                         break;
                     case RPCQueueJobRequestFullStateUpdateServerRpc jobParams:
+                        ReleasePending(jobParams.rpcParams.Receive.SenderClientId);
                         RunJobRequestFullStateUpdateServer(jobParams.rpcParams);
                         break;
                     case RPCQueueJobSetPlayerInputsServerRpc jobParams:
+                        ReleasePending(jobParams.rpcParams.Receive.SenderClientId);
                         RunJobSetPlayerInputsServer(jobParams.playerInputs, jobParams.clientTimeTick, jobParams.rpcParams);
                         break;
                     case RPCQueueJobSyncGameEventsToClientsClientRpc jobParams:

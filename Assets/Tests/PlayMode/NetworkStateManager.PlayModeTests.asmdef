@@ -1,0 +1,8 @@
+{
+    "name": "NetworkStateManager.PlayModeTests",
+    "rootNamespace": "NSM.Tests",
+    "references": ["NetworkStateManager", "Unity.Netcode.Runtime", "Unity.Networking.Transport"],
+    "includePlatforms": [],
+    "optionalUnityReferences": ["TestAssemblies"],
+    "autoReferenced": false
+}

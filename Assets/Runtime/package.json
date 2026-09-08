@@ -1,16 +1,16 @@
 {
   "name": "com.github.xaroth8088.networkstatemanager",
-  "version": "0.0.10",
+  "version": "0.1.0-preview.1",
   "description": "A framework to add server-authoritative, client-predictive physics to Unity",
   "displayName": "NetworkStateManager",
-  "unity": "2022.3",
+  "unity": "6000.6",
   "author": {
     "name": "Geoffrey Benson",
     "url": "https://github.com/xaroth8088/NetworkStateManager"
   },
   "changelogUrl": "https://github.com/xaroth8088/NetworkStateManager/blob/main/CHANGELOG.md",
   "dependencies": {
-    "com.unity.netcode.gameobjects": "2.3.0",
+    "com.unity.netcode.gameobjects": "2.13.0",
     "com.unity.collections": "2.5.3"
   },
   "documentationUrl": "https://github.com/xaroth8088/NetworkStateManager",

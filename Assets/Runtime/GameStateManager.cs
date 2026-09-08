@@ -12,6 +12,14 @@ namespace NSM
         private readonly IInputsBuffer _inputsBuffer;
         private readonly IInternalNetworkStateManager _networkStateManager;
         private readonly IStateBuffer _stateBuffer;
+        private readonly SimulationLimits limits;
+        private readonly bool authoritative;
+        private int confirmedTick;
+        private StateFrameDTO lastAuthoritativeFrame;
+        internal int OldestRetainedTick { get; private set; }
+        internal int ConfirmedTick => confirmedTick;
+        internal int ReplayTicksThisUpdate { get; private set; }
+        internal void BeginUpdate() => ReplayTicksThisUpdate = 0;
 
         /// <summary>
         /// Initializes the GameStateManager with its parent NetworkStateManager and the scene for setting up network IDs
@@ -24,7 +32,9 @@ namespace NSM
             IInputsBuffer inputsBuffer,
             IStateBuffer stateBuffer,
             INetworkIdManager networkIdManager,
-            UnityEngine.SceneManagement.Scene scene
+            UnityEngine.SceneManagement.Scene scene,
+            SimulationLimits limits = null,
+            bool authoritative = true
         )
         {
             _networkStateManager = networkStateManager ?? throw new ArgumentNullException(nameof(networkStateManager));
@@ -32,6 +42,8 @@ namespace NSM
             _inputsBuffer = inputsBuffer ?? throw new ArgumentNullException(nameof(inputsBuffer));
             _stateBuffer = stateBuffer ?? throw new ArgumentNullException(nameof(stateBuffer));
             NetworkIdManager = networkIdManager ?? throw new ArgumentNullException(nameof(networkIdManager));
+            this.limits = (limits ?? new SimulationLimits()).ValidatedCopy();
+            this.authoritative = authoritative;
 
             NetworkIdManager.SetupInitialNetworkIds(scene);
         }
@@ -49,7 +61,7 @@ namespace NSM
         /// </summary>
         internal void AdvanceTime()
         {
-            RealGameTick++;
+            RealGameTick = checked(RealGameTick + 1);
             GameTick = RealGameTick;
             _networkStateManager.VerboseLog("---- NEW FRAME ----");
         }
@@ -77,17 +89,17 @@ namespace NSM
         /// </summary>
         /// <param name="playerInputs">DTO containing player inputs.</param>
         /// <param name="clientTimeTick">The tick count reported by the client.</param>
-        internal void PlayerInputsReceived(PlayerInputsDTO playerInputs, int clientTimeTick)
+        internal bool PlayerInputsReceived(PlayerInputsDTO playerInputs, int clientTimeTick)
         {
+            if (clientTimeTick <= OldestRetainedTick || clientTimeTick <= confirmedTick ||
+                (long)clientTimeTick > (long)RealGameTick + limits.futureInputTicks || playerInputs.PlayerInputs.Count == 0)
+                return false;
             if (clientTimeTick > RealGameTick)
             {
                 // The server slowed down enough for the clients to get ahead of it.  For small deltas,
                 // this isn't usually an issue.
-                // TODO: figure out a strategy for inputs that have far-future inputs
-                // TODO: figure out a strategy for detecting cheating that's happening (vs. normal slowdowns)
-                Debug.LogWarning($"Client inputs are coming from server's future.  Server time: {RealGameTick} Client time: {clientTimeTick}");
                 _inputsBuffer.SetPlayerInputsAtTick(playerInputs, clientTimeTick);
-                return;
+                return true;
             }
             
             int now = RealGameTick;
@@ -97,6 +109,7 @@ namespace NSM
             _inputsBuffer.SetPlayerInputsAtTick(playerInputs, clientTimeTick);
 
             TimeTravelToEndOf(now, GameEventsBuffer);
+            return true;
         }
 
         /// <summary>
@@ -127,7 +140,10 @@ namespace NSM
 
             // Reconstitute the state from our delta
             _networkStateManager.VerboseLog($"Applying delta against frame {serverTick - sendStateDeltaEveryNFrames}");
-            StateFrameDTO serverGameState = serverGameStateDelta.ApplyTo(_stateBuffer[serverTick - sendStateDeltaEveryNFrames]);
+            StateFrameDTO serverGameState;
+            try { serverGameState = serverGameStateDelta.ApplyTo(lastAuthoritativeFrame); }
+            catch (Exception error) when (error is not OutOfMemoryException)
+            { throw new StateDeltaDecodeException(error); }
             serverGameState.authoritative = true;
 
             SyncToServerState(serverGameState, newGameEventsBuffer, serverTick, serverTick, estimatedLag);
@@ -149,6 +165,10 @@ namespace NSM
         /// <param name="estimatedLag">Estimated network lag in ticks.</param>
         internal void ReplayDueToEvents(int serverTimeTick, GameEventsBuffer newGameEventsBuffer, int estimatedLag)
         {
+            if (serverTimeTick < 0 || (serverTimeTick > 0 && serverTimeTick <= confirmedTick) || serverTimeTick < OldestRetainedTick) return;
+            int targetTick = Math.Max(RealGameTick, checked(serverTimeTick + estimatedLag));
+            if (!authoritative) targetTick = (int)Math.Min(targetTick, (long)LastAuthoritativeTick + limits.historyTicks);
+            if (serverTimeTick > targetTick) { GameEventsBuffer = newGameEventsBuffer; return; }
             _networkStateManager.VerboseLog($"Updating upcoming game events, taking effect on tick {serverTimeTick}");
 
             // Probably rewinding time.
@@ -156,7 +176,7 @@ namespace NSM
             TimeTravelToEndOf(serverTimeTick - 1, newGameEventsBuffer);
 
             // Now, get caught up to where the server is
-            TimeTravelToEndOf(serverTimeTick + estimatedLag, newGameEventsBuffer);
+            TimeTravelToEndOf(targetTick, newGameEventsBuffer);
         }
 
         /// <summary>
@@ -168,12 +188,21 @@ namespace NSM
         /// <param name="estimatedLag">Estimated network lag in ticks.</param>
         internal void ReplayDueToInputs(PlayerInputsDTO playerInputs, int clientTimeTick, int serverTick, int estimatedLag)
         {
+            if (clientTimeTick <= confirmedTick || clientTimeTick <= OldestRetainedTick) return;
+            if ((long)clientTimeTick > (long)RealGameTick + limits.futureInputTicks) return;
             _networkStateManager.VerboseLog($"Replaying due to player inputs at client time {clientTimeTick}");
 
             // Rewind, set & predict, get caught up again
+            int targetTick = Math.Max(RealGameTick, checked(serverTick + estimatedLag));
+            if (!authoritative) targetTick = (int)Math.Min(targetTick, (long)LastAuthoritativeTick + limits.historyTicks);
+            if (clientTimeTick > RealGameTick)
+            {
+                _inputsBuffer.SetPlayerInputsAtTick(playerInputs, clientTimeTick);
+                return;
+            }
             TimeTravelToEndOf(clientTimeTick - 1, GameEventsBuffer);
             _inputsBuffer.SetPlayerInputsAtTick(playerInputs, clientTimeTick);
-            TimeTravelToEndOf(serverTick + estimatedLag, GameEventsBuffer);
+            TimeTravelToEndOf(targetTick, GameEventsBuffer);
         }
 
         /// <summary>
@@ -181,6 +210,7 @@ namespace NSM
         /// </summary>
         internal void RunFixedUpdate()
         {
+            if (!authoritative && (long)RealGameTick - LastAuthoritativeTick >= limits.historyTicks) return;
             AdvanceTime();
 
             Dictionary<byte, IPlayerInput> localInputs = new();
@@ -189,6 +219,23 @@ namespace NSM
 
             // Actually simulate the frame
             _stateBuffer[RealGameTick] = RunSingleGameFrame(RealGameTick, FrameRunMode.RunAndCaptureFrame);
+            TrimHistory();
+        }
+
+        private void TrimHistory()
+        {
+            // Client confirmation follows received authority; prediction must not confirm effects.
+            int floor = Math.Max(0, (authoritative ? RealGameTick : Math.Min(RealGameTick, LastAuthoritativeTick)) - limits.historyTicks);
+            while (confirmedTick < floor)
+            {
+                int tick = ++confirmedTick;
+                if (_stateBuffer.TryGetValue(tick, out var frame))
+                    _networkStateManager.ConfirmFrame(tick, frame);
+            }
+            OldestRetainedTick = Math.Max(OldestRetainedTick, floor);
+            _stateBuffer.RemoveBefore(OldestRetainedTick);
+            _inputsBuffer.RemoveBefore(OldestRetainedTick);
+            GameEventsBuffer.RemoveBefore(OldestRetainedTick);
         }
 
         /// <summary>
@@ -244,6 +291,11 @@ namespace NSM
             StateFrameDTO stateBeingRolledBack = _stateBuffer[tickToRollBack];
             HashSet<IGameEvent> eventsToRollBack = stateBeingRolledBack.AppliedEvents ?? new HashSet<IGameEvent>(); // Use stored events, default to empty if null
 
+            // Skipped event-free frames may leave the live world at a later tick.
+            // The rollback callback always observes this exact frame's post-state.
+            _networkStateManager.ApplyState(stateBeingRolledBack.GameState);
+            PhysicsManager.ApplyPhysicsState(stateBeingRolledBack.PhysicsState, NetworkIdManager);
+
             // Roll back the relevant events
             GameTick = tickToRollBack;
             // Reset the RNG as a courtesy to games that need to know what the state of the RNG *would've* been when the frame ran its events
@@ -256,8 +308,8 @@ namespace NSM
             // Put the previous frame's state in place
             GameTick = tickToRestore;
             StateFrameDTO frameToApply = _stateBuffer[tickToRestore];
-            PhysicsManager.ApplyPhysicsState(frameToApply.PhysicsState, NetworkIdManager);
             _networkStateManager.ApplyState(frameToApply.GameState);
+            PhysicsManager.ApplyPhysicsState(frameToApply.PhysicsState, NetworkIdManager);
 
             // Set the clock to the end of the previous frame
             GameTick = tickToRestore;
@@ -281,7 +333,8 @@ namespace NSM
 
             _networkStateManager.ApplyEvents(events);
 
-            _networkStateManager.ApplyInputs(playerInputs);
+            if (frameRunMode == FrameRunMode.RunAndCaptureFrame)
+                _networkStateManager.ApplyInputs(playerInputs);
 
             switch (frameRunMode)
             {
@@ -292,7 +345,6 @@ namespace NSM
                     PhysicsManager.SimulatePhysics(Time.fixedDeltaTime);
                     _networkStateManager.PostPhysicsFrameUpdate();
 
-                    _networkStateManager.VerboseLog($"RNG after running frame: {Random.GetRandomNext()}");
                     // Capture the state from the scene and game logic
                     StateFrameDTO capturedFrame = CaptureStateFrame(tick);
 
@@ -302,9 +354,8 @@ namespace NSM
                     return capturedFrame;
                 case FrameRunMode.ApplyExistingFrame:
                     StateFrameDTO frameToApply = _stateBuffer[tick];
-                    PhysicsManager.ApplyPhysicsState(frameToApply.PhysicsState, NetworkIdManager);
                     _networkStateManager.ApplyState(frameToApply.GameState);
-                    _networkStateManager.VerboseLog($"RNG after restoring frame: {Random.GetRandomNext()}");
+                    PhysicsManager.ApplyPhysicsState(frameToApply.PhysicsState, NetworkIdManager);
                     return frameToApply;
             }
 
@@ -320,13 +371,14 @@ namespace NSM
         {
             if (eventTick == -1)
             {
-                eventTick = GameTick + 1;
+                eventTick = checked(GameTick + 1);
             }
 
-            if (eventTick <= GameTick)
-            {
-                Debug.LogWarning("Game event scheduled for the past - will not be replayed on clients");
-            }
+            if (gameEvent == null) throw new ArgumentNullException(nameof(gameEvent));
+            if (eventTick <= GameTick || (long)eventTick > (long)GameTick + limits.maxFutureEventTicks)
+                throw new ArgumentOutOfRangeException(nameof(eventTick));
+            if (GameEventsBuffer.EventCount >= limits.maxBufferedEvents || GameEventsBuffer[eventTick].Count >= limits.maxEventsPerTick)
+                throw new InvalidOperationException("Event budget exceeded for this tick.");
 
             _networkStateManager.VerboseLog($"Game event scheduled for tick {eventTick}");
             GameEventsBuffer[eventTick].Add(gameEvent);
@@ -362,6 +414,19 @@ namespace NSM
         /// <param name="estimatedLag">How long do we think it took to get from the server to us?</param>
         internal void SyncToServerState(StateFrameDTO serverState, IGameEventsBuffer newGameEventsBuffer, int frameTick, int serverNow, int estimatedLag)
         {
+            if (frameTick < LastAuthoritativeTick) return;
+            if (frameTick < 0 || serverNow < frameTick || estimatedLag < 0 ||
+                (long)serverNow + estimatedLag > int.MaxValue ||
+                (long)serverNow + estimatedLag - frameTick > limits.historyTicks)
+                throw new InvalidOperationException("Snapshot catch-up exceeds the configured simulation window.");
+            if (frameTick <= OldestRetainedTick && frameTick > 0) return;
+            if ((long)frameTick - RealGameTick > limits.historyTicks)
+            {
+                RestoreFreshBaseline(serverState, newGameEventsBuffer, frameTick);
+                TimeTravelToEndOf(checked(serverNow + estimatedLag), newGameEventsBuffer);
+                TrimHistory();
+                return;
+            }
             // NOTE: when we get here, we'll be at the _end_ of frame RealGameTick, and when we leave we'll be at the end of (serverNow + lag)
 
             if (frameTick < LastAuthoritativeTick)
@@ -375,14 +440,45 @@ namespace NSM
             TimeTravelToEndOf(frameTick - 1, newGameEventsBuffer);
 
             serverState.authoritative = true;
+            lastAuthoritativeFrame = (StateFrameDTO)serverState.Clone();
+            serverState.AppliedEvents = new HashSet<IGameEvent>(newGameEventsBuffer[frameTick]);
             _stateBuffer[frameTick] = serverState;
-            RunSingleGameFrame(frameTick, FrameRunMode.ApplyExistingFrame);
+            bool previousReplay = IsReplaying;
+            IsReplaying = true;
+            try { RunSingleGameFrame(frameTick, FrameRunMode.ApplyExistingFrame); }
+            finally { IsReplaying = previousReplay; }
             RealGameTick = frameTick;
 
             TimeTravelToEndOf(serverNow + estimatedLag, newGameEventsBuffer);
 
             // Set our last authoritative tick
             LastAuthoritativeTick = frameTick;
+            TrimHistory();
+        }
+
+        private void RestoreFreshBaseline(StateFrameDTO frame, IGameEventsBuffer events, int tick)
+        {
+            bool wasReplaying = IsReplaying;
+            IsReplaying = true;
+            GameTick = tick;
+            try
+            {
+                // The consumer must rebuild dynamic objects and discard reversible effects.
+                // Missing frames are deliberately not reported as individually confirmed.
+                if (!_networkStateManager.RestoreBaseline(confirmedTick, (StateFrameDTO)frame.Clone()))
+                    throw new InvalidOperationException("History exhausted. Handle OnHistoryReset to rebuild the world from this snapshot, or reconnect the session.");
+                PhysicsManager.ApplyPhysicsState(frame.PhysicsState, NetworkIdManager);
+                _stateBuffer.Clear();
+                _inputsBuffer.Reset();
+                GameEventsBuffer = events;
+                GameEventsBuffer.RemoveBefore(tick);
+                frame.authoritative = true;
+                frame.AppliedEvents = new HashSet<IGameEvent>();
+                _stateBuffer[tick] = frame;
+                lastAuthoritativeFrame = (StateFrameDTO)frame.Clone();
+                RealGameTick = LastAuthoritativeTick = confirmedTick = OldestRetainedTick = tick;
+            }
+            finally { IsReplaying = wasReplaying; }
         }
 
         /// <summary>
@@ -440,7 +536,6 @@ namespace NSM
             // undone.  Think "animations", "creating new game objects", etc.
             // As such, we can skip undoing any frame that doesn't have any events in it.
             // At the end, we reset state to the end of targetTick (without re-running the events present in targetTick).
-            IsReplaying = true;
             GameTick = RealGameTick;
 
             while (GameTick > targetTick)
@@ -465,7 +560,6 @@ namespace NSM
             }
 
             RealGameTick = targetTick;
-            IsReplaying = false;
 
             _networkStateManager.VerboseLog("Done rewinding");
         }
@@ -479,16 +573,6 @@ namespace NSM
         {
             _networkStateManager.VerboseLog($"Running frames from (end of) {RealGameTick} to (end of) {targetTick}");
 
-            // Store the original AppliedEvents for frames we are about to replay
-            Dictionary<int, HashSet<IGameEvent>> originalAppliedEvents = new();
-            for (int tick = RealGameTick + 1; tick <= targetTick; tick++)
-            {
-                if (_stateBuffer.TryGetValue(tick, out var existingFrame) && existingFrame.AppliedEvents != null)
-                {
-                    originalAppliedEvents[tick] = existingFrame.AppliedEvents;
-                }
-            }
-
             GameTick = RealGameTick;
 
             while (GameTick < targetTick)
@@ -499,20 +583,6 @@ namespace NSM
                 // Run the frame and capture the new state
                 StateFrameDTO newFrame = RunSingleGameFrame(GameTick, FrameRunMode.RunAndCaptureFrame);
 
-                // Restore the original AppliedEvents if they existed for this tick
-                if (originalAppliedEvents.TryGetValue(GameTick, out var originalEvents))
-                {
-                    // Overwrite the AppliedEvents calculated during replay with the original ones
-                    newFrame.AppliedEvents = originalEvents;
-                    _networkStateManager.VerboseLog($"Restored original AppliedEvents for tick {GameTick}");
-                }
-                else
-                {
-                    _networkStateManager.VerboseLog($"No original AppliedEvents found to restore for tick {GameTick}");
-                }
-
-
-                // Store the potentially modified frame
                 _stateBuffer[GameTick] = newFrame;
             }
 
@@ -528,29 +598,23 @@ namespace NSM
         /// <param name="newGameEventsBuffer">The updated authoritative list of future and past game events</param>
         private void TimeTravelToEndOf(int targetTick, IGameEventsBuffer newGameEventsBuffer)
         {
-            _networkStateManager.VerboseLog($"Time traveling from end of {RealGameTick} until end of {targetTick}");
-
-            // If the target is in the past, rewind time until we get to just before serverTick (rolling back any events along the way)
-            // If it's in the future, simulate until we get to just before serverTick (playing any events along the way)
-            if (targetTick == RealGameTick)
+            targetTick = Math.Max(0, targetTick);
+            if (targetTick < OldestRetainedTick || Math.Abs((long)targetTick - RealGameTick) > limits.maxReplayTicksPerUpdate)
+                throw new InvalidOperationException("Requested replay exceeds retained history or work budget.");
+            ReplayTicksThisUpdate += (int)Math.Abs((long)targetTick - RealGameTick);
+            bool previousReplay = IsReplaying;
+            IsReplaying = true;
+            try
             {
-                _networkStateManager.VerboseLog("Already there, so do nothing");
+                if (targetTick < RealGameTick)
+                    RewindTimeUntilEndOfFrame(targetTick);
                 GameEventsBuffer = newGameEventsBuffer;
-                return;
+                if (targetTick > RealGameTick)
+                    SimulateUntilEndOfFrame(targetTick);
             }
-            else if (targetTick < RealGameTick)
+            finally
             {
-                _networkStateManager.VerboseLog("Rewinding time");
-                RewindTimeUntilEndOfFrame(targetTick);
-                GameEventsBuffer = newGameEventsBuffer;
-                return;
-            }
-            else
-            {
-                _networkStateManager.VerboseLog("Fast-forwarding time");
-                GameEventsBuffer = newGameEventsBuffer;
-                SimulateUntilEndOfFrame(targetTick);
-                return;
+                IsReplaying = previousReplay;
             }
         }
 
@@ -564,5 +628,11 @@ namespace NSM
     {
         RunAndCaptureFrame = 0,
         ApplyExistingFrame = 1
+    }
+
+    internal sealed class StateDeltaDecodeException : Exception
+    {
+        internal StateDeltaDecodeException(Exception inner)
+            : base("Cannot reconstruct the received delta; request a full snapshot.", inner) { }
     }
 }

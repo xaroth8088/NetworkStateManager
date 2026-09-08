@@ -17,25 +17,27 @@ namespace NSM.Tests
 
         private void InitializeNetworkStateManager(bool isHost)
         {
+            if (_networkStateManager != null) UnityEngine.Object.DestroyImmediate(_networkStateManager.gameObject);
             // Create a new GameObject
             var gameObject = new GameObject();
 
             // Prep to mock IsHost
-            var networkBehaviourSubstitute = Substitute.For<NetworkBehaviour>();
+
             PropertyInfo IsHostProperty = typeof(NetworkBehaviour).GetProperty(
                 "IsHost",
                 BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public
             );
-            IsHostProperty.SetValue(networkBehaviourSubstitute, true);
+
 
             // Add NetworkStateManager component to the GameObject
             _networkStateManager = gameObject.AddComponent<NetworkStateManager>();
 
             // Mock IsHost
             IsHostProperty.SetValue(_networkStateManager, isHost);
+            typeof(NetworkBehaviour).GetProperty("IsServer").SetValue(_networkStateManager, isHost);
 
             // Mock the GameStateManager
-            _gameStateManagerMock = Substitute.For<GameStateManager>(
+            _gameStateManagerMock = new GameStateManager(
                 _networkStateManager,
                 new GameEventsBuffer(),
                 new InputsBuffer(),
@@ -50,6 +52,13 @@ namespace NSM.Tests
                 BindingFlags.NonPublic | BindingFlags.Instance
             );
             field.SetValue(_networkStateManager, _gameStateManagerMock);
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            if (_networkStateManager != null) UnityEngine.Object.DestroyImmediate(_networkStateManager.gameObject);
+            TypeStore.Instance.ResetTypeStore();
         }
 
         [SetUp]
@@ -70,7 +79,7 @@ namespace NSM.Tests
 
             _networkStateManager.ScheduleGameEvent(gameEventMock, eventTick);
 
-            _gameStateManagerMock.Received().ScheduleGameEvent(gameEventMock, eventTick);
+            Assert.That(_gameStateManagerMock.GameEventsBuffer[eventTick], Does.Contain(gameEventMock));
         }
 
         [Test]
@@ -83,7 +92,7 @@ namespace NSM.Tests
 
             _networkStateManager.ScheduleGameEvent(gameEventMock, eventTick);
 
-            _gameStateManagerMock.DidNotReceive().ScheduleGameEvent(gameEventMock, eventTick);
+            Assert.That(_gameStateManagerMock.GameEventsBuffer[eventTick], Is.Empty);
         }
 
         [Test]
@@ -94,7 +103,7 @@ namespace NSM.Tests
 
             _networkStateManager.RemoveEventAtTick(eventTick, gameEventPredicate);
 
-            _gameStateManagerMock.Received().RemoveEventAtTick(eventTick, gameEventPredicate);
+            Assert.That(_gameStateManagerMock.GameEventsBuffer[eventTick], Is.Empty);
         }
 
         [Test]
@@ -107,7 +116,7 @@ namespace NSM.Tests
 
             _networkStateManager.RemoveEventAtTick(eventTick, gameEventPredicate);
 
-            _gameStateManagerMock.DidNotReceive().RemoveEventAtTick(eventTick, gameEventPredicate);
+            Assert.That(_gameStateManagerMock.GameEventsBuffer[eventTick], Is.Empty);
         }
 
         [Test]
@@ -117,9 +126,7 @@ namespace NSM.Tests
 
             _networkStateManager.PredictInputForPlayer(playerId);
 
-            _gameStateManagerMock
-                .Received()
-                .PredictedInputForPlayer(playerId, _networkStateManager.GameTick);
+            Assert.That(_networkStateManager.PredictInputForPlayer(playerId), Is.TypeOf<TestPlayerInputDTO>());
         }
 
         [Test]

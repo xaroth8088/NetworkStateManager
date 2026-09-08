@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0-preview.1] - 2026-09-07
+
+### Breaking changes
+- Unity development baseline is 6000.6.0f1; runtime requires NGO 2.13+ for explicit server invocation permissions.
+- Input packets use a ushort count and bounded length-prefixed payloads. Old peers are incompatible.
+- Remote input admission fails closed until the consumer supplies a server-owned roster and value validator.
+- Rollback callbacks observe the exact post-frame state. Replay context covers restoration and forward resimulation.
+- History is bounded. Expired input is rejected; clients pause prediction at the authority window. Handle OnHistoryReset for world reconstruction or reconnect after a history-exhaustion fault.
+
+### Added and fixed
+- Validated input, queue, replay, future-event and retention budgets; duplicate and malformed packet rejection.
+- Once-per-frame confirmation for irreversible effects; terminal simulation-fault reporting.
+- Coherent pruning with input prediction baselines and independent authoritative delta bases.
+- Correct changed-event bookkeeping, no input reapplication during snapshot restoration, scene-scoped initial object IDs, and fixed-timestep lag conversion.
+- Standalone EditMode and PlayMode test assemblies, behavioral regression coverage and loopback NGO validation.
+- Supported PowerShell runner for both closed Editors and existing Unity MCP Editors, with nonempty result checks and source fingerprints.
+
+See [README](README.md) for migration, limits and consumer responsibilities; [HARDENING](HARDENING.md) records actual verification.
+
 ## [0.0.5] - 2023-06-22
 
 ### Breaking Changes

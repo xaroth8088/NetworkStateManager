@@ -115,7 +115,9 @@ namespace NSM
 
             Reset();
 
-            List<NetworkId> gameObjects = UnityEngine.Object.FindObjectsByType<NetworkId>(FindObjectsSortMode.None).ToList();
+            List<NetworkId> gameObjects = scene.IsValid()
+                ? scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<NetworkId>(true)).ToList()
+                : new List<NetworkId>();
 
             gameObjects.Sort((a, b) => string.Compare(a.GUID, b.GUID, StringComparison.Ordinal));
 

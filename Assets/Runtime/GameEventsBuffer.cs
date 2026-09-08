@@ -42,6 +42,8 @@ namespace NSM
                 // How many keys are coming?
                 int keyCount = 0;
                 serializer.SerializeValue(ref keyCount);
+                if (keyCount < 0 || keyCount > 65536) throw new System.InvalidOperationException("Invalid event tick count.");
+                int total = 0;
 
                 // For each key
                 for (int i = 0; i < keyCount; i++)
@@ -49,10 +51,14 @@ namespace NSM
                     // What's the key?
                     int key = 0;
                     serializer.SerializeValue(ref key);
+                    if (key < 0 || UpcomingEvents.ContainsKey(key)) throw new System.InvalidOperationException("Invalid or duplicate event tick.");
 
                     // How many events are coming?
                     int eventCount = 0;
                     serializer.SerializeValue(ref eventCount);
+                    if (eventCount < 0 || eventCount > 4096 || (total += eventCount) > 65536)
+                        throw new System.InvalidOperationException("Event count exceeds wire budget.");
+                    UpcomingEvents[key] = new HashSet<IGameEvent>();
 
                     // Deserialize each event
                     for (int j = 0; j < eventCount; j++)
@@ -68,6 +74,8 @@ namespace NSM
             {
                 // Clean up before sending
                 Vacuum();
+                if (UpcomingEvents.Count > 65536 || EventCount > 65536)
+                    throw new System.InvalidOperationException("Event buffer exceeds wire budget.");
 
                 // TODO: there's probably a more bandwidth-efficient way to do this
 
@@ -112,7 +120,21 @@ namespace NSM
                 }
             }
 
-            // TODO: trim any events older than some threshold, so that we're not always sending everything
+        }
+
+        public int Count => UpcomingEvents.Count;
+        public int EventCount
+        {
+            get { int count = 0; foreach (var events in UpcomingEvents.Values) count += events.Count; return count; }
+        }
+
+        public void RemoveBefore(int tick)
+        {
+            var expired = new List<int>();
+            foreach (int key in UpcomingEvents.Keys)
+                if (key < tick) expired.Add(key);
+            foreach (int key in expired) UpcomingEvents.Remove(key);
+            Vacuum();
         }
     }
 }

@@ -1,177 +1,99 @@
 # NetworkStateManager
 
-A framework to add server-authoritative, client-predictive physics to Unity
+A standalone, prerelease open-source Unity library for server-authoritative game state, client prediction, rigidbody snapshots, and rollback. Consumers supply their own game rules, player roster, DTOs, and world restoration callbacks. Breaking API and wire-format changes are expected during prerelease development.
 
-## What does it do?
+## Requirements and installation
 
-Leveraging Unity's [Netcode for GameObjects](https://github.com/Unity-Technologies/com.unity.netcode.gameobjects), this framework provides efficient network synchronization of RigidBodies and other game state information across the network.  It includes client-side prediction, including history replaying.
+The development project uses Unity **6000.6.0f1**. The runtime package is `Assets/Runtime`, version **0.1.0-preview.1**, and requires NGO **2.13.0 or newer** for server-only RPC invocation permissions. See [package.json](Assets/Runtime/package.json) for dependencies and the project lockfile for the tested environment. Install MemoryPack using the scoped registry/dependency setup in this project's [manifest](Packages/manifest.json).
 
-## How do I use this?
+For a Git UPM installation, use `https://github.com/xaroth8088/NetworkStateManager.git?path=Assets/Runtime` and pin the revision you intend to ship. The tests belong to this standalone project, outside the Runtime package.
 
-### NetworkStateManager
+## Starting a consumer
 
-1. Install prerequisites:
-  - In Unity, open Package Manager
-  - Click the `+` button in the top left, and select `Install package from Git URL...`
-  - Paste `https://github.com/Cysharp/MemoryPack.git?path=src/MemoryPack.Unity/Assets/Plugins/MemoryPack#1.10.0` and click `Install`
-2. Install NetworkStateManager:
-  - In Unity, open Package Manager
-  - Click the `+` button in the top left, and select `Install package from Git URL...`
-  - Paste `https://github.com/xaroth8088/NetworkStateManager.git` and click `Install`
-3. Add a new `GameObject` to your scene and attach the `NetworkStateManager` script to it.
-4. When your scene is fully loaded, call `StartNetworkManager()` with the runtime-determined types of your game state objects (see "State management", below), like so:
+1. Put `NetworkObject` and `NetworkStateManager` on a registered NGO prefab or scene object. Start NGO and wait for that object to spawn.
+2. Supply struct types implementing `IGameState`, `IPlayerInput`, and `IGameEvent`. Capture all simulation state beyond NSM's rigidbody snapshots, including object identity and lifecycle data.
+3. Subscribe capture, restore, input, event, and physics callbacks. Configure limits and the server-owned admission policy before startup.
+4. Await `StartNetworkStateManager(typeof(MyState), typeof(MyInput), typeof(MyEvent))` on each peer. The server captures frame zero and supplies the random seed; clients begin simulation when the initial snapshot arrives.
 
-```C#
-// Grab the NetworkStateManager instance
-NetworkStateManager networkStateManager = FindObjectOfType<NetworkStateManager>();
+Example policy setup (replace `MyInput` and roster values with your types):
 
-// Attach event handlers for lifecycle events (all are technically optional)
-networkStateManager.OnGetGameState += NetworkStateManager_OnGetGameState;
-networkStateManager.OnGetInputs += NetworkStateManager_OnGetInputs;
-networkStateManager.OnPrePhysicsFrameUpdate += NetworkStateManager_OnPrePhysicsFrameUpdate;
-networkStateManager.OnPostPhysicsFrameUpdate += NetworkStateManager_OnPostPhysicsFrameUpdate;
-networkStateManager.OnApplyState += NetworkStateManager_OnApplyState;
-networkStateManager.OnApplyInputs += NetworkStateManager_OnApplyInputs;
-networkStateManager.OnApplyEvents += NetworkStateManager_OnApplyEvents;
-networkStateManager.OnRollbackEvents += NetworkStateManager_OnRollbackEvents;
-
-// Tell NetworkStateManager that it's good to start
-networkStateManager.StartNetworkStateManager(typeof(MyGameStateObject), typeof(MyPlayerInputObject), typeof(MyGameEventObject));
+```csharp
+nsm.ConfigureInputPolicy(policy =>
+{
+    policy.AssignPlayer(playerId, owningNgoClientId);
+    policy.ValidateValue = (_, raw) => raw is MyInput input
+        && !float.IsNaN(input.Axis) && !float.IsInfinity(input.Axis)
+        && input.Axis >= -1f && input.Axis <= 1f;
+});
+await nsm.StartNetworkStateManager(typeof(MyState), typeof(MyInput), typeof(MyEvent));
 ```
 
-### NetworkId
+A connection can own several player IDs. Player IDs span all 256 byte values and are independent of NGO object ownership and rigidbody network IDs. Only server code should assign/revoke seats using `InputPolicy`; disconnect removes every mapping belonging to that connection. Missing mappings or a missing/throwing validator reject remote input. Locally collected server inputs are trusted application code and must obey the same game rules.
 
-To synchronize a `GameObject` that contains a `RigidBody`, you must add a `NetworkId` component to it.  If you're _only_ doing rigidbody synchronization and are using Unity for Netcode's synchronization for other state, this is in addition to that library's `NetworkObject` script.  That said, this configuration is unsupported.  It is strongly recommended that you move all game state into your `IGameState` object, so that NSM can properly manage rollback/replay/prediction/etc.
+Do not start the same component twice concurrently. Despawn it before starting a new session; reconnect/recreate the session after a fault. Startup exceptions are propagated through the Awaitable.
 
-If you're adding `RigidBody`s at runtime, you'll need to register them with `NetworkStateManager.networkIdManager` via the `RegisterGameObject()` function in order for the state to be synchronized.
+## Input trust and wire contract
 
-Note that there's a fixed pool of 255 network ids available, so trying to synchronize more than 255 physics-based game objects is unsupported.
+Only the server may invoke snapshot, event, startup, and forwarded-input RPCs. Remote clients may submit inputs and request a full snapshot. Admission checks the NGO sender against the server roster, exact input type, consumer value validator, message count, tick window, duplicate player/tick pairs, and replay budget before modifying history or forwarding. A mixed invalid batch is rejected as a whole. The first accepted value for a player/tick wins, including across updates.
 
-### State management
+Accepted ticks are strictly after the retained predecessor/confirmed tick and at most `currentTick + futureInputTicks`. Nonpositive, expired, and excessive future ticks are rejected using overflow-safe comparisons. Invalid requests consume rate budget. `OnInputRejected` reports rejection reasons; keep handlers cheap and avoid logging every hostile packet.
 
-**IMPORTANT**
-All state stored in these `struct`s MUST be immutable for history playback and server reconciliation to be deterministic.  Make copies of your state data if needed to ensure this is the case.
+The wire format has a ushort player count (maximum 256), then byte player ID, ushort payload length, and that player's serialized payload. A player payload is limited to **1,024 bytes**, and a packet to **65,536 bytes** including headers. Counts, lengths, duplicate IDs, truncation, and trailing payload bytes are checked. Old 0.0.x peers are incompatible; deploy matching versions on every peer and use NGO connection approval/protocol versioning for your application schema.
 
-There are three types of game objects that the framework needs to know about in order to do its magic.  You can define these types any way you like, provided that they:
+The library bounds the bytes handed to each custom input deserializer. Your `NetworkSerialize` implementation must also validate any embedded counts before allocating or looping. A small malicious payload can otherwise ask consumer code to allocate a large collection. Keep input/event structs and their nested data immutable after submission; never mutate objects received in callbacks or input-history reads. Structs containing reference fields are not automatically immutable.
 
-1. are `struct`s, and
-2. they implement the appropriate interface
+## Frame and rollback callbacks
 
-Two of the interfaces derive from at least `INetworkSerializable`, from Unity's Netcode for GameObjects library.  ([Unity's documentation here](https://docs-multiplayer.unity3d.com/netcode/current/advanced-topics/serialization/inetworkserializable/index.html)).
-The other one requires that you implement two serialization-related methods:
+Normal frames advance `GameTick`, collect local inputs, reset the tick's random seed, apply scheduled events and inputs, invoke pre-physics callbacks, simulate physics, invoke post-physics callbacks, and capture the resulting state and applied event set. Gather device input in the appropriate Input System update and coalesce it for `OnGetInputs`. Simulation logic belongs in NSM's physics callbacks; unrelated Unity FixedUpdate logic is not replayed.
 
-- `byte[] GetBinaryRepresentation()`
-- `void RestoreFromBinaryRepresentation(byte[] bytes)`
+`OnApplyInputs` receives changes present at that tick. Use `PredictInputForPlayer` for omitted players; prediction holds the latest authoritative input, including a baseline retained after pruning. `GetInputsForTick` returns an empty dictionary for unavailable ticks without creating history.
 
-I recommend using [MemoryPack](https://github.com/Cysharp/MemoryPack) for this purpose, as the API is simple and the conversion to/from `byte[]` is highly performant.  You do not need to worry about compressing this output, as NSM will take care of that for you automatically.
+During rollback, NSM restores the exact post-frame game and physics state of the frame being undone, invokes `OnRollbackEvents(events, stateAfterEvent)`, then restores its predecessor. The callback's `GameTick` and RNG seed refer to the frame being undone. Forward replay captures the events actually applied on that replay, so a later rewind undoes the replacement event set. `isReplaying` is true throughout restoration and forward replay and is reset in `finally`, even when a callback throws.
 
-In any case, these game objects will be synchronized across the network automagically, and will be handed back to your game logic via the appropriate lifecycle events.
+Applying a received snapshot re-establishes that frame's event-driven object lifecycle and then restores its captured state. It does **not** reapply the frame's inputs or simulate physics for that frame. `OnApplyState` must restore/reconstruct game objects and registration before NSM applies their physics snapshot. Snapshot application and rollback callbacks may run repeatedly; keep their side effects reversible.
 
-#### Game State (`IGameState`)
+Use `OnFrameConfirmed(int tick, StateFrameDTO frame)` for irreversible effects such as external achievement writes. It fires once per retained frame leaving the mutable rollback window, with the captured frame rather than the current live world. Server confirmation follows server time; client prediction alone cannot confirm frames. A confirmation watermark is session-local: consumers must provide persistence/idempotency if an external operation can be retried. Ending or faulting a session does not flush its remaining speculative frames as confirmed.
 
-This object should hold general data about the game, such as scores, player health values, etc.  Basically, if you need all your clients to be in sync on a game value, this is the object you'll put it in.
+## Retention, budgets, and recovery
 
-#### Player Input (`IPlayerInput`)
+Set `simulationLimits` before `ConfigureInputPolicy`/startup. NSM validates and copies settings; subsequent Inspector mutation does not change an active session.
 
-This object should hold input information from the player.  Typical examples of input data might include things like x/y axis values from a gamepad's analog sticks, booleans to indicate that a player pressed a specific button, etc.
+| Setting | Default | Meaning |
+|---|---:|---|
+| `historyTicks` | 256 | Mutable history window; one predecessor retained |
+| `futureInputTicks` | 8 | Maximum accepted input lead |
+| `maxInputsPerMessage` | 256 | Player entries per input batch |
+| `maxQueuedMessages` | 128 | Total pending RPC jobs |
+| `maxMessagesPerUpdate` | 16 | Maximum jobs processed per FixedUpdate |
+| `maxMessagesPerClientPerUpdate` | 4 | Per-peer input admission quota and pending request cap |
+| `maxReplayTicksPerUpdate` | 1024 | Rewind plus forward work; queue processing reserves four history windows per next job |
+| `maxFutureEventTicks` | 4096 | Maximum event scheduling horizon |
+| `maxEventsPerTick` | 256 | Events scheduled at one tick |
+| `maxBufferedEvents` | 4096 | Total scheduled/retained events |
 
-#### Game Event (`IGameEvent`)
+History can be 2-4096 ticks. Replay budget must cover at least four history windows. Delta cadence must be positive and shorter than history. Tick overflow faults the session. State/input/event pruning happens together; prediction keeps a predecessor input per player, and delta reconstruction uses a separate last-received authoritative snapshot. The server likewise preserves its last transmitted delta base when late inputs rewrite simulated history.
 
-This object should hold information about an event happening in the game.  This should only be used for events that need to be synchronized in time across clients.  Notably, these can be scheduled for a future game tick.
+Clients stop prediction at one history window beyond their latest snapshot. Normal client retention is therefore at most two history windows plus a predecessor; the server retains one window plus a predecessor. Future inputs and events add their separately bounded horizons. Missing/out-of-order deltas and prediction exhaustion trigger throttled full-state requests. Queue pressure drops excess jobs; a client requests a baseline to recover.
 
-### Lifecycle events
+A fresh snapshot too far ahead for bounded replay requires an `OnHistoryReset(previousConfirmedTick, snapshot)` handler. This callback runs in replay context at the snapshot tick. Rebuild the complete world and object registrations from the snapshot and discard obsolete reversible effects; NSM then restores physics, resets history and prediction baselines, and resumes bounded catch-up. Frames skipped by this reset are **not** individually emitted through `OnFrameConfirmed`; the new baseline seals them against rollback. Without a handler, NSM reports an explicit fault requiring reconnection. A snapshot whose own catch-up exceeds the configured window also faults.
 
-To make the magic happen, this framework requires that you implement a number of event callbacks for vital parts of the process.  Each callback requires you to do a small part of your overall game logic.
+`OnSimulationFault(Exception)` stops further simulation and clears queued work after a runtime callback/reconciliation exception. It is a terminal session signal; NSM cannot undo arbitrary external effects from a throwing consumer callback. Applications should leave the match or reconstruct/reconnect deliberately.
 
-**IMPORTANT**
-This framework assumes your game logic happens exclusively in `FixedUpdate`.  If this is not the case, then it's up to you to coalesce any game state changes into things that can be represented in discrete game frames that happen at `FixedUpdate` time steps.  For simplicity, it is recommended that you set Input System's `Update Mode` to `Process Events In Fixed Update`.
+## Object identity and current constraints
 
-#### Normal gameplay
+Add `NetworkId` to each synchronized rigidbody root. Initial IDs are assigned deterministically from GUIDs within the NSM object's scene, including inactive roots. Register dynamically created objects through `NetworkIdManager.RegisterGameObject`. Automatic allocation supplies IDs **1-254**; zero is a sentinel and 255 is not automatically allocated. Player IDs use a separate space.
 
-During normal frame playing, the following events will be called in this order:
+NSM currently controls Unity's global physics simulation mode and RNG and stores runtime DTO types in a process-wide registry. Use one active simulation/type schema per process; independently configured parallel worlds are not supported. Match timestep, DTO schema, content, and object ordering across peers. Reconciliation does not make Unity physics bitwise deterministic across machines. Snapshot/event deserializers trust the server and remain application-sensitive; this release is not a general sandbox for arbitrary consumer serialization code.
 
-`void OnGetInputs(ref Dictionary<byte, IPlayerInput> playerInputs)`
-Fill the dictionary with `(playerId, <your IPlayerInput object here>)` pairs, as appropriate.  Note that `playerId` can be any byte you like to identify the player.
+## Standalone verification
 
-Because the `playerId` is set by you, you can even have several players hosted by the same client - allowing both network players and couch co-op to play nicely together!
+From this repository in PowerShell:
 
-`void OnApplyEvents(HashSet<IGameEvent> events)`
-Run through the collection and apply the effects of each event.
+```powershell
+./scripts/codex/unity-test.ps1 editmode -AssemblyNames NetworkStateManager.Tests
+./scripts/codex/unity-test.ps1 playmode -AssemblyNames NetworkStateManager.PlayModeTests
+```
 
-You'll want to cast the values back to your own game state object's type before using them.
+For an already-open Editor running Unity MCP, append `-McpPort <port>` to the same runner. It verifies project identity, rejects compiler errors/empty discovery, and records job results plus source fingerprints under `Logs/codex-tests`. EditMode covers admission, malformed input serialization, long retention, callback ordering/context, changing events, delta bases, and recovery. PlayMode exercises real NGO startup/transport and rigidbody stepping. See [HARDENING.md](HARDENING.md) for actual verification evidence and remaining limits.
 
-`void OnApplyInputs(Dictionary<byte, IPlayerInput> playerInputs)`
-The keys are the `playerId`s you set during `OnGetInputs`, above.  Take whatever input is present, and apply it to your game state / `GameObject`s as needed.
-
-Similar to game events, above, you'll want to cast the objects inside of `playerInputs` appropriately.
-
-`void OnPrePhysicsFrameUpdate()`
-Do whatever you'd normally do with your game before the physics engine runs for the frame.  This is the equivalent of `FixedUpdate()`.
-
-`void OnPostPhysicsFrameUpdate()`
-Do whatever you want with your game after the physics engine runs for the frame.  This has no direct analog to a Unity lifecycle event because Unity "ends" the frame processing after physics runs, though the closest conceptually would be an `Update()` that's guaranteed to only be called once between `FixedUpdate()`s.
-
-`void OnGetGameState(ref IGameState state)`
-Populate the `state` variable with your game's current state.  The framework will take care of synchronizing `RigidBody` states, but any other game state that exists in your `GameObject`s or other game logic should be captured in this state.
-
-#### History playback and server reconciliation
-
-In order to do client-side prediction, we have to modify history and run simulations.  During this process, the flow of events is slightly different.
-
-First, the game state is rewound by calling these events:
-`void OnApplyState(IGameState state)`
-Read from the `state` object (after casting to your custom game state object type) and set your game's state accordingly, including anything on `GameObject`s that require it.
-
-`void OnRollbackEvents(HashSet<IGameEvent> events, IGameState stateAfterEvent)`
-Undo any event handling from a previously fired event.  NOTE: the game state will be set to what it was when the event originally fired, NOT the state immediately after the event originally fired (as might be expected for a strict rewinding of time).  This is specifically done so that you know what data was used to originally trigger the event, which can be helpful for figuring out how to undo any side-effects your event had.
-That said, the `IGameState` object associated with the _next_ frame is passed in via `stateAfterEvent` for convenience.
-
-`OnApplyEvents`
-`OnApplyInputs`
-
-Then, every frame that needs to be projected forwards is run via these events:
-`OnApplyEvents`
-`OnApplyInputs`
-`OnPrePhysicsFrameUpdate`
-`OnPostPhysicsFrameUpdate`
-`OnGetGameState`
-
-## How can I help this project?
-
-It's probably obvious from looking at this code, but I'm not a Unity or C# developer by trade.  No doubt there's a lot of code in this project that isn't idiomatic Unity/C#.  PR's that help make this code more idiomatic are welcome and encouraged!
-
-Beyond that, there are a TON of `TODO`'s scattered throughout the code.  PR's to remove those alongside new issue filings would be helpful, even if you're not going to implement the functionality yourself.
-
-The demo project contained within `Demo Projects~\Hello, NetworkStateManager` could also be made substantially more interesting and educational.
-
-### `typeof(<your game state object here>)` weirdness when starting up `NetworkStateManager`
-
-My non-idiomatic Unity/C# code shows _especially_ true for the use of reflection in handling game state, so it's probably worthwhile to explain how I landed here.
-
-#### Why are the runtime types needed?
-
-The short version is that I need a way to instantiate your custom type as part of the serialization process, in order to get your data into your custom objects.
-
-Verifying that your objects implement the various interfaces happens via reflection at runtime, mostly because I couldn't figure out a way to do that statically at compile-time.
-
-#### Constraints
-
-* Unity's RPC framework requires that the state data be represented by value-type objects that implement `INetworkSerializable`.
-  * More deeply, this is because their serialization functionality needs a concrete instance that it can copy data into, and it doesn't want to know / care about any constructor complexity.  I suspect that they weren't able to come up with a cleaner way to do their RPC wrappers that include non-basic data types as arguments, because using a `class` here wouldn't work for this use-case.
-  * This is probably net positive overall, because it's definitely nice for the state objects to be immutable.
-* I strongly prefer that people who use this framework be able to just drop the script onto a `GameObject`, rather than having to manually instantiate `NetworkStateManager`.
-  * My understanding is that this constraint prohibits solutions that turn it into `NetworkStateManager<T> where T : INetworkSerializable, new()`.
-  * I'm open to changing this if this sort of thing is more idiomatic to Unity than it looks.  As it stands, it seems the more "correct" thing to do is let it be part of a `GameObject` in a prefab, hence the constraint of passing the types in at runtime.
-* I don't want implementers of the lifecycle events to have to do runtime type checking and coercion on their inputs.
-  * That is to say, a delegate of `void OnApplyGameState(object state)` would appear to make this framework trickier to use.
-  * Casting back to one's own game objects whenever the `Apply*()` events occur is ok-ish, _I guess_, but it'd sure be nice to find a way where this isn't required.
-  * Similar to the above, if this is actually the more idiomatic way to do this in Unity/C#, then I'm open to making that change.
-
-#### What I've tried (and why they don't work)
-
-* Wouldn't it be nice if the events could be generic like `void OnApplyState<T>(T state) where T : INetworkStateManagerGameStateDTO, new()`?
-  * Alas, while I can make the `delegate` into a generic, the `T` needs to be declared at the `class` level to make this work, which bumps into that second constraint, above.
-* How about just creating `INetworkStateManagerGameStateDTO` and let everything take that as a param?
-  * Nope - C# won't let you upcast `INetworkStateManagerGameStateDTO` to your implementing struct because its type system can't be sure that the one you're getting is the one you're trying to use it as.
-
-Any and all assistance - including just saying "turns out that's actually the best way to do what you want" - would be greatly appreciated.
+Contributions and issue reports are welcome. Keep runtime policy reusable, add regression coverage for behavioral fixes, and keep the public contract independent of any private consumer.
